@@ -1,0 +1,68 @@
+{
+  "success": true,
+  "filename": "personalized_1756808238314.pdf",
+  "size": 77985,
+  "pages": 1,
+  "content": {
+    "paragraphs": [
+      {
+        "id": "para_1",
+        "text": "COMPUTER SCIENCE SYLLABUS",
+        "isPlaceholder": false,
+        "style": "title"
+      },
+      {
+        "id": "para_2",
+        "text": "Department of Computer Science",
+        "isPlaceholder": false,
+        "style": "normal"
+      },
+      {
+        "id": "para_3",
+        "text": "Academic Year: 2024-2025",
+        "isPlaceholder": false,
+        "placeholderName": "@academicYear",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_4",
+        "text": "Student Name: John Doe",
+        "isPlaceholder": false,
+        "placeholderName": "@studentName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_5",
+        "text": "Roll Number: CS2024001",
+        "isPlaceholder": false,
+        "placeholderName": "@rollNumber",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_6",
+        "text": "Course: Data Structures and Algorithms",
+        "isPlaceholder": false,
+        "placeholderName": "@courseName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_7",
+        "text": "Instructor: Dr. Jane Smith",
+        "isPlaceholder": false,
+        "placeholderName": "@instructorName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_8",
+        "text": "Date: 9/2/2025",
+        "isPlaceholder": false,
+        "placeholderName": "@date",
+        "style": "placeholder"
+      }
+    ],
+    "tables": [],
+    "extractedAt": "2025-09-02T10:17:18.265Z",
+    "source": "adobe_api"
+  },
+  "convertedAt": "2025-09-02T10:17:18.314Z"
+}

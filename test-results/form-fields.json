@@ -1,0 +1,44 @@
+[
+  {
+    "name": "academicYear",
+    "label": "academic Year",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter academicyear"
+  },
+  {
+    "name": "studentName",
+    "label": "student Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter studentname"
+  },
+  {
+    "name": "rollNumber",
+    "label": "roll Number",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter rollnumber"
+  },
+  {
+    "name": "courseName",
+    "label": "course Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter coursename"
+  },
+  {
+    "name": "instructorName",
+    "label": "instructor Name",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter instructorname"
+  },
+  {
+    "name": "date",
+    "label": "date",
+    "type": "text",
+    "required": true,
+    "placeholder": "Enter date"
+  }
+]

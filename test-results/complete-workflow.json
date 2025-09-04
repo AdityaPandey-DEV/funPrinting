@@ -1,0 +1,322 @@
+{
+  "originalPDF": "/Users/adityapandey/Downloads/funPrinting-main 2/Resources.pdf",
+  "wordContent": {
+    "paragraphs": [
+      {
+        "id": "para_1",
+        "text": "COMPUTER SCIENCE SYLLABUS",
+        "isPlaceholder": false,
+        "style": "title"
+      },
+      {
+        "id": "para_2",
+        "text": "Department of Computer Science",
+        "isPlaceholder": false,
+        "style": "normal"
+      },
+      {
+        "id": "para_3",
+        "text": "Academic Year: @academicYear",
+        "isPlaceholder": true,
+        "placeholderName": "@academicYear",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_4",
+        "text": "Student Name: @studentName",
+        "isPlaceholder": true,
+        "placeholderName": "@studentName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_5",
+        "text": "Roll Number: @rollNumber",
+        "isPlaceholder": true,
+        "placeholderName": "@rollNumber",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_6",
+        "text": "Course: @courseName",
+        "isPlaceholder": true,
+        "placeholderName": "@courseName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_7",
+        "text": "Instructor: @instructorName",
+        "isPlaceholder": true,
+        "placeholderName": "@instructorName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_8",
+        "text": "Date: @date",
+        "isPlaceholder": true,
+        "placeholderName": "@date",
+        "style": "placeholder"
+      }
+    ],
+    "tables": [],
+    "extractedAt": "2025-09-02T10:17:18.265Z",
+    "source": "adobe_api"
+  },
+  "template": {
+    "id": "template_1756808238266",
+    "name": "Computer Science Syllabus Template",
+    "description": "Dynamic template for computer science syllabus",
+    "category": "academic",
+    "wordContent": {
+      "paragraphs": [
+        {
+          "id": "para_1",
+          "text": "COMPUTER SCIENCE SYLLABUS",
+          "isPlaceholder": false,
+          "style": "title"
+        },
+        {
+          "id": "para_2",
+          "text": "Department of Computer Science",
+          "isPlaceholder": false,
+          "style": "normal"
+        },
+        {
+          "id": "para_3",
+          "text": "Academic Year: @academicYear",
+          "isPlaceholder": true,
+          "placeholderName": "@academicYear",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_4",
+          "text": "Student Name: @studentName",
+          "isPlaceholder": true,
+          "placeholderName": "@studentName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_5",
+          "text": "Roll Number: @rollNumber",
+          "isPlaceholder": true,
+          "placeholderName": "@rollNumber",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_6",
+          "text": "Course: @courseName",
+          "isPlaceholder": true,
+          "placeholderName": "@courseName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_7",
+          "text": "Instructor: @instructorName",
+          "isPlaceholder": true,
+          "placeholderName": "@instructorName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_8",
+          "text": "Date: @date",
+          "isPlaceholder": true,
+          "placeholderName": "@date",
+          "style": "placeholder"
+        }
+      ],
+      "tables": [],
+      "extractedAt": "2025-09-02T10:17:18.265Z",
+      "source": "adobe_api"
+    },
+    "placeholders": [
+      "@academicYear",
+      "@studentName",
+      "@rollNumber",
+      "@courseName",
+      "@instructorName",
+      "@date"
+    ],
+    "createdAt": "2025-09-02T10:17:18.267Z"
+  },
+  "formFields": [
+    {
+      "name": "academicYear",
+      "label": "academic Year",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter academicyear"
+    },
+    {
+      "name": "studentName",
+      "label": "student Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter studentname"
+    },
+    {
+      "name": "rollNumber",
+      "label": "roll Number",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter rollnumber"
+    },
+    {
+      "name": "courseName",
+      "label": "course Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter coursename"
+    },
+    {
+      "name": "instructorName",
+      "label": "instructor Name",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter instructorname"
+    },
+    {
+      "name": "date",
+      "label": "date",
+      "type": "text",
+      "required": true,
+      "placeholder": "Enter date"
+    }
+  ],
+  "userData": {
+    "@studentName": "John Doe",
+    "@rollNumber": "CS2024001",
+    "@className": "Computer Science",
+    "@academicYear": "2024-2025",
+    "@courseName": "Data Structures and Algorithms",
+    "@instructorName": "Dr. Jane Smith",
+    "@date": "9/2/2025"
+  },
+  "personalizedDoc": {
+    "paragraphs": [
+      {
+        "id": "para_1",
+        "text": "COMPUTER SCIENCE SYLLABUS",
+        "isPlaceholder": false,
+        "style": "title"
+      },
+      {
+        "id": "para_2",
+        "text": "Department of Computer Science",
+        "isPlaceholder": false,
+        "style": "normal"
+      },
+      {
+        "id": "para_3",
+        "text": "Academic Year: 2024-2025",
+        "isPlaceholder": false,
+        "placeholderName": "@academicYear",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_4",
+        "text": "Student Name: John Doe",
+        "isPlaceholder": false,
+        "placeholderName": "@studentName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_5",
+        "text": "Roll Number: CS2024001",
+        "isPlaceholder": false,
+        "placeholderName": "@rollNumber",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_6",
+        "text": "Course: Data Structures and Algorithms",
+        "isPlaceholder": false,
+        "placeholderName": "@courseName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_7",
+        "text": "Instructor: Dr. Jane Smith",
+        "isPlaceholder": false,
+        "placeholderName": "@instructorName",
+        "style": "placeholder"
+      },
+      {
+        "id": "para_8",
+        "text": "Date: 9/2/2025",
+        "isPlaceholder": false,
+        "placeholderName": "@date",
+        "style": "placeholder"
+      }
+    ],
+    "tables": [],
+    "extractedAt": "2025-09-02T10:17:18.265Z",
+    "source": "adobe_api"
+  },
+  "pdfResult": {
+    "success": true,
+    "filename": "personalized_1756808238314.pdf",
+    "size": 77985,
+    "pages": 1,
+    "content": {
+      "paragraphs": [
+        {
+          "id": "para_1",
+          "text": "COMPUTER SCIENCE SYLLABUS",
+          "isPlaceholder": false,
+          "style": "title"
+        },
+        {
+          "id": "para_2",
+          "text": "Department of Computer Science",
+          "isPlaceholder": false,
+          "style": "normal"
+        },
+        {
+          "id": "para_3",
+          "text": "Academic Year: 2024-2025",
+          "isPlaceholder": false,
+          "placeholderName": "@academicYear",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_4",
+          "text": "Student Name: John Doe",
+          "isPlaceholder": false,
+          "placeholderName": "@studentName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_5",
+          "text": "Roll Number: CS2024001",
+          "isPlaceholder": false,
+          "placeholderName": "@rollNumber",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_6",
+          "text": "Course: Data Structures and Algorithms",
+          "isPlaceholder": false,
+          "placeholderName": "@courseName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_7",
+          "text": "Instructor: Dr. Jane Smith",
+          "isPlaceholder": false,
+          "placeholderName": "@instructorName",
+          "style": "placeholder"
+        },
+        {
+          "id": "para_8",
+          "text": "Date: 9/2/2025",
+          "isPlaceholder": false,
+          "placeholderName": "@date",
+          "style": "placeholder"
+        }
+      ],
+      "tables": [],
+      "extractedAt": "2025-09-02T10:17:18.265Z",
+      "source": "adobe_api"
+    },
+    "convertedAt": "2025-09-02T10:17:18.314Z"
+  }
+}
