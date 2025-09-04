@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import NewOrder from '@/models/NewOrder';
+import Order from '@/models/Order';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -78,10 +79,24 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
 
-    // Get all orders
-    const orders = await NewOrder.find()
-      .select('id templateName status totalAmount createdAt')
+    // Get email from query parameters
+    const { searchParams } = new URL(request.url);
+    const email = searchParams.get('email');
+
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: 'Email parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    console.log('🔍 Searching orders for email:', email);
+
+    // Search orders by email address
+    const orders = await Order.find({ 'customerInfo.email': email })
       .sort({ createdAt: -1 });
+
+    console.log('📋 Found orders:', orders.length);
 
     return NextResponse.json({
       success: true,

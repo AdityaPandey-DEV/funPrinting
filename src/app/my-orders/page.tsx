@@ -185,31 +185,34 @@ export default function MyOrdersPage() {
         </div>
 
         {/* Email Verification Section */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">📧 Email Verification Required</h2>
-          <p className="text-gray-700 mb-4">
+        <div className="form-container mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="text-2xl">📧</span>
+            Email Verification Required
+          </h2>
+          <p className="text-gray-600 mb-6 text-lg">
             Please verify your email address to view your orders. We&apos;ll send you a 6-digit OTP.
           </p>
           
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+          <div className="form-section">
+            <div className="form-group">
+              <label className="form-label">
                 Email Address *
               </label>
-              <div className="flex space-x-2">
+              <div className="flex space-x-3">
                 <input
                   type="email"
                   required
                   value={searchEmail}
                   onChange={(e) => setSearchEmail(e.target.value)}
                   placeholder="Enter your email address"
-                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors"
+                  className="form-input flex-1"
                 />
                 <button
                   type="button"
                   onClick={handleSendOTP}
                   disabled={!searchEmail || isSendingOtp}
-                  className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                  className="form-button form-button-primary whitespace-nowrap"
                 >
                   {isSendingOtp ? 'Sending...' : 'Send OTP'}
                 </button>
@@ -218,39 +221,45 @@ export default function MyOrdersPage() {
             
             {/* OTP Input Section */}
             {otpSent && (
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <div className="text-gray-600">📧</div>
+              <div className="form-section">
+                <div className="form-message form-message-info flex items-center space-x-3">
+                  <div className="text-xl">📧</div>
                   <div>
-                    <h4 className="font-medium text-gray-800">OTP Sent Successfully!</h4>
-                    <p className="text-sm text-gray-700">
+                    <h4 className="font-semibold">OTP Sent Successfully!</h4>
+                    <p className="text-sm">
                       We&apos;ve sent a 6-digit OTP to {searchEmail}
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    placeholder="Enter 6-digit OTP"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    maxLength={6}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyOTP}
-                    disabled={!otp || isVerifying || emailVerified}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                  >
-                    {isVerifying ? 'Verifying...' : emailVerified ? '✓ Verified' : 'Verify OTP'}
-                  </button>
+                <div className="form-group">
+                  <label className="form-label">Enter OTP Code</label>
+                  <div className="flex space-x-3">
+                    <input
+                      type="text"
+                      placeholder="Enter 6-digit OTP"
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value)}
+                      maxLength={6}
+                      className="form-input flex-1 text-center text-2xl tracking-widest"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyOTP}
+                      disabled={!otp || isVerifying || emailVerified}
+                      className="form-button form-button-success whitespace-nowrap"
+                    >
+                      {isVerifying ? 'Verifying...' : emailVerified ? '✓ Verified' : 'Verify OTP'}
+                    </button>
+                  </div>
                 </div>
                 
                 {emailVerified && (
-                  <div className="mt-2 text-sm text-green-700 font-medium bg-green-100 p-3 rounded-lg">
-                    ✅ Email verified successfully! You can now search for your orders.
+                  <div className="form-message form-message-success">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl">✅</span>
+                      <span className="font-semibold">Email verified successfully! You can now search for your orders.</span>
+                    </div>
                   </div>
                 )}
                 
@@ -261,7 +270,7 @@ export default function MyOrdersPage() {
                       type="button"
                       onClick={handleSendOTP}
                       disabled={isSendingOtp}
-                      className="text-sm text-blue-600 hover:text-blue-800 underline disabled:opacity-50"
+                      className="text-sm text-blue-600 hover:text-blue-800 underline disabled:opacity-50 font-medium"
                     >
                       {isSendingOtp ? 'Sending...' : "Didn't receive OTP? Resend"}
                     </button>
@@ -274,12 +283,15 @@ export default function MyOrdersPage() {
 
         {/* Search Orders Button */}
         {emailVerified && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8 text-center">
-            <h3 className="text-lg font-semibold text-blue-800 mb-2">🔍 Ready to Search Orders</h3>
-            <p className="text-gray-700 mb-4">Your email has been verified. Click below to search for your orders.</p>
+          <div className="form-container mb-8 text-center">
+            <h3 className="text-2xl font-bold text-blue-800 mb-3 flex items-center justify-center gap-2">
+              <span className="text-2xl">🔍</span>
+              Ready to Search Orders
+            </h3>
+            <p className="text-gray-600 mb-6 text-lg">Your email has been verified. Click below to search for your orders.</p>
             <button
               onClick={searchOrders}
-              className="bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors text-lg"
+              className="form-button form-button-primary text-lg px-12 py-4"
             >
               Search My Orders
             </button>
