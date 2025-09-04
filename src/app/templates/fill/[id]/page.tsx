@@ -231,7 +231,7 @@ export default function FillTemplatePage() {
           </form>
 
           <div className="mt-6 text-center text-sm text-gray-500">
-            <p>Your document will be generated and you'll be redirected to the order page.</p>
+            <p>Your document will be generated and you&apos;ll be redirected to the order page.</p>
           </div>
         </div>
       </div>

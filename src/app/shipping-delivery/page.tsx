@@ -122,7 +122,7 @@ export default function ShippingDeliveryPage() {
                 Track your order status through multiple channels:
               </p>
               <ul className="list-disc pl-6 text-gray-700 mb-4">
-                <li><strong>Online Tracking:</strong> Visit "My Orders" page with your order ID</li>
+                <li><strong>Online Tracking:</strong> Visit &quot;My Orders&quot; page with your order ID</li>
                 <li><strong>SMS Updates:</strong> Receive status updates via SMS</li>
                 <li><strong>Email Notifications:</strong> Get email updates at each stage</li>
                 <li><strong>Customer Support:</strong> Call us for real-time updates</li>
@@ -164,7 +164,7 @@ export default function ShippingDeliveryPage() {
               </div>
               
               <p className="text-gray-700 mb-4">
-                <strong>To avoid failed deliveries:</strong> Ensure you're available during delivery time, keep your phone accessible, and provide accurate delivery information.
+                <strong>To avoid failed deliveries:</strong> Ensure you&apos;re available during delivery time, keep your phone accessible, and provide accurate delivery information.
               </p>
             </section>
 

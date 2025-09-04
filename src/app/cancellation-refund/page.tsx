@@ -67,7 +67,7 @@ export default function CancellationRefundPage() {
               </div>
               
               <p className="text-gray-700 mb-4">
-                <strong>Refund Timeline:</strong> Refunds are typically processed within 3-7 business days, depending on your bank's processing time.
+                <strong>Refund Timeline:</strong> Refunds are typically processed within 3-7 business days, depending on your bank&apos;s processing time.
               </p>
             </section>
 
@@ -150,7 +150,7 @@ export default function CancellationRefundPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Legal Compliance</h2>
               <p className="text-gray-700 mb-4">
-                This policy complies with Indian consumer protection laws and Razorpay's requirements. We are committed to fair and transparent refund practices.
+                This policy complies with Indian consumer protection laws and Razorpay&apos;s requirements. We are committed to fair and transparent refund practices.
               </p>
             </section>
           </div>

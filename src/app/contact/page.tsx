@@ -45,7 +45,7 @@ export default function ContactPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Contact Us</h1>
           <p className="text-xl text-gray-600">
-            We're here to help! Get in touch with us for any questions or support.
+            We&apos;re here to help! Get in touch with us for any questions or support.
           </p>
         </div>
 
@@ -153,7 +153,7 @@ export default function ContactPage() {
             
             {submitStatus === 'success' && (
               <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-800">Thank you! Your message has been sent successfully. We'll get back to you soon.</p>
+                <p className="text-green-800">Thank you! Your message has been sent successfully. We&apos;ll get back to you soon.</p>
               </div>
             )}
 
@@ -265,7 +265,7 @@ export default function ContactPage() {
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">How do I track my order?</h3>
-              <p className="text-gray-600">You can track your order by visiting the "My Orders" page and entering your order ID or phone number.</p>
+              <p className="text-gray-600">You can track your order by visiting the &quot;My Orders&quot; page and entering your order ID or phone number.</p>
             </div>
 
             <div>
