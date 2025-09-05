@@ -5,10 +5,11 @@ import React, { useState, useEffect } from 'react';
 interface PlaceholderFormProps {
   docxBuffer: string;
   onGenerateDocument: (formData: Record<string, string>) => void;
+  onDocumentEdited?: (newDocxBuffer: string) => void;
   onClose: () => void;
 }
 
-export default function PlaceholderForm({ docxBuffer, onGenerateDocument, onClose }: PlaceholderFormProps) {
+export default function PlaceholderForm({ docxBuffer, onGenerateDocument, onDocumentEdited, onClose }: PlaceholderFormProps) {
   const [placeholders, setPlaceholders] = useState<string[]>([]);
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -240,7 +241,7 @@ export default function PlaceholderForm({ docxBuffer, onGenerateDocument, onClos
                 }}
                 className="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
               >
-                Fill Today's Date
+                Fill Today&apos;s Date
               </button>
               <button
                 onClick={() => {

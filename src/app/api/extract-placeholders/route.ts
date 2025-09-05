@@ -27,6 +27,13 @@ export async function POST(request: NextRequest) {
         .filter(placeholder => placeholder.length > 0)
     )];
 
+    // Also convert @placeholder to {placeholder} format in the text for docxtemplater
+    let convertedText = text;
+    placeholders.forEach(placeholder => {
+      const regex = new RegExp(`@${placeholder}`, 'g');
+      convertedText = convertedText.replace(regex, `{${placeholder}}`);
+    });
+
     // Sort placeholders for better UX
     const sortedPlaceholders = placeholders.sort();
 

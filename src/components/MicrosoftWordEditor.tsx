@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import PlaceholderForm from './PlaceholderForm';
+import WordDocumentPreview from './WordDocumentPreview';
+import WordDocumentLivePreview from './WordDocumentLivePreview';
 
 interface MicrosoftWordEditorProps {
   docxBuffer: string; // Base64 encoded DOCX buffer
@@ -14,6 +16,8 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
   const [documentUrl, setDocumentUrl] = useState<string>('');
   const [showGoogleDocs, setShowGoogleDocs] = useState(false);
   const [showPlaceholderForm, setShowPlaceholderForm] = useState(false);
+  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
+  const [showLivePreview, setShowLivePreview] = useState(false);
 
   // Create a document URL for Microsoft Word Online
   useEffect(() => {
@@ -149,13 +153,35 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
                   <div className="text-6xl mb-6">📝</div>
                   <h3 className="text-2xl font-bold text-gray-800 mb-4">Document Personalization</h3>
                   <p className="text-gray-600 mb-6 text-lg">
-                    Upload a Word document with placeholders (like @name, @phone, @email) and we'll create a personalized form for you to fill out.
+                    Upload a Word document with placeholders (like @name, @phone, @email) and we&apos;ll create a personalized form for you to fill out.
                   </p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">🎯 Auto-Detect & Fill</h4>
-                      <p className="text-sm text-gray-600 mb-3">We'll detect placeholders and create a form</p>
+                      <h4 className="font-semibold text-gray-800 mb-2">📄 Live Preview</h4>
+                      <p className="text-sm text-gray-600 mb-3">Real-time Word document preview</p>
+                      <button
+                        onClick={() => setShowLivePreview(true)}
+                        className="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+                      >
+                        Live Preview
+                      </button>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-semibold text-gray-800 mb-2">📄 Page Range</h4>
+                      <p className="text-sm text-gray-600 mb-3">Preview and choose pages to process</p>
+                      <button
+                        onClick={() => setShowDocumentPreview(true)}
+                        className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                      >
+                        Page Range
+                      </button>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-semibold text-gray-800 mb-2">🎯 Quick Fill</h4>
+                      <p className="text-sm text-gray-600 mb-3">Process full document for placeholders</p>
                       <button
                         onClick={() => setShowPlaceholderForm(true)}
                         className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
@@ -238,7 +264,7 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
             </div>
             <div className="mt-2 text-sm text-gray-600">
               <p>💡 <strong>Note:</strong> This is a read-only view. To edit, download the document and use your preferred editor.</p>
-              <p className="mt-1">🔄 <strong>Alternative:</strong> If the viewer doesn't load, try opening in a new tab or use the download option above.</p>
+              <p className="mt-1">🔄 <strong>Alternative:</strong> If the viewer doesn&apos;t load, try opening in a new tab or use the download option above.</p>
             </div>
           </div>
         )}
@@ -278,6 +304,24 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
             setShowPlaceholderForm(false);
           }}
           onClose={() => setShowPlaceholderForm(false)}
+        />
+      )}
+
+      {/* Word Document Preview Modal */}
+      {showDocumentPreview && (
+        <WordDocumentPreview
+          docxBuffer={docxBuffer}
+          onDocumentEdited={onDocumentEdited}
+          onClose={() => setShowDocumentPreview(false)}
+        />
+      )}
+
+      {/* Word Document Live Preview Modal */}
+      {showLivePreview && (
+        <WordDocumentLivePreview
+          docxBuffer={docxBuffer}
+          onDocumentEdited={onDocumentEdited}
+          onClose={() => setShowLivePreview(false)}
         />
       )}
     </div>

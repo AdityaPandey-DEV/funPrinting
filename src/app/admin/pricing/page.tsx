@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminAuth from '@/components/admin/AdminAuth';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
 import { formInputClasses, buttonClasses } from '@/lib/adminUtils';
 
 interface PricingData {
@@ -32,9 +32,8 @@ interface PricingData {
   };
 }
 
-export default function AdminPricingPage() {
+function AdminPricingPageContent() {
   const router = useRouter();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pricing, setPricing] = useState<PricingData>({
@@ -76,10 +75,9 @@ export default function AdminPricingPage() {
     return pricingData;
   };
 
-  const handleLogin = () => {
-    setIsLoggedIn(true);
+  useEffect(() => {
     fetchPricing();
-  };
+  }, []);
 
   const fetchPricing = async () => {
     setIsLoading(true);
@@ -154,10 +152,6 @@ export default function AdminPricingPage() {
       setIsSaving(false);
     }
   };
-
-  if (!isLoggedIn) {
-    return <AdminAuth onLogin={handleLogin} title="Admin Login" subtitle="Access pricing management" />;
-  }
 
   if (isLoading) {
     return <LoadingSpinner message="Loading pricing..." size="large" />;
@@ -348,5 +342,16 @@ export default function AdminPricingPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminPricingPage() {
+  return (
+    <AdminRouteProtection 
+      title="Admin Pricing"
+      subtitle="Manage service pricing and rates"
+    >
+      <AdminPricingPageContent />
+    </AdminRouteProtection>
   );
 }

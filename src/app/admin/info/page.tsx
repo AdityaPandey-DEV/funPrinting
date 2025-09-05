@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
 
 interface AdminInfo {
   _id?: string;
@@ -36,7 +37,7 @@ interface AdminInfo {
   isActive: boolean;
 }
 
-export default function AdminInfoPage() {
+function AdminInfoPageContent() {
   const router = useRouter();
   const [adminInfo, setAdminInfo] = useState<AdminInfo>({
     name: '',
@@ -494,5 +495,16 @@ export default function AdminInfoPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminInfoPage() {
+  return (
+    <AdminRouteProtection 
+      title="Admin Information"
+      subtitle="Manage business information and settings"
+    >
+      <AdminInfoPageContent />
+    </AdminRouteProtection>
   );
 }

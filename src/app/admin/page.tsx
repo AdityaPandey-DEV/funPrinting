@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import AdminAuth from '@/components/admin/AdminAuth';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -57,15 +57,9 @@ interface Order {
   createdAt: string;
 }
 
-export default function AdminDashboard() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+function AdminDashboardContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  const handleLogin = () => {
-    setIsLoggedIn(true);
-    fetchOrders();
-  };
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -116,10 +110,6 @@ export default function AdminDashboard() {
     }
   };
 
-  if (!isLoggedIn) {
-    return <AdminAuth onLogin={handleLogin} />;
-  }
-
   if (isLoading) {
     return <LoadingSpinner message="Loading orders..." />;
   }
@@ -140,7 +130,11 @@ export default function AdminDashboard() {
                 {isLoading ? 'Refreshing...' : 'Refresh Orders'}
               </button>
               <button
-                onClick={() => setIsLoggedIn(false)}
+                onClick={() => {
+                  localStorage.removeItem('adminAuthenticated');
+                  localStorage.removeItem('adminLoginTime');
+                  window.location.href = '/';
+                }}
                 className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Logout
@@ -318,5 +312,16 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminDashboard() {
+  return (
+    <AdminRouteProtection 
+      title="Admin Dashboard"
+      subtitle="Manage all printing orders and track their status"
+    >
+      <AdminDashboardContent />
+    </AdminRouteProtection>
   );
 }
