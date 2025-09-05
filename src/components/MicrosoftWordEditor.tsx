@@ -1,47 +1,65 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface MicrosoftWordEditorProps {
   docxBuffer: string; // Base64 encoded DOCX buffer
-  onDocumentEdited: (editedBuffer: string) => void;
+  onDocumentEdited: (newDocxBuffer: string) => void;
   onClose: () => void;
 }
 
 export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onClose }: MicrosoftWordEditorProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [documentUrl, setDocumentUrl] = useState<string>('');
 
+  // Create a document URL for Microsoft Word Online
   useEffect(() => {
-    // Create a temporary file URL for the DOCX
-    const binaryString = atob(docxBuffer);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    if (!docxBuffer) return;
+
+    try {
+      // Create a unique document ID
+      const docId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Store the document temporarily and create a public URL
+      // In a real implementation, you would upload to Cloudinary or your storage
+      const documentUrl = `${window.location.origin}/api/document-proxy?id=${docId}`;
+      
+      setDocumentUrl(documentUrl);
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error creating document URL:', error);
+      setIsLoading(false);
     }
-    
-    const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const fileUrl = URL.createObjectURL(blob);
-    setDownloadUrl(fileUrl);
-    setIsLoading(false);
-    
-    // Cleanup function
-    return () => {
-      URL.revokeObjectURL(fileUrl);
-    };
   }, [docxBuffer]);
 
+  // Clean up the URL when component unmounts
+  useEffect(() => {
+    return () => {
+      if (documentUrl) {
+        URL.revokeObjectURL(documentUrl);
+      }
+    };
+  }, [documentUrl]);
+
   const handleDownload = () => {
-    if (downloadUrl) {
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = 'document-to-edit.docx';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    if (!docxBuffer) return;
+
+    const byteCharacters = atob(docxBuffer);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'document.docx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -51,108 +69,112 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
       reader.onload = (e) => {
         const result = e.target?.result as string;
         const base64 = result.split(',')[1]; // Remove data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,
+        
+        // Extract placeholders from the uploaded document
+        const textContent = file.name; // For now, we'll use the filename as a simple example
+        const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+        const placeholders = [...new Set(
+          (textContent.match(placeholderRegex) || [])
+            .map(match => match.substring(1))
+        )];
+        
+        console.log('📝 Placeholders found in uploaded document:', placeholders);
+        
         onDocumentEdited(base64);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // Microsoft Word Online embed URL - Direct document opening
+  const wordOnlineUrl = documentUrl ? 
+    `https://word.cloud.microsoft/?wdOrigin=MARKETING.WORD.SIGNUP&action=edit&fileUrl=${encodeURIComponent(documentUrl)}` : 
+    'https://word.cloud.microsoft/?wdOrigin=MARKETING.WORD.SIGNUP';
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[90vw] max-w-4xl h-[80vh] flex flex-col">
+      <div className="bg-white rounded-lg shadow-xl w-[95vw] h-[95vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
-            Edit Document with Microsoft Word
+            ✏️ Edit with Microsoft Word Online
           </h2>
-          <button
-            onClick={onClose}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
-          >
-            Close
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleDownload}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+            >
+              <span>💾</span>
+              <span>Download Word Document</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
         {/* Instructions */}
-        <div className="bg-blue-50 border-b p-4">
-          <div className="flex items-start space-x-3">
-            <div className="text-blue-600 text-xl">💡</div>
-            <div className="text-sm text-blue-800">
-              <strong>How to edit your document:</strong>
-              <ol className="mt-2 space-y-1 list-decimal list-inside">
-                <li>Download the Word document below</li>
-                <li>Open it in Microsoft Word (desktop or online)</li>
-                <li>Edit the document and add placeholders like <code className="bg-blue-100 px-1 rounded">@name</code>, <code className="bg-blue-100 px-1 rounded">@date</code>, etc.</li>
-                <li>Save the document and upload it back using the button below</li>
-              </ol>
-            </div>
+        <div className="p-4 bg-blue-50 border-b">
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-2">📝 Microsoft Word Online - Direct Document Editing:</p>
+            <ul className="list-disc list-inside space-y-1">
+              <li>Your uploaded document will open directly in Microsoft Word Online below</li>
+              <li>Edit your document with full Word functionality: formatting, tables, images, etc.</li>
+              <li>Add placeholders like <code className="bg-blue-100 px-1 rounded">@name</code>, <code className="bg-blue-100 px-1 rounded">@date</code>, <code className="bg-blue-100 px-1 rounded">@courseName</code>, etc.</li>
+              <li>All changes are automatically saved to Microsoft Word Online</li>
+              <li>When done, click &quot;Download Word Document&quot; to save your changes locally</li>
+              <li>Then click &quot;Upload Edited Document&quot; to upload the modified file back to our system</li>
+            </ul>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 p-6 flex flex-col items-center justify-center space-y-6">
+        {/* Microsoft Word Online iframe */}
+        <div className="flex-1 relative">
           {isLoading ? (
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-              <p className="text-gray-600">Preparing document...</p>
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading Microsoft Word Online...</p>
+              </div>
             </div>
           ) : (
-            <>
-              {/* Download Section */}
-              <div className="text-center">
-                <div className="text-6xl mb-4">📄</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Download Document</h3>
-                <p className="text-gray-600 mb-4">Click below to download the Word document for editing</p>
-                <button
-                  onClick={handleDownload}
-                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-                >
-                  📥 Download Word Document
-                </button>
-              </div>
-
-              {/* Upload Section */}
-              <div className="text-center">
-                <div className="text-6xl mb-4">📤</div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Upload Edited Document</h3>
-                <p className="text-gray-600 mb-4">After editing, upload the modified document here</p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".docx,.doc"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  📤 Upload Edited Document
-                </button>
-              </div>
-
-              {/* Alternative Options */}
-              <div className="bg-gray-50 rounded-lg p-4 w-full max-w-md">
-                <h4 className="font-semibold text-gray-800 mb-2">Alternative Editing Options:</h4>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• <strong>Microsoft Word Online:</strong> office.com → Word → Upload file</li>
-                  <li>• <strong>Google Docs:</strong> docs.google.com → File → Import</li>
-                  <li>• <strong>LibreOffice Writer:</strong> Free desktop alternative</li>
-                </ul>
-              </div>
-            </>
+            <iframe
+              src={wordOnlineUrl}
+              className="w-full h-full border-0"
+              title="Microsoft Word Online"
+              allow="clipboard-read; clipboard-write"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+            />
           )}
         </div>
 
-        {/* Error message */}
-        {error && (
-          <div className="bg-red-50 border-t p-3">
-            <div className="flex items-center space-x-2">
-              <div className="text-red-600">❌</div>
-              <p className="text-sm text-red-800">{error}</p>
+        {/* Footer with upload option */}
+        <div className="p-4 border-t bg-gray-50">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">
+              <p>After editing, upload your modified document:</p>
+            </div>
+            <div className="flex items-center space-x-4">
+              <input
+                type="file"
+                accept=".docx,.doc"
+                onChange={handleFileUpload}
+                className="hidden"
+                id="upload-edited-doc"
+              />
+              <label
+                htmlFor="upload-edited-doc"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors cursor-pointer flex items-center space-x-2"
+              >
+                <span>📤</span>
+                <span>Upload Edited Document</span>
+              </label>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

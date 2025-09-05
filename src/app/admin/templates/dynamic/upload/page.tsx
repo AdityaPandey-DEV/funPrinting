@@ -113,12 +113,12 @@ export default function DynamicTemplateUpload() {
               Upload your Word document (.docx or .doc) with placeholders like @name, @date, etc.
             </p>
             <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-left">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 How to prepare your Word document:</h4>
+              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 How to use the embedded Word editor:</h4>
               <ul className="text-xs text-blue-700 space-y-1">
-                <li>• <strong>Use placeholders</strong> like @name, @date, @courseName, etc.</li>
-                <li>• <strong>Convert PDF to Word</strong> using Adobe online or other tools first</li>
-                <li>• <strong>Edit in Word</strong> to add your placeholders where needed</li>
-                <li>• <strong>Save as .docx</strong> format for best compatibility</li>
+                <li>• <strong>Upload your Word document</strong> (.docx or .doc format)</li>
+                <li>• <strong>Click &quot;Open Embedded Word Editor&quot;</strong> to edit directly in our website</li>
+                <li>• <strong>Add placeholders</strong> like @name, @date, @courseName, etc. in the embedded Word</li>
+                <li>• <strong>Download and upload back</strong> to complete the process</li>
               </ul>
             </div>
           </div>

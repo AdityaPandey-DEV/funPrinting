@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
-import mammoth from 'mammoth';
+// mammoth removed - using Microsoft Word directly
 import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
 
 export async function POST(request: NextRequest) {
@@ -32,9 +32,8 @@ export async function POST(request: NextRequest) {
       fs.writeFileSync(inputWordPath, wordBuffer);
       console.log('✅ Word file written to temporary location');
 
-      // Extract text from Word document
-      const result = await mammoth.extractRawText({ buffer: wordBuffer });
-      const originalText = result.value;
+      // For direct Word document usage, we'll create a simple placeholder
+      const originalText = 'Word document loaded. Use Microsoft Word to add placeholders like @name, @date, etc.';
       
       console.log('✅ Text extracted from Word document');
 

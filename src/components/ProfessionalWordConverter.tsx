@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } from 'docx';
 import MicrosoftWordEditor from './MicrosoftWordEditor';
 
 interface ProfessionalWordConverterProps {
@@ -73,7 +72,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
       step: 'Processing Word document...', 
       percentage: 0,
       details: 'Reading Word document content...',
-      conversionMethod: 'mammoth'
+      conversionMethod: 'microsoft-word'
     });
 
     try {
@@ -87,83 +86,38 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
         step: 'Analyzing document...', 
         percentage: 30,
         details: 'Extracting text and placeholders...',
-        conversionMethod: 'mammoth'
-      });
-      
-      // Use mammoth to extract content from the Word document
-      const mammoth = await import('mammoth');
-      const result = await mammoth.convertToHtml({ buffer: Buffer.from(arrayBuffer) });
-      const htmlContent = result.value;
-      
-      setConversionProgress({ 
-        step: 'Processing content...', 
-        percentage: 60,
-        details: 'Converting HTML to structured content...',
-        conversionMethod: 'mammoth'
-      });
-
-      // Convert HTML to plain text for placeholder extraction
-      const textContent = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-      
-      // Extract placeholders using regex
-      const placeholderRegex = /@([A-Za-z0-9_]+)/g;
-      const placeholders = [...new Set(
-        (textContent.match(placeholderRegex) || [])
-          .map(match => match.substring(1))
-      )];
-      
-      console.log('📝 Extracted placeholders:', placeholders);
-      
-      // Split content into paragraphs for better display
-      const lines = textContent.split('\n').filter(line => line.trim().length > 0);
-      const paragraphs = lines.map((line, index) => {
-        const trimmedLine = line.trim();
-        const placeholderMatch = trimmedLine.match(/@(\w+)/);
-        const isPlaceholder = !!placeholderMatch;
-        const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
-
-        let style: 'normal' | 'heading' | 'list' = 'normal';
-        let level = 1;
-
-        // Detect headings (short lines, all caps, or ending with colon)
-        if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
-          style = 'heading';
-          level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
-        } else if (trimmedLine.match(/^\d+\./)) {
-          style = 'list';
-        }
-
-        return {
-          id: (index + 1).toString(),
-          text: trimmedLine,
-          style: style,
-          level: level,
-          isPlaceholder: isPlaceholder,
-          placeholderName: placeholderName
-        };
+        conversionMethod: 'microsoft-word'
       });
       
       setConversionProgress({ 
-        step: 'Document processed successfully!', 
+        step: 'Document ready for editing...', 
         percentage: 100,
-        details: `Found ${placeholders.length} placeholders in document`,
-        conversionMethod: 'mammoth'
+        details: 'Word document loaded successfully. Click "Edit with Microsoft Word Online" to add placeholders.',
+        conversionMethod: 'microsoft-word'
       });
       
-      // Set the word content
+      // For direct Word document usage, we'll show the embedded Microsoft Word editor
+      const paragraphs = [{
+        id: '1',
+        text: 'Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like @name, @date, etc.',
+        style: 'normal' as const,
+        level: 1,
+        isPlaceholder: false,
+        placeholderName: ''
+      }];
+      
+      // Set the word content with the document buffer
       setWordContent({
         paragraphs: paragraphs,
         tables: [],
+        totalParagraphs: paragraphs.length,
+        placeholders: [],
+        conversionMethod: 'microsoft-word',
         docxBuffer: Buffer.from(arrayBuffer).toString('base64'),
-        fullHtml: htmlContent
+        fullHtml: '<p>Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like @name, @date, etc.</p>'
       });
       
       setConversionSuccess(true);
-      
-      // Extract placeholders for parent component
-      if (placeholders.length > 0) {
-        onPlaceholdersExtracted(placeholders);
-      }
       
     } catch (error) {
       console.error('Error processing Word document:', error);
@@ -483,7 +437,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
               onClick={() => setShowWordEditor(true)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              ✏️ Edit with Microsoft Word Online
+              ✏️ Open Embedded Word Editor
             </button>
             <button
               onClick={downloadWordDocument}

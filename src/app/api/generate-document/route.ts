@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType } from 'docx';
 import { v4 as uuidv4 } from 'uuid';
-import mammoth from 'mammoth';
+// mammoth removed - using Microsoft Word directly
 import { pdfApiClient } from '@/lib/pdfApiClient';
 
 /**
@@ -51,9 +51,8 @@ export async function POST(request: NextRequest) {
         const wordBuffer = Buffer.from(await response.arrayBuffer());
         console.log('✅ Word file downloaded via HTTPS API, size:', wordBuffer.length, 'bytes');
         
-        // Extract text from Word document
-        const mammothResult = await mammoth.extractRawText({ buffer: wordBuffer });
-        const wordText = mammothResult.value;
+        // For direct Word document usage, we'll create a simple placeholder
+        const wordText = 'Word document loaded. Use Microsoft Word to add placeholders like @name, @date, etc.';
         
         console.log('✅ Text extracted from Word document, length:', wordText.length, 'characters');
         

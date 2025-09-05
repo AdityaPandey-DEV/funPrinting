@@ -176,6 +176,12 @@ export default function AdminDashboard() {
             description="Manage service pricing and rates"
             href="/admin/pricing"
           />
+          <AdminCard
+            icon="ℹ️"
+            title="Admin Info"
+            description="Manage business information"
+            href="/admin/info"
+          />
         </div>
 
         {/* Orders Table */}
