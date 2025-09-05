@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'PrintService - College Printing Solutions',
   description: 'Professional printing services for college students. Fast, reliable, and affordable printing with delivery to your hostel.',
+  verification: {
+    google: 'KuALniDwTibP1GXe1WJTPJA66lA0P1VkDiq-IgBDwfg',
+  },
 };
 
 export default function RootLayout({
