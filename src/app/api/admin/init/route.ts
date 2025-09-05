@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import Admin from '@/models/Admin';
+import AdminInfo from '@/models/AdminInfo';
 
 // POST - Initialize admin with default data
 export async function POST(request: NextRequest) {
@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
     
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ isActive: true });
+    const existingAdmin = await AdminInfo.findOne({ isActive: true });
     
     if (existingAdmin) {
       return NextResponse.json({
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Create default admin data
-    const defaultAdmin = new Admin({
+    const defaultAdmin = new AdminInfo({
       name: 'PrintService',
       email: 'admin@printservice.com',
       phone: '+91 98765 43210',

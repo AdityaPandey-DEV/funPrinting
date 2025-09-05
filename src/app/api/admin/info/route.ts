@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import Admin from '@/models/Admin';
+import AdminInfo from '@/models/AdminInfo';
 
 // GET - Fetch admin information
 export async function GET() {
   try {
     await connectDB();
     
-    const admin = await Admin.findOne({ isActive: true }).lean();
+    const admin = await AdminInfo.findOne({ isActive: true }).lean();
     
     if (!admin) {
       return NextResponse.json({
@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ isActive: true });
+    const existingAdmin = await AdminInfo.findOne({ isActive: true });
     
     if (existingAdmin) {
       // Update existing admin
-      const updatedAdmin = await Admin.findByIdAndUpdate(
+      const updatedAdmin = await AdminInfo.findByIdAndUpdate(
         existingAdmin._id,
         { ...body, isActive: true },
         { new: true, runValidators: true }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new admin
-      const admin = new Admin({ ...body, isActive: true });
+      const admin = new AdminInfo({ ...body, isActive: true });
       await admin.save();
       
       return NextResponse.json({
@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
       );
     }
     
-    const updatedAdmin = await Admin.findByIdAndUpdate(
+    const updatedAdmin = await AdminInfo.findByIdAndUpdate(
       id,
       updateData,
       { new: true, runValidators: true }
@@ -130,7 +130,7 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    const deletedAdmin = await Admin.findByIdAndDelete(id);
+    const deletedAdmin = await AdminInfo.findByIdAndDelete(id);
     
     if (!deletedAdmin) {
       return NextResponse.json(

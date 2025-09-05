@@ -33,7 +33,7 @@ const AdminSchema = new mongoose.Schema({
   isActive: Boolean
 }, { timestamps: true });
 
-const Admin = mongoose.model('Admin', AdminSchema);
+const AdminInfo = mongoose.model('AdminInfo', AdminSchema);
 
 async function initAdmin() {
   try {
@@ -44,7 +44,7 @@ async function initAdmin() {
     console.log('Connected to MongoDB');
 
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ isActive: true });
+    const existingAdmin = await AdminInfo.findOne({ isActive: true });
     
     if (existingAdmin) {
       console.log('Admin information already exists:', existingAdmin.name);
@@ -52,7 +52,7 @@ async function initAdmin() {
     }
 
     // Create default admin
-    const defaultAdmin = new Admin({
+    const defaultAdmin = new AdminInfo({
       name: 'PrintService',
       email: 'admin@printservice.com',
       phone: '+91 98765 43210',
