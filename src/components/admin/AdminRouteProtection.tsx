@@ -21,8 +21,14 @@ export default function AdminRouteProtection({
   const router = useRouter();
 
   useEffect(() => {
-    // Check authentication status
+    // Check authentication status (only on client side)
     const checkAuth = () => {
+      // Check if we're on the client side
+      if (typeof window === 'undefined') {
+        setIsLoading(false);
+        return;
+      }
+
       const isAuth = localStorage.getItem('adminAuthenticated') === 'true';
       const loginTime = localStorage.getItem('adminLoginTime');
       
