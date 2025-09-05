@@ -88,8 +88,8 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
 
   // Microsoft Word Online embed URL - Direct document opening
   const wordOnlineUrl = documentUrl ? 
-    `https://word.cloud.microsoft/?wdOrigin=MARKETING.WORD.SIGNUP&action=edit&fileUrl=${encodeURIComponent(documentUrl)}` : 
-    'https://word.cloud.microsoft/?wdOrigin=MARKETING.WORD.SIGNUP';
+    `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}` : 
+    'https://office.com/launch/word';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -141,13 +141,30 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
               </div>
             </div>
           ) : (
-            <iframe
-              src={wordOnlineUrl}
-              className="w-full h-full border-0"
-              title="Microsoft Word Online"
-              allow="clipboard-read; clipboard-write"
-              sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-            />
+            <div className="h-full">
+              <iframe
+                src={wordOnlineUrl}
+                className="w-full h-full border-0"
+                title="Microsoft Word Online"
+                allow="clipboard-read; clipboard-write"
+                sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                onError={() => {
+                  console.log('Microsoft Word Online failed to load, showing fallback');
+                }}
+              />
+              {/* Fallback message */}
+              <div className="absolute top-4 right-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-3 py-2 rounded text-sm">
+                <p>If Microsoft Word doesn't load, try:</p>
+                <a 
+                  href={wordOnlineUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="underline hover:text-yellow-800"
+                >
+                  Open in new tab
+                </a>
+              </div>
+            </div>
           )}
         </div>
 
