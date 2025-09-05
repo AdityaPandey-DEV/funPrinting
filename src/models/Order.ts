@@ -12,6 +12,13 @@ export interface IOrder {
   fileURL?: string;
   fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg')
   originalFileName?: string; // Store the original file name
+  // Template-specific fields
+  templateId?: string;
+  templateName?: string;
+  formData?: Record<string, string | number | boolean>;
+  filledDocxUrl?: string;
+  filledPdfUrl?: string;
+  // Legacy template data for backward compatibility
   templateData?: {
     templateType: string;
     formData: Record<string, string | number | boolean>;
@@ -26,6 +33,7 @@ export interface IOrder {
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
+  status?: 'pending_payment' | 'paid' | 'processing' | 'completed' | 'cancelled';
   amount: number;
   deliveryOption: {
     type: 'pickup' | 'delivery';
@@ -65,6 +73,13 @@ const orderSchema = new mongoose.Schema<IOrder>({
   fileURL: String,
   fileType: String,
   originalFileName: String,
+  // Template-specific fields
+  templateId: String,
+  templateName: String,
+  formData: mongoose.Schema.Types.Mixed,
+  filledDocxUrl: String,
+  filledPdfUrl: String,
+  // Legacy template data for backward compatibility
   templateData: {
     templateType: String,
     formData: mongoose.Schema.Types.Mixed,
@@ -105,6 +120,11 @@ const orderSchema = new mongoose.Schema<IOrder>({
     type: String,
     enum: ['pending', 'printing', 'dispatched', 'delivered'],
     default: 'pending',
+  },
+  status: {
+    type: String,
+    enum: ['pending_payment', 'paid', 'processing', 'completed', 'cancelled'],
+    default: 'pending_payment',
   },
   amount: {
     type: Number,

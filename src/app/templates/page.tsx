@@ -3,12 +3,23 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
+interface FormField {
+  key: string;
+  type: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+}
+
 interface Template {
   id: string;
   name: string;
   description: string;
   category: string;
   placeholders: string[];
+  formSchema: FormField[];
+  pdfUrl: string;
+  wordUrl: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -128,7 +139,7 @@ export default function TemplatesPage() {
 
                 <div className="pt-4 border-t border-gray-200">
                   <Link
-                    href={`/templates/custom/${template.id}`}
+                    href={`/templates/fill/${template.id}`}
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium text-center block"
                   >
                     Fill Out Template

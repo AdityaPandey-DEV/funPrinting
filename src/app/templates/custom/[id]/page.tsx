@@ -230,7 +230,7 @@ export default function CustomTemplatePage() {
                     placeholder={field.placeholder}
                     required={field.required}
                     rows={4}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="form-input"
                   />
                 ) : (
                   <input
@@ -239,7 +239,7 @@ export default function CustomTemplatePage() {
                     onChange={(e) => handleInputChange(field.name, e.target.value)}
                     placeholder={field.placeholder}
                     required={field.required}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="form-input"
                   />
                 )}
               </div>

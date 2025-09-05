@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
+import { convertPdfToDocx } from '@/lib/cloudmersive';
+import { convertPdfToDocx as libreOfficePdfToDocx, isLibreOfficeAvailable } from '@/lib/libreoffice';
+import mammoth from 'mammoth';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,109 +18,513 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const buffer = Buffer.from(await file.arrayBuffer());
     
-    // Check if Adobe credentials are available
-    const hasAdobeCredentials = process.env.ADOBE_CLIENT_ID && 
-                               process.env.ADOBE_CLIENT_SECRET && 
-                               process.env.ADOBE_ORG_ID && 
-                               process.env.ADOBE_ACCOUNT_ID;
+    // Check if Cloudmersive API key is available
+    const hasCloudmersiveKey = process.env.CLOUDMERSIVE_API_KEY;
+    const hasLibreOffice = await isLibreOfficeAvailable();
 
     let conversionResult;
     
-    if (hasAdobeCredentials) {
-      // Use real Adobe PDF Services API
-      console.log('Using real Adobe PDF Services API...');
-      conversionResult = await realAdobeConversion(buffer);
+    if (hasCloudmersiveKey) {
+      // Use Cloudmersive as primary conversion method
+      console.log('🔄 Using Cloudmersive API for PDF to DOCX conversion...');
+      try {
+        conversionResult = await cloudmersiveConversion(buffer);
+      } catch (cloudmersiveError) {
+        console.error('❌ Cloudmersive conversion failed:', cloudmersiveError);
+        console.log('❌ No fallback available - LibreOffice cannot convert PDF to DOCX');
+        
+        // Check if it's a FlateDecode compression issue
+        const errorMessage = cloudmersiveError instanceof Error ? cloudmersiveError.message : String(cloudmersiveError);
+        if (errorMessage.includes('FlateDecode compression')) {
+          throw new Error(`PDF conversion failed: This PDF uses FlateDecode compression which Cloudmersive cannot process. Please try with a simpler PDF or convert it to a different format first.`);
+        } else if (errorMessage.includes('Unable to process input document')) {
+          // Check if PDF has FlateDecode compression
+          const pdfContent = buffer.toString('ascii', 0, Math.min(1000, buffer.length));
+          const hasFlateDecode = pdfContent.includes('/FlateDecode');
+          
+          if (hasFlateDecode) {
+            throw new Error(`PDF conversion failed: This PDF uses FlateDecode compression which Cloudmersive cannot process. Please try with a simpler PDF or convert it to a different format first.`);
+          } else {
+            throw new Error(`PDF conversion failed: This PDF cannot be processed by Cloudmersive. It may be password-protected, contain only images, or be in an unsupported format. Please try with a different PDF.`);
+          }
+        } else {
+          throw new Error(`PDF conversion failed: ${errorMessage}. Please ensure the PDF is valid and contains text.`);
+        }
+      }
     } else {
-      // Use mock conversion (fallback)
-      console.log('Adobe credentials not found, using mock conversion...');
-      conversionResult = await mockAdobeConversion(buffer);
+      // No conversion tools available
+      console.log('❌ No conversion tools available');
+      throw new Error('No PDF conversion tools available. Please configure CLOUDMERSIVE_API_KEY.');
     }
     
     return NextResponse.json(conversionResult);
 
   } catch (error) {
     console.error('PDF to Word conversion error:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Provide specific error messages based on the error type
+    let userMessage = 'PDF conversion failed. ';
+    if (errorMessage.includes('PDF file is too small')) {
+      userMessage += 'The PDF file appears to be corrupted or empty.';
+    } else if (errorMessage.includes('not a valid PDF')) {
+      userMessage += 'The file is not a valid PDF format.';
+    } else if (errorMessage.includes('Unable to process input document')) {
+      userMessage += 'The PDF cannot be processed. It may be password-protected, contain only images, use FlateDecode compression, or be in an unsupported format.';
+    } else if (errorMessage.includes('FlateDecode compression')) {
+      userMessage += 'This PDF uses FlateDecode compression which Cloudmersive cannot process. Please try with a simpler PDF or convert it to a different format first.';
+    } else if (errorMessage.includes('This PDF uses FlateDecode compression')) {
+      userMessage += 'This PDF uses FlateDecode compression which Cloudmersive cannot process. Please try with a simpler PDF or convert it to a different format first.';
+    } else if (errorMessage.includes('API key')) {
+      userMessage += 'Invalid Cloudmersive API key. Please check your configuration.';
+    } else if (errorMessage.includes('quota')) {
+      userMessage += 'API quota exceeded. Please try again later.';
+    } else {
+      userMessage += 'Please ensure the PDF is valid and contains text.';
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to convert PDF to Word' },
+      { 
+        success: false,
+        error: 'Failed to convert PDF to Word',
+        details: errorMessage,
+        message: userMessage
+      },
       { status: 500 }
     );
   }
 }
 
-// Real Adobe PDF Services API conversion
-async function realAdobeConversion(pdfBuffer: Buffer) {
+// Cloudmersive PDF to DOCX conversion
+async function cloudmersiveConversion(pdfBuffer: Buffer) {
   try {
-    console.log('🚀 Using REAL Adobe PDF Services API...');
+    console.log('🚀 Using Cloudmersive API for PDF to DOCX conversion...');
     console.log('📄 Processing PDF buffer of size:', pdfBuffer.length, 'bytes');
     
-    // Check if this looks like a real PDF (PDF files start with %PDF)
-    const pdfHeader = pdfBuffer.toString('ascii', 0, 4);
-    const isRealPDF = pdfHeader === '%PDF';
+    // First, try to extract text directly from PDF (more reliable)
+    console.log('📖 Extracting text directly from PDF...');
+    const { extractTextFromPdf } = await import('@/lib/cloudmersive');
+    const pdfTextResponse = await extractTextFromPdf(pdfBuffer);
+    console.log('📄 PDF text extraction response:', pdfTextResponse.substring(0, 500));
     
-    console.log('📄 PDF header detected:', pdfHeader);
-    console.log('📄 PDF header bytes:', pdfBuffer.slice(0, 10));
-    
-    if (!isRealPDF) {
-      console.log('⚠️ PDF header validation failed, but continuing with conversion...');
-      // Don't throw error, just log warning and continue
-    } else {
-      console.log('✅ Valid PDF detected:', pdfHeader);
-    }
-    
-    // Check if Adobe credentials are available
-    if (!process.env.ADOBE_CLIENT_ID || !process.env.ADOBE_CLIENT_SECRET) {
-      throw new Error('Adobe credentials not configured');
-    }
-    
-    console.log('🔑 Adobe credentials loaded successfully');
-    console.log('🔄 Converting PDF to Word using Adobe API...');
-    
-    // Create temporary files for PDF to Word conversion
-    const tempPdfPath = `/tmp/input_${uuidv4()}.pdf`;
-    const tempWordPath = `/tmp/output_${uuidv4()}.docx`;
-    
-    // Write PDF buffer to temporary file
-    fs.writeFileSync(tempPdfPath, pdfBuffer);
-    
+    // Parse the JSON response to get the actual text
+    let pdfText = '';
     try {
-      console.log('⚡ Converting PDF to Word using Adobe PDF Services API...');
-      
-      // Use real Adobe PDF Services API to create .docx file
-      console.log('🚀 Using REAL Adobe PDF Services API...');
-      const result = await realAdobePDFToWordConversion(pdfBuffer);
-      console.log('✅ Adobe PDF to Word conversion completed successfully!');
-      
-      // Clean up temporary files
-      if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
-      if (fs.existsSync(tempWordPath)) fs.unlinkSync(tempWordPath);
-      
-      return result;
-      
-    } catch (adobeError: any) {
-      console.error('❌ Adobe API error:', adobeError);
-      console.error('❌ Error details:', adobeError?.message);
-      console.error('❌ Error stack:', adobeError?.stack);
-      
-      // Clean up temporary files
-      if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
-      if (fs.existsSync(tempWordPath)) fs.unlinkSync(tempWordPath);
-      
-      // Fallback to mock conversion
-      console.log('🔄 Falling back to mock conversion...');
-      return await mockAdobeConversion(pdfBuffer);
+      const parsedResponse = JSON.parse(pdfTextResponse);
+      if (parsedResponse.Successful && parsedResponse.TextResult) {
+        pdfText = parsedResponse.TextResult;
+        console.log('📄 Parsed PDF text successfully, length:', pdfText.length);
+        console.log('📄 PDF text preview:', pdfText.substring(0, 500));
+      } else {
+        console.log('⚠️ PDF text extraction response indicates failure');
+        pdfText = pdfTextResponse; // Fallback to raw response
+      }
+    } catch (parseError) {
+      console.log('⚠️ Could not parse PDF text as JSON, using raw response');
+      pdfText = pdfTextResponse; // Fallback to raw response
     }
+    
+    // Also convert PDF to DOCX for download purposes
+    const docxBuffer = await convertPdfToDocx(pdfBuffer);
+    console.log('✅ DOCX conversion successful for download');
+    console.log('📄 Generated DOCX buffer size:', docxBuffer.length, 'bytes');
+    
+    if (pdfText.length > 0) {
+      // Use PDF text as the primary content source
+      console.log('✅ Using PDF text as primary content source');
+      
+      // Extract placeholders from PDF text
+      const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+      const placeholders = [...new Set(
+        (pdfText.match(placeholderRegex) || [])
+          .map(match => match.substring(1))
+      )];
+      
+      console.log('📝 Extracted placeholders from PDF text:', placeholders);
+      
+      // Split content into paragraphs
+      const lines = pdfText.split('\n').filter(line => line.trim().length > 0);
+      const paragraphs = lines.map((line, index) => {
+        const trimmedLine = line.trim();
+        const placeholderMatch = trimmedLine.match(/@(\w+)/);
+        const isPlaceholder = !!placeholderMatch;
+        const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+        let style = 'normal';
+        let level = 1;
+
+        // Detect headings (short lines, all caps, or ending with colon)
+        if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+          style = 'heading';
+          level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+        } else if (trimmedLine.match(/^\d+\./)) {
+          style = 'list';
+        }
+
+        return {
+          id: (index + 1).toString(),
+          text: trimmedLine,
+          style: style,
+          level: level,
+          isPlaceholder: isPlaceholder,
+          placeholderName: placeholderName
+        };
+      });
+      
+      // Create a proper DOCX file with actual content
+      console.log('📝 Creating proper DOCX file with extracted content...');
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: paragraphs.map(p => {
+            if (p.isPlaceholder) {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: p.text,
+                    bold: true,
+                    color: "FF0000" // Red color for placeholders
+                  })
+                ]
+              });
+            } else if (p.style === 'heading') {
+              return new Paragraph({
+                heading: p.level === 1 ? HeadingLevel.HEADING_1 : 
+                         p.level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
+                children: [
+                  new TextRun({
+                    text: p.text,
+                    bold: true,
+                    size: p.level === 1 ? 32 : p.level === 2 ? 28 : 24
+                  })
+                ]
+              });
+            } else {
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: p.text,
+                    size: 24
+                  })
+                ]
+              });
+            }
+          })
+        }]
+      });
+
+      // Generate the proper DOCX buffer
+      const properDocxBuffer = await Packer.toBuffer(doc);
+      console.log('✅ Created proper DOCX file with content, size:', properDocxBuffer.length, 'bytes');
+
+      // Create response with PDF text content and proper DOCX
+      return {
+        success: true,
+        wordContent: {
+          paragraphs: paragraphs,
+          tables: [],
+          totalParagraphs: paragraphs.length,
+          placeholders: placeholders,
+          conversionMethod: 'cloudmersive-pdf-text',
+          docxBuffer: properDocxBuffer.toString('base64'), // Use the proper DOCX
+          fullHtml: `<div class="prose"><p>${pdfText.replace(/\n/g, '</p><p>')}</p></div>`
+        },
+        message: 'PDF text extracted and proper DOCX file created successfully',
+        conversionMethod: 'cloudmersive-pdf-text'
+      };
+    }
+    
+    // Extract content from DOCX using mammoth library with HTML output for better formatting
+    console.log('📖 Parsing DOCX content using mammoth with HTML output...');
+    console.log('📄 DOCX buffer size for mammoth:', docxBuffer.length, 'bytes');
+    
+    const result = await mammoth.convertToHtml({ buffer: docxBuffer });
+    const docxHtml = result.value;
+    const messages = result.messages;
+    
+    console.log('✅ DOCX HTML extraction successful');
+    console.log('📄 Extracted HTML length:', docxHtml.length, 'characters');
+    console.log('📄 Mammoth messages:', messages);
+    console.log('📄 HTML preview (first 500 chars):', docxHtml.substring(0, 500));
+    
+    // Check if HTML is empty or very short
+    if (docxHtml.length < 100) {
+      console.log('⚠️ HTML content is very short, trying raw text extraction...');
+      const rawResult = await mammoth.extractRawText({ buffer: docxBuffer });
+      console.log('📄 Raw text length:', rawResult.value.length, 'characters');
+      console.log('📄 Raw text preview:', rawResult.value.substring(0, 500));
+      
+      if (rawResult.value.length > docxHtml.length) {
+        console.log('🔄 Using raw text instead of HTML');
+        const docxText = rawResult.value;
+        
+        // Extract placeholders using regex
+        const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+        const placeholders = [...new Set(
+          (docxText.match(placeholderRegex) || [])
+            .map(match => match.substring(1))
+        )];
+        
+        console.log('📝 Extracted placeholders from raw text:', placeholders);
+        
+        // Split content into paragraphs for better display
+        const lines = docxText.split('\n').filter(line => line.trim().length > 0);
+        const paragraphs = lines.map((line, index) => {
+          const trimmedLine = line.trim();
+          const placeholderMatch = trimmedLine.match(/@(\w+)/);
+          const isPlaceholder = !!placeholderMatch;
+          const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+          let style = 'normal';
+          let level = 1;
+
+          // Detect headings (short lines, all caps, or ending with colon)
+          if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+            style = 'heading';
+            level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+          } else if (trimmedLine.match(/^\d+\./)) {
+            style = 'list';
+          }
+
+          return {
+            id: (index + 1).toString(),
+            text: trimmedLine,
+            style: style,
+            level: level,
+            isPlaceholder: isPlaceholder,
+            placeholderName: placeholderName
+          };
+        });
+        
+        // Create response with raw text content
+        return {
+          success: true,
+          wordContent: {
+            paragraphs: paragraphs,
+            tables: [],
+            totalParagraphs: paragraphs.length,
+            placeholders: placeholders,
+            conversionMethod: 'cloudmersive',
+            docxBuffer: docxBuffer.toString('base64'),
+            fullHtml: `<div class="prose"><p>${docxText.replace(/\n/g, '</p><p>')}</p></div>`
+          },
+          message: 'PDF converted to DOCX using Cloudmersive API with raw text extraction',
+          conversionMethod: 'cloudmersive'
+        };
+      } else {
+        console.log('⚠️ Both HTML and raw text extraction failed, trying PDF text extraction...');
+        
+        // Fallback: Try to extract text directly from PDF
+        try {
+          const { extractTextFromPdf } = await import('@/lib/cloudmersive');
+          const pdfText = await extractTextFromPdf(pdfBuffer);
+          console.log('📄 PDF text extraction successful, length:', pdfText.length);
+          
+          if (pdfText.length > 0) {
+            // Extract placeholders from PDF text
+            const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+            const placeholders = [...new Set(
+              (pdfText.match(placeholderRegex) || [])
+                .map(match => match.substring(1))
+            )];
+            
+            // Split content into paragraphs
+            const lines = pdfText.split('\n').filter(line => line.trim().length > 0);
+            const paragraphs = lines.map((line, index) => {
+              const trimmedLine = line.trim();
+              const placeholderMatch = trimmedLine.match(/@(\w+)/);
+              const isPlaceholder = !!placeholderMatch;
+              const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+              let style = 'normal';
+              let level = 1;
+
+              if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+                style = 'heading';
+                level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+              } else if (trimmedLine.match(/^\d+\./)) {
+                style = 'list';
+              }
+
+              return {
+                id: (index + 1).toString(),
+                text: trimmedLine,
+                style: style,
+                level: level,
+                isPlaceholder: isPlaceholder,
+                placeholderName: placeholderName
+              };
+            });
+            
+            return {
+              success: true,
+              wordContent: {
+                paragraphs: paragraphs,
+                tables: [],
+                totalParagraphs: paragraphs.length,
+                placeholders: placeholders,
+                conversionMethod: 'cloudmersive-pdf-text',
+                docxBuffer: docxBuffer.toString('base64'),
+                fullHtml: `<div class="prose"><p>${pdfText.replace(/\n/g, '</p><p>')}</p></div>`
+              },
+              message: 'PDF text extracted directly using Cloudmersive API (DOCX conversion had issues)',
+              conversionMethod: 'cloudmersive-pdf-text'
+            };
+          }
+        } catch (pdfTextError) {
+          console.error('❌ PDF text extraction also failed:', pdfTextError);
+        }
+      }
+    }
+    
+    // Convert HTML to plain text for placeholder extraction
+    const docxText = docxHtml.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    
+    // Extract placeholders using regex
+    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    const placeholders = [...new Set(
+      (docxText.match(placeholderRegex) || [])
+        .map(match => match.substring(1))
+    )];
+    
+    console.log('📝 Extracted placeholders:', placeholders);
+    
+    // Split content into paragraphs for better display
+    const lines = docxText.split('\n').filter(line => line.trim().length > 0);
+    const paragraphs = lines.map((line, index) => {
+      const trimmedLine = line.trim();
+      const placeholderMatch = trimmedLine.match(/@(\w+)/);
+      const isPlaceholder = !!placeholderMatch;
+      const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+      let style = 'normal';
+      let level = 1;
+
+      // Detect headings (short lines, all caps, or ending with colon)
+      if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+        style = 'heading';
+        level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+      } else if (trimmedLine.match(/^\d+\./)) {
+        style = 'list';
+      }
+
+      return {
+        id: (index + 1).toString(),
+        text: trimmedLine,
+        style: style,
+        level: level,
+        isPlaceholder: isPlaceholder,
+        placeholderName: placeholderName
+      };
+    });
+    
+    // Create response with proper DOCX content
+    return {
+      success: true,
+      wordContent: {
+        paragraphs: paragraphs,
+        tables: [],
+        totalParagraphs: paragraphs.length,
+        placeholders: placeholders,
+        conversionMethod: 'cloudmersive',
+        docxBuffer: docxBuffer.toString('base64'), // Include DOCX buffer for download
+        fullHtml: docxHtml // Include full HTML for rich display
+      },
+      message: 'PDF converted to DOCX using Cloudmersive API with mammoth HTML extraction',
+      conversionMethod: 'cloudmersive'
+    };
     
   } catch (error) {
-    console.error('❌ Adobe PDF Services API error:', error);
-    console.log('🔄 Falling back to mock conversion...');
-    // Fallback to mock conversion if Adobe API fails
-    return await mockAdobeConversion(pdfBuffer);
+    console.error('❌ Cloudmersive conversion error:', error);
+    throw error;
   }
 }
 
-// Mock conversion for testing
-async function mockAdobeConversion(pdfBuffer: Buffer) {
-  console.log('🔄 Using mock Adobe conversion...');
+// LibreOffice CLI conversion
+async function libreOfficeConversion(pdfBuffer: Buffer) {
+  try {
+    console.log('🚀 Using LibreOffice CLI for PDF to DOCX conversion...');
+    console.log('📄 Processing PDF buffer of size:', pdfBuffer.length, 'bytes');
+    
+    // Convert PDF to DOCX using LibreOffice CLI
+    const docxBuffer = await libreOfficePdfToDocx(pdfBuffer);
+    
+    console.log('✅ LibreOffice conversion successful');
+    console.log('📄 Generated DOCX buffer size:', docxBuffer.length, 'bytes');
+    
+    // Extract text from DOCX using mammoth library
+    console.log('📖 Parsing DOCX content using mammoth...');
+    
+    const result = await mammoth.extractRawText({ buffer: docxBuffer });
+    const docxText = result.value;
+    const messages = result.messages;
+    
+    console.log('✅ DOCX text extraction successful');
+    console.log('📄 Extracted text length:', docxText.length, 'characters');
+    console.log('📄 Mammoth messages:', messages);
+    
+    // Extract placeholders using regex
+    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    const placeholders = [...new Set(
+      (docxText.match(placeholderRegex) || [])
+        .map(match => match.substring(1))
+    )];
+    
+    console.log('📝 Extracted placeholders:', placeholders);
+    
+    // Split content into paragraphs for better display
+    const lines = docxText.split('\n').filter(line => line.trim().length > 0);
+    const paragraphs = lines.map((line, index) => {
+      const trimmedLine = line.trim();
+      const placeholderMatch = trimmedLine.match(/@(\w+)/);
+      const isPlaceholder = !!placeholderMatch;
+      const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+      let style = 'normal';
+      let level = 1;
+
+      // Detect headings (short lines, all caps, or ending with colon)
+      if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+        style = 'heading';
+        level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+      } else if (trimmedLine.match(/^\d+\./)) {
+        style = 'list';
+      }
+
+      return {
+        id: (index + 1).toString(),
+        text: trimmedLine,
+        style: style,
+        level: level,
+        isPlaceholder: isPlaceholder,
+        placeholderName: placeholderName
+      };
+    });
+    
+    // Create response with proper DOCX content
+    return {
+      success: true,
+      wordContent: {
+        paragraphs: paragraphs,
+        tables: [],
+        totalParagraphs: paragraphs.length,
+        placeholders: placeholders,
+        conversionMethod: 'libreoffice',
+        docxBuffer: docxBuffer.toString('base64') // Include DOCX buffer for download
+      },
+      message: 'PDF converted to DOCX using LibreOffice CLI with mammoth text extraction',
+      conversionMethod: 'libreoffice'
+    };
+    
+  } catch (error) {
+    console.error('❌ LibreOffice conversion error:', error);
+    throw error;
+  }
+}
+
+// Mock conversion for testing (when no real conversion tools are available)
+async function mockConversion(pdfBuffer: Buffer) {
+  console.log('🔄 Using mock conversion...');
   
   // Create a realistic Word document content based on your PDF
   const wordContent = `COMPUTER SCIENCE SYLLABUS
@@ -264,545 +672,15 @@ This syllabus is subject to change with prior notice to students.`;
   ];
   
   return {
+    success: true,
+    wordContent: {
     paragraphs: paragraphs,
     tables: tables,
     totalParagraphs: paragraphs.length,
-    placeholders: paragraphs.filter(p => p.isPlaceholder).map(p => p.placeholderName)
+      placeholders: paragraphs.filter(p => p.isPlaceholder).map(p => p.placeholderName),
+      conversionMethod: 'mock'
+    },
+    message: 'PDF converted to Word using mock conversion (for testing)',
+    conversionMethod: 'mock'
   };
 }
-
-// Adobe API helper functions
-async function getAdobeAccessToken(): Promise<string> {
-  const clientId = process.env.ADOBE_CLIENT_ID;
-  const clientSecret = process.env.ADOBE_CLIENT_SECRET;
-  
-  if (!clientId || !clientSecret) {
-    throw new Error('Adobe credentials not configured');
-  }
-  
-  console.log('🔑 Requesting Adobe access token...');
-  
-  const response = await fetch('https://ims-na1.adobelogin.com/ims/token/v3', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      grant_type: 'client_credentials',
-      client_id: clientId,
-      client_secret: clientSecret,
-      scope: 'DCAPI'
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Adobe token response error:', response.status, response.statusText);
-    console.error('❌ Error response body:', errorText);
-    throw new Error(`Failed to get access token: ${response.statusText} - ${errorText}`);
-  }
-  
-  const data = await response.json();
-  console.log('✅ Adobe access token obtained successfully');
-  return data.access_token;
-}
-
-async function uploadToAdobe(pdfBuffer: Buffer, accessToken: string): Promise<{ assetID: string }> {
-  // Create FormData with proper file format
-  const formData = new FormData();
-  
-  // Create a proper File object with correct MIME type
-  const file = new File([new Uint8Array(pdfBuffer)], 'document.pdf', { 
-    type: 'application/pdf',
-    lastModified: Date.now()
-  });
-  
-  formData.append('file', file);
-  
-  console.log('📤 Uploading PDF to Adobe...');
-  console.log('📄 File size:', pdfBuffer.length, 'bytes');
-  console.log('📄 File type:', file.type);
-  console.log('📄 File name:', file.name);
-  
-  const response = await fetch('https://pdf-services-ue1.adobe.io/assets', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'X-API-Key': process.env.ADOBE_CLIENT_ID!,
-      'Accept': 'application/json',
-      'User-Agent': 'Adobe-PDF-Services-Node-SDK/3.0.0'
-    },
-    body: formData
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Adobe upload response error:', response.status, response.statusText);
-    console.error('❌ Error response body:', errorText);
-    console.error('❌ Response headers:', Object.fromEntries(response.headers.entries()));
-    throw new Error(`Failed to upload PDF: ${response.statusText} - ${errorText}`);
-  }
-  
-  const data = await response.json();
-  console.log('✅ PDF uploaded successfully, assetID:', data.assetID);
-  return { assetID: data.assetID };
-}
-
-async function startConversionJob(assetID: string, accessToken: string): Promise<{ jobID: string }> {
-  const response = await fetch('https://pdf-services-ue1.adobe.io/operation/exportpdf', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'X-API-Key': process.env.ADOBE_CLIENT_ID!,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      assetID: assetID,
-      targetFormat: 'docx'
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('❌ Adobe API response error:', response.status, response.statusText);
-    console.error('❌ Error response body:', errorText);
-    throw new Error(`Failed to start conversion job: ${response.statusText} - ${errorText}`);
-  }
-  
-  const data = await response.json();
-  console.log('✅ Conversion job started, jobID:', data.jobID);
-  return { jobID: data.jobID };
-}
-
-async function pollForJobCompletion(jobID: string, accessToken: string): Promise<any> {
-  let attempts = 0;
-  const maxAttempts = 30; // 5 minutes max
-  
-  while (attempts < maxAttempts) {
-    const response = await fetch(`https://pdf-services-ue1.adobe.io/operation/exportpdf/${jobID}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'X-API-Key': process.env.ADOBE_CLIENT_ID!
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to check job status: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    
-    if (data.status === 'done') {
-      // Download the converted Word document
-      const downloadResponse = await fetch(data.asset.downloadUri, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
-      
-      if (!downloadResponse.ok) {
-        throw new Error(`Failed to download converted document: ${downloadResponse.statusText}`);
-      }
-      
-      const wordBuffer = Buffer.from(await downloadResponse.arrayBuffer());
-      
-      // Extract text from Word document using mammoth
-      const mammoth = await import('mammoth');
-      const result = await mammoth.extractRawText({ buffer: wordBuffer });
-      const text = result.value;
-      
-      // Parse the text into paragraphs and extract placeholders
-      const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
-      const paragraphs = lines.map((line: string) => {
-        const trimmedLine = line.trim();
-        const placeholderMatch = trimmedLine.match(/@(\w+)/);
-        
-        return {
-          text: trimmedLine,
-          isPlaceholder: !!placeholderMatch,
-          placeholderName: placeholderMatch ? placeholderMatch[1] : null
-        };
-      });
-      
-      const placeholders = paragraphs
-        .filter((p: any) => p.isPlaceholder && p.placeholderName)
-        .map((p: any) => p.placeholderName!)
-        .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
-      
-      return {
-        success: true,
-        message: 'PDF converted to Word using real Adobe PDF Services API',
-        wordContent: {
-          paragraphs: paragraphs,
-          placeholders: placeholders,
-          tables: []
-        }
-      };
-    } else if (data.status === 'failed') {
-      throw new Error(`Conversion job failed: ${data.error?.message || 'Unknown error'}`);
-    }
-    
-    // Wait 10 seconds before next poll
-    await new Promise(resolve => setTimeout(resolve, 10000));
-    attempts++;
-  }
-  
-  throw new Error('Conversion job timed out');
-}
-
-// Reliable PDF text extraction function
-function extractTextFromPDF(pdfBuffer: Buffer): string {
-  try {
-    // For complex PDFs, return a comprehensive sample document with placeholders
-    // This ensures the admin template upload page works correctly
-    return `Computer Science Lab Manual
-
-Department of Computer Science
-Academic Year 2024-2025
-
-LAB MANUAL OVERVIEW
-This lab manual covers practical exercises in computer science including programming, data structures, algorithms, and software engineering principles.
-
-LAB OBJECTIVES
-1. To understand basic programming concepts through hands-on practice
-2. To learn data structures and algorithms implementation
-3. To develop problem-solving skills through coding exercises
-4. To understand software engineering principles and best practices
-
-Student Information:
-Student Name: @studentName
-Roll Number: @rollNumber
-Course: @course
-Date: @date
-Semester: @semester
-Section: @section
-
-Lab Schedule:
-- Lab 1: Introduction to Programming - @lab1Date
-- Lab 2: Data Structures - @lab2Date
-- Lab 3: Algorithms - @lab3Date
-- Lab 4: Software Engineering - @lab4Date
-
-Assessment Criteria:
-- Lab Performance: 40%
-- Lab Reports: 30%
-- Final Project: 20%
-- Attendance: 10%
-
-Prerequisites:
-- Basic programming knowledge
-- Mathematics foundation
-- Problem-solving skills
-- Computer literacy
-
-Lab Equipment:
-- Computer systems with required software
-- Development environment setup
-- Internet connectivity for research
-- Reference materials and documentation
-
-Safety Guidelines:
-- Follow lab rules and regulations
-- Maintain clean and organized workspace
-- Report any technical issues immediately
-- Respect equipment and fellow students
-
-Contact Information:
-Lab Instructor: @instructorName
-Email: @instructorEmail
-Office Hours: @officeHours
-Lab Assistant: @assistantName`;
-    
-  } catch (error) {
-    console.error('❌ PDF text extraction error:', error);
-    // Return sample text as fallback
-    return `Sample Document
-
-@studentName
-@rollNumber
-@course
-@date
-
-This is a sample document with placeholders for testing purposes.`;
-  }
-}
-
-// Real Adobe PDF to Word conversion that creates actual .docx files
-async function realAdobePDFToWordConversion(pdfBuffer: Buffer): Promise<any> {
-  try {
-    console.log('🔧 Creating real .docx file using Adobe PDF Services API...');
-    
-    // Create temporary files
-    const tempPdfPath = `/tmp/input_${uuidv4()}.pdf`;
-    const tempWordPath = `/tmp/output_${uuidv4()}.docx`;
-    
-    // Write PDF to temporary file
-    fs.writeFileSync(tempPdfPath, pdfBuffer);
-    
-    try {
-      // Use Adobe PDF Services API via HTTPS
-      const clientId = process.env.ADOBE_CLIENT_ID;
-      const clientSecret = process.env.ADOBE_CLIENT_SECRET;
-      
-      // Get access token
-      const tokenResponse = await fetch('https://pdf-services.adobe.io/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          'client_id': clientId!,
-          'client_secret': clientSecret!,
-          'grant_type': 'client_credentials',
-          'scope': 'https://pdf-services.adobe.io/pdf-conversion'
-        })
-      });
-      
-      if (!tokenResponse.ok) {
-        throw new Error(`Token request failed: ${tokenResponse.status}`);
-      }
-      
-      const tokenData = await tokenResponse.json();
-      const accessToken = tokenData.access_token;
-      
-      console.log('🔑 Adobe access token obtained');
-      
-      // Create job for PDF to Word conversion
-      const jobResponse = await fetch('https://pdf-services.adobe.io/operation/pdf-conversion', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'X-API-Key': clientId!,
-        },
-        body: JSON.stringify({
-          'input': {
-            'href': `data:application/pdf;base64,${pdfBuffer.toString('base64')}`,
-            'storage': 'base64'
-          },
-          'output': {
-            'format': 'docx'
-          }
-        })
-      });
-      
-      if (!jobResponse.ok) {
-        throw new Error(`Job creation failed: ${jobResponse.status}`);
-      }
-      
-      const jobData = await jobResponse.json();
-      const jobId = jobData.jobId;
-      
-      console.log('📋 Adobe conversion job created:', jobId);
-      
-      // Poll for job completion
-      let attempts = 0;
-      const maxAttempts = 30;
-      
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        
-        const statusResponse = await fetch(`https://pdf-services.adobe.io/operation/pdf-conversion/${jobId}`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'X-API-Key': clientId!,
-          }
-        });
-        
-        const statusData = await statusResponse.json();
-        
-        if (statusData.status === 'done') {
-          console.log('✅ Adobe conversion completed successfully!');
-          
-          // Download the converted Word document
-          const downloadResponse = await fetch(statusData.output.downloadUri, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            }
-          });
-          
-          const wordBuffer = Buffer.from(await downloadResponse.arrayBuffer());
-          
-          // Save the Word document
-          fs.writeFileSync(tempWordPath, wordBuffer);
-          
-          console.log('📄 Word document saved:', tempWordPath);
-          
-          // Read the Word document content using mammoth
-          const mammoth = await import('mammoth');
-          const result = await mammoth.extractRawText({ buffer: wordBuffer });
-          const text = result.value;
-          
-          // Parse the text into paragraphs and extract placeholders
-          const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
-          const paragraphs = lines.map((line: string, index: number) => {
-            const trimmedLine = line.trim();
-            const placeholderMatch = trimmedLine.match(/@(\w+)/);
-            
-            return {
-              id: index + 1,
-              text: trimmedLine,
-              style: trimmedLine.length > 50 ? 'normal' : 'heading',
-              level: 1,
-              isPlaceholder: !!placeholderMatch,
-              placeholderName: placeholderMatch ? placeholderMatch[1] : null
-            };
-          });
-          
-          const placeholders = paragraphs
-            .filter((p: any) => p.isPlaceholder && p.placeholderName)
-            .map((p: any) => p.placeholderName!)
-            .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
-          
-          console.log('📝 Extracted placeholders from Word document:', placeholders);
-          
-          // Clean up temporary files
-          if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
-          if (fs.existsSync(tempWordPath)) fs.unlinkSync(tempWordPath);
-          
-          return {
-            success: true,
-            message: 'PDF converted to Word using real Adobe PDF Services API',
-            wordContent: {
-              paragraphs: paragraphs,
-              placeholders: placeholders,
-              tables: [],
-              wordFileBuffer: wordBuffer.toString('base64') // Include the actual Word file
-            }
-          };
-        } else if (statusData.status === 'failed') {
-          throw new Error(`Adobe conversion failed: ${statusData.error?.message || 'Unknown error'}`);
-        }
-        
-        attempts++;
-        console.log(`⏳ Waiting for conversion... (${attempts}/${maxAttempts})`);
-      }
-      
-      throw new Error('Adobe conversion timeout');
-      
-    } catch (adobeError) {
-      console.error('❌ Adobe API error:', adobeError);
-      
-      // Clean up temporary files
-      if (fs.existsSync(tempPdfPath)) fs.unlinkSync(tempPdfPath);
-      if (fs.existsSync(tempWordPath)) fs.unlinkSync(tempWordPath);
-      
-      throw adobeError;
-    }
-    
-  } catch (error) {
-    console.error('❌ Real Adobe conversion error:', error);
-    console.log('🔄 Falling back to enhanced conversion...');
-    return await enhancedAdobeConversion(pdfBuffer);
-  }
-}
-
-// Enhanced Adobe-quality conversion (bypasses Next.js compatibility issues)
-async function enhancedAdobeConversion(pdfBuffer: Buffer) {
-  try {
-    console.log('🔑 Using Enhanced Adobe-Quality Conversion Engine...');
-    console.log('📄 Processing PDF buffer of size:', pdfBuffer.length, 'bytes');
-    
-    // Simulate Adobe-quality processing
-    console.log('🔄 Analyzing PDF structure and content...');
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate processing time
-    
-    console.log('📖 Extracting text with Adobe-quality precision...');
-    
-    // Extract text from PDF using a simple approach
-    let text = '';
-    try {
-      // Try to extract text from PDF buffer
-      const pdfString = pdfBuffer.toString('utf8');
-      
-      // Look for text content in PDF structure
-      const textMatches = pdfString.match(/\((.*?)\)/g);
-      if (textMatches && textMatches.length > 0) {
-        text = textMatches
-          .map(match => match.slice(1, -1))
-          .filter(content => content.length > 2 && /[a-zA-Z]/.test(content))
-          .join(' ');
-      }
-      
-      // If no text found, try alternative extraction
-      if (!text || text.length < 50) {
-        const readableText = pdfString.match(/[A-Za-z0-9\s@.,!?;:'"()-]+/g);
-        if (readableText && readableText.length > 0) {
-          text = readableText.join(' ').replace(/\s+/g, ' ').trim();
-        }
-      }
-      
-      console.log('📄 Real PDF text extracted:', text.substring(0, 200) + '...');
-    } catch (error) {
-      console.log('⚠️ PDF text extraction failed, using sample content');
-      text = `Sample Document Content
-
-This is a sample document created from your PDF file.
-
-Student Information:
-Student Name: @studentName
-Roll Number: @rollNumber
-Course: @course
-Date: @date
-Semester: @semester
-Section: @section
-
-Lab Schedule:
-- Lab 1: Introduction to Programming - @lab1Date
-- Lab 2: Data Structures - @lab2Date
-- Lab 3: Algorithms - @lab3Date
-- Lab 4: Software Engineering - @lab4Date
-
-Contact Information:
-Lab Instructor: @instructorName
-Email: @instructorEmail
-Office Hours: @officeHours
-Lab Assistant: @assistantName`;
-    }
-    
-    console.log('📝 Text extracted successfully, length:', text.length, 'characters');
-    
-    // Parse the text into paragraphs and extract placeholders
-    const lines = text.split('\n').filter((line: string) => line.trim().length > 0);
-    const paragraphs = lines.map((line: string, index: number) => {
-      const trimmedLine = line.trim();
-      const placeholderMatch = trimmedLine.match(/@(\w+)/);
-      
-      return {
-        id: index + 1,
-        text: trimmedLine,
-        style: trimmedLine.length > 50 ? 'normal' : 'heading',
-        level: 1,
-        isPlaceholder: !!placeholderMatch,
-        placeholderName: placeholderMatch ? placeholderMatch[1] : null
-      };
-    });
-    
-    const placeholders = paragraphs
-      .filter((p: any) => p.isPlaceholder && p.placeholderName)
-      .map((p: any) => p.placeholderName!)
-      .filter((value: string, index: number, self: string[]) => self.indexOf(value) === index);
-    
-    console.log('📝 Extracted placeholders:', placeholders);
-    console.log('✅ Adobe-quality conversion completed successfully!');
-    
-    return {
-      success: true,
-      message: 'PDF converted to Word using Adobe-quality conversion engine',
-      wordContent: {
-        paragraphs: paragraphs,
-        placeholders: placeholders,
-        tables: []
-      }
-    };
-    
-  } catch (error) {
-    console.error('❌ Enhanced conversion error:', error);
-    console.log('🔄 Falling back to standard mock conversion...');
-    return await mockAdobeConversion(pdfBuffer);
-  }
-}
-
-

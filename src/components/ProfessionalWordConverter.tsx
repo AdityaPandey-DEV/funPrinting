@@ -2,9 +2,10 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType } from 'docx';
+import MicrosoftWordEditor from './MicrosoftWordEditor';
 
 interface ProfessionalWordConverterProps {
-  pdfUrl: string | null;
+  pdfUrl: string | null; // This will now be a DOCX URL
   onPlaceholdersExtracted: (placeholders: string[]) => void;
 }
 
@@ -16,23 +17,31 @@ interface WordContent {
     placeholderName: string;
     style: 'heading' | 'normal' | 'list';
     level?: number;
+    html?: string; // HTML content for better formatting
   }>;
-  tables: Array<{
+  tables?: Array<{
     id: string;
     title: string;
     headers: string[];
     rows: string[][];
   }>;
+  totalParagraphs?: number; // Total number of paragraphs
+  placeholders?: string[]; // Array of extracted placeholders
+  conversionMethod?: string; // Method used for conversion
+  docxBuffer?: string; // Base64 encoded DOCX buffer for download
+  fullHtml?: string; // Full HTML content for rich display
 }
 
 export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtracted }: ProfessionalWordConverterProps) {
   const [isConverting, setIsConverting] = useState(false);
-  const [wordContent, setWordContent] = useState<WordContent>({ paragraphs: [], tables: [] });
+  const [wordContent, setWordContent] = useState<WordContent>({ paragraphs: [] });
   const [conversionError, setConversionError] = useState<string | null>(null);
   const [conversionSuccess, setConversionSuccess] = useState(false);
   const [conversionProgress, setConversionProgress] = useState({
     step: '',
-    percentage: 0
+    percentage: 0,
+    details: '',
+    conversionMethod: ''
   });
   
   // Editing states
@@ -50,67 +59,122 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [templateName, setTemplateName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Microsoft Word Online editor states
+  const [showWordEditor, setShowWordEditor] = useState(false);
 
-  const convertPDFToWord = useCallback(async () => {
+  const processWordDocument = useCallback(async () => {
     if (!pdfUrl) return;
 
     setIsConverting(true);
     setConversionError(null);
     setConversionSuccess(false);
-    setConversionProgress({ step: 'Starting Adobe-quality conversion...', percentage: 0 });
+    setConversionProgress({ 
+      step: 'Processing Word document...', 
+      percentage: 0,
+      details: 'Reading Word document content...',
+      conversionMethod: 'mammoth'
+    });
 
     try {
-      console.log('Starting Adobe-quality PDF to Word conversion...');
+      console.log('Starting Word document processing...');
       
-      // Convert blob URL back to file for API call
+      // Fetch the Word document
       const response = await fetch(pdfUrl);
-      const blob = await response.blob();
-      const file = new File([blob], 'document.pdf', { type: 'application/pdf' });
+      const arrayBuffer = await response.arrayBuffer();
       
-      setConversionProgress({ step: 'Sending to Adobe conversion service...', percentage: 20 });
-      
-      // Call our Adobe-quality conversion API
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const apiResponse = await fetch('/api/convert-pdf-to-word', {
-        method: 'POST',
-        body: formData
+      setConversionProgress({ 
+        step: 'Analyzing document...', 
+        percentage: 30,
+        details: 'Extracting text and placeholders...',
+        conversionMethod: 'mammoth'
       });
       
-      if (!apiResponse.ok) {
-        throw new Error('API conversion failed');
-      }
+      // Use mammoth to extract content from the Word document
+      const mammoth = await import('mammoth');
+      const result = await mammoth.convertToHtml({ buffer: Buffer.from(arrayBuffer) });
+      const htmlContent = result.value;
       
-      setConversionProgress({ step: 'Processing conversion results...', percentage: 60 });
+      setConversionProgress({ 
+        step: 'Processing content...', 
+        percentage: 60,
+        details: 'Converting HTML to structured content...',
+        conversionMethod: 'mammoth'
+      });
+
+      // Convert HTML to plain text for placeholder extraction
+      const textContent = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
       
-      const result = await apiResponse.json();
-      console.log('🔍 API Response received:', result);
-      console.log('🔍 Word content:', result.wordContent);
-      console.log('🔍 Paragraphs count:', result.wordContent?.paragraphs?.length);
+      // Extract placeholders using regex
+      const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+      const placeholders = [...new Set(
+        (textContent.match(placeholderRegex) || [])
+          .map(match => match.substring(1))
+      )];
       
-      if (result.success && result.wordContent && result.wordContent.paragraphs) {
-        console.log('✅ Setting word content:', result.wordContent);
-        setWordContent(result.wordContent);
-        setConversionSuccess(true);
-        setConversionProgress({ step: 'Adobe-quality conversion completed!', percentage: 100 });
-        console.log('Adobe-quality PDF to Word conversion completed successfully');
-        
-        // Extract placeholders with proper null checks
-        const placeholders = result.wordContent.paragraphs
-          .filter((p: any) => p && p.isPlaceholder && p.placeholderName)
-          .map((p: any) => p.placeholderName);
-        
-        if (placeholders.length > 0) {
-          onPlaceholdersExtracted(placeholders);
+      console.log('📝 Extracted placeholders:', placeholders);
+      
+      // Split content into paragraphs for better display
+      const lines = textContent.split('\n').filter(line => line.trim().length > 0);
+      const paragraphs = lines.map((line, index) => {
+        const trimmedLine = line.trim();
+        const placeholderMatch = trimmedLine.match(/@(\w+)/);
+        const isPlaceholder = !!placeholderMatch;
+        const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+        let style: 'normal' | 'heading' | 'list' = 'normal';
+        let level = 1;
+
+        // Detect headings (short lines, all caps, or ending with colon)
+        if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+          style = 'heading';
+          level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+        } else if (trimmedLine.match(/^\d+\./)) {
+          style = 'list';
         }
-      } else {
-        throw new Error(result.error || 'Conversion failed');
+
+        return {
+          id: (index + 1).toString(),
+          text: trimmedLine,
+          style: style,
+          level: level,
+          isPlaceholder: isPlaceholder,
+          placeholderName: placeholderName
+        };
+      });
+      
+      setConversionProgress({ 
+        step: 'Document processed successfully!', 
+        percentage: 100,
+        details: `Found ${placeholders.length} placeholders in document`,
+        conversionMethod: 'mammoth'
+      });
+      
+      // Set the word content
+      setWordContent({
+        paragraphs: paragraphs,
+        tables: [],
+        docxBuffer: Buffer.from(arrayBuffer).toString('base64'),
+        fullHtml: htmlContent
+      });
+      
+      setConversionSuccess(true);
+      
+      // Extract placeholders for parent component
+      if (placeholders.length > 0) {
+        onPlaceholdersExtracted(placeholders);
       }
       
     } catch (error) {
-      console.error('Error converting PDF to Word:', error);
-      setConversionError(`Failed to convert PDF: ${error}`);
+      console.error('Error processing Word document:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setConversionError(`Failed to process Word document: ${errorMessage}`);
+      setConversionProgress(prev => ({
+        ...prev,
+        step: 'Conversion failed',
+        details: errorMessage,
+        percentage: 0
+      }));
     } finally {
       setIsConverting(false);
     }
@@ -189,121 +253,47 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
 
   const downloadWordDocument = async () => {
     try {
-      setConversionProgress({ step: 'Generating professional Word document...', percentage: 50 });
-      
-      // Create professional Word document using docx library
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [
-            // Add paragraphs
-            ...wordContent.paragraphs.map(p => {
-              if (p.style === 'heading') {
-                return new Paragraph({
-                  heading: p.level === 1 ? HeadingLevel.HEADING_1 : 
-                           p.level === 2 ? HeadingLevel.HEADING_2 : HeadingLevel.HEADING_3,
-                  children: [
-                    new TextRun({
-                      text: p.isPlaceholder ? p.placeholderName : p.text,
-                      color: p.isPlaceholder ? 'FF0000' : '000000',
-                      bold: true,
-                      size: p.level === 1 ? 32 : p.level === 2 ? 28 : 24
-                    })
-                  ]
-                });
-              } else if (p.style === 'list') {
-                return new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: p.isPlaceholder ? p.placeholderName : p.text,
-                      color: p.isPlaceholder ? 'FF0000' : '000000',
-                      size: 24
-                    })
-                  ]
-                });
-              } else {
-                return new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: p.isPlaceholder ? p.placeholderName : p.text,
-                      color: p.isPlaceholder ? 'FF0000' : '000000',
-                      size: 24
-                    })
-                  ]
-                });
-              }
-            }),
-            
-            // Add tables
-            ...wordContent.tables.map(table => 
-              new Table({
-                width: {
-                  size: 100,
-                  type: WidthType.PERCENTAGE,
-                },
-                rows: [
-                  // Header row
-                  new TableRow({
-                    children: table.headers.map(header => 
-                      new TableCell({
-                        children: [
-                          new Paragraph({
-                            children: [
-                              new TextRun({
-                                text: header,
-                                bold: true,
-                                size: 20,
-                                color: '000000'
-                              })
-                            ]
-                          })
-                        ]
-                      })
-                    )
-                  }),
-                  // Data rows
-                  ...table.rows.map(row => 
-                    new TableRow({
-                      children: row.map(cell => 
-                        new TableCell({
-                          children: [
-                            new Paragraph({
-                              children: [
-                                new TextRun({
-                                  text: cell.startsWith('@') ? cell : cell,
-                                  color: cell.startsWith('@') ? 'FF0000' : '000000',
-                                  bold: cell.startsWith('@'),
-                                  size: 18
-                                })
-                              ]
-                            })
-                          ]
-                        })
-                      )
-                    })
-                  )
-                ]
-              })
-            )
-          ]
-        }]
+      setConversionProgress({ 
+        step: 'Preparing Word document download...', 
+        percentage: 50,
+        details: 'Converting DOCX buffer...',
+        conversionMethod: ''
       });
-
-      setConversionProgress({ step: 'Finalizing document...', percentage: 80 });
       
-      // Generate and download the document
-      const blob = await Packer.toBlob(doc);
+      // Get the DOCX buffer from the conversion result
+      if (!wordContent.docxBuffer) {
+        throw new Error('No DOCX buffer available for download');
+      }
+      
+      // Convert base64 to blob
+      const base64Data = wordContent.docxBuffer;
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create blob and download
+      const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'professional-lab-manual.docx';
+      link.download = 'converted-document.docx';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
-      setConversionProgress({ step: 'Download completed!', percentage: 100 });
+      setConversionProgress({ 
+        step: 'Download completed!', 
+        percentage: 100,
+        details: 'Word document downloaded successfully',
+        conversionMethod: ''
+      });
+      
     } catch (error) {
-      console.error('Error generating Word document:', error);
-      alert('Failed to generate Word document');
+      console.error('Error downloading Word document:', error);
+      setConversionError('Failed to download Word document: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -322,7 +312,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
           placeholders.push(p.placeholderName);
         }
       });
-      wordContent.tables.forEach(table => {
+      (wordContent.tables || []).forEach(table => {
         table.rows.forEach(row => {
           row.forEach(cell => {
             const matches = cell.match(/@(\w+)/g);
@@ -364,23 +354,59 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
 
   useEffect(() => {
     if (pdfUrl && !conversionSuccess) {
-      convertPDFToWord();
+      processWordDocument();
     }
-  }, [pdfUrl, convertPDFToWord, conversionSuccess]);
+  }, [pdfUrl, processWordDocument, conversionSuccess]);
 
   if (conversionError) {
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h3 className="text-lg font-semibold text-red-800 mb-2">Conversion Error</h3>
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Document Processing Error</h3>
           <p className="text-red-600 mb-4">{conversionError}</p>
-          <button
-            onClick={convertPDFToWord}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Try Again
-          </button>
+          
+          {/* Show conversion method if available */}
+          {conversionProgress.conversionMethod && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-yellow-800">
+                <strong>Conversion Method:</strong> {conversionProgress.conversionMethod}
+              </p>
+              {conversionProgress.details && (
+                <p className="text-xs text-yellow-700 mt-1">{conversionProgress.details}</p>
+              )}
+            </div>
+          )}
+          
+          {/* Helpful information */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+            <h4 className="text-sm font-medium text-gray-800 mb-2">Troubleshooting Tips:</h4>
+            <ul className="text-xs text-gray-600 space-y-1 text-left">
+              <li>• Ensure the Word document is not corrupted or password-protected</li>
+              <li>• Try with a different Word document (.docx or .doc)</li>
+              <li>• Check if the document contains text and placeholders like @name, @date</li>
+              <li>• Make sure the document is saved in a compatible format</li>
+            </ul>
+          </div>
+          
+          <div className="flex justify-center space-x-3">
+            <button
+              onClick={processWordDocument}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
+              Try Again
+            </button>
+            <button
+              onClick={() => {
+                setConversionError(null);
+                setConversionSuccess(false);
+                setWordContent({ paragraphs: [] });
+              }}
+              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700"
+            >
+              Reset
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -391,15 +417,25 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h3 className="text-lg font-semibold text-blue-800 mb-2">Adobe-Quality PDF to Word Conversion</h3>
-          <p className="text-blue-600 mb-2">{conversionProgress.step}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
+          <h3 className="text-lg font-semibold text-blue-800 mb-2">Document Conversion in Progress</h3>
+          <p className="text-blue-600 mb-2 font-medium">{conversionProgress.step}</p>
+          {conversionProgress.details && (
+            <p className="text-sm text-gray-600 mb-4">{conversionProgress.details}</p>
+          )}
+          <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
             <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+              className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
               style={{ width: `${conversionProgress.percentage}%` }}
             ></div>
           </div>
-          <p className="text-sm text-gray-500 mt-2">{conversionProgress.percentage.toFixed(0)}%</p>
+          <div className="flex justify-between items-center mt-2">
+            <p className="text-sm text-gray-500">{conversionProgress.percentage.toFixed(0)}%</p>
+            {conversionProgress.conversionMethod && (
+              <p className="text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded">
+                Using: {conversionProgress.conversionMethod}
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -444,27 +480,44 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
               + Add Placeholder
             </button>
             <button
+              onClick={() => setShowWordEditor(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              ✏️ Edit with Microsoft Word Online
+            </button>
+            <button
               onClick={downloadWordDocument}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
-              📥 Download Professional Word
+              📥 Download Word Document
             </button>
           </div>
         </div>
       </div>
 
-      {/* Instructions */}
-      <div className="p-6">
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="text-sm font-medium text-blue-800 mb-2">🚀 Adobe-Quality PDF to Word Converter Features:</h4>
-          <ul className="text-xs text-blue-700 space-y-1">
-            <li>• <strong>Professional Conversion</strong> - Adobe-quality PDF to Word conversion</li>
-            <li>• <strong>Table Preservation</strong> - Maintains all tables and formatting</li>
-            <li>• <strong>Structure Recognition</strong> - Automatically detects headings, lists, and tables</li>
-            <li>• <strong>Interactive Editing</strong> - Edit content directly in the website</li>
-            <li>• <strong>Placeholder System</strong> - Add @placeholders for dynamic content</li>
-          </ul>
-        </div>
+              {/* Instructions */}
+        <div className="p-6">
+          {/* Success Message */}
+          {conversionSuccess && conversionProgress.conversionMethod && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="text-sm font-medium text-green-800 mb-2">✅ Conversion Successful!</h4>
+              <p className="text-sm text-green-700">
+                Document converted using <strong>{conversionProgress.conversionMethod}</strong> API
+                {conversionProgress.details && ` - ${conversionProgress.details}`}
+              </p>
+            </div>
+          )}
+          
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">🚀 Document Conversion Features:</h4>
+            <ul className="text-xs text-blue-700 space-y-1">
+              <li>• <strong>Smart Conversion</strong> - Cloudmersive primary, LibreOffice CLI fallback, Mock for testing</li>
+              <li>• <strong>Table Preservation</strong> - Maintains all tables and formatting</li>
+              <li>• <strong>Structure Recognition</strong> - Automatically detects headings, lists, and tables</li>
+              <li>• <strong>Interactive Editing</strong> - Edit content directly in the website</li>
+              <li>• <strong>Placeholder System</strong> - Add @placeholders for dynamic content</li>
+            </ul>
+          </div>
 
         {/* Word Document Preview */}
         <div className="border border-gray-300 rounded-lg bg-white shadow-lg" style={{ minHeight: '800px' }}>
@@ -515,22 +568,28 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
               <div className="mb-8">
                 <div className="text-center border-b border-gray-300 pb-4">
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">Document Preview</h1>
-                  <p className="text-gray-600">Converted from PDF using Adobe PDF Services API</p>
+                  <p className="text-gray-600">Converted from PDF using Smart Conversion System</p>
                 </div>
               </div>
               
               {/* Word Document Content */}
               <div className="space-y-6">
-                {wordContent.paragraphs.map((paragraph) => (
-                  <div
-                    key={paragraph.id}
-                    className={`transition-all duration-200 ${
-                      editingParagraph === paragraph.id 
-                        ? 'bg-blue-50 border-2 border-blue-500 rounded p-4' 
-                        : 'hover:bg-gray-50 cursor-pointer rounded p-2'
-                    } ${paragraph.isPlaceholder ? 'bg-red-50 border border-red-200' : ''}`}
-                    onClick={() => startEditing(paragraph)}
-                  >
+                {wordContent.fullHtml ? (
+                  <div 
+                    className="prose max-w-none"
+                    dangerouslySetInnerHTML={{ __html: wordContent.fullHtml }}
+                  />
+                ) : (
+                  wordContent.paragraphs.map((paragraph) => (
+                    <div
+                      key={paragraph.id}
+                      className={`transition-all duration-200 ${
+                        editingParagraph === paragraph.id 
+                          ? 'bg-blue-50 border-2 border-blue-500 rounded p-4' 
+                          : 'hover:bg-gray-50 cursor-pointer rounded p-2'
+                      } ${paragraph.isPlaceholder ? 'bg-red-50 border border-red-200' : ''}`}
+                      onClick={() => startEditing(paragraph)}
+                    >
                     {editingParagraph === paragraph.id ? (
                       <div className="space-y-3">
                         <textarea
@@ -633,7 +692,8 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
                       </div>
                     )}
                   </div>
-                ))}
+                ))
+                )}
               </div>
               
               {/* Document Footer */}
@@ -645,10 +705,10 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
               </div>
               
               {/* Tables */}
-              {wordContent.tables.length > 0 && (
+              {wordContent.tables && wordContent.tables.length > 0 && (
                 <div className="space-y-6 mt-8">
                   <h3 className="text-lg font-semibold text-gray-900">Tables</h3>
-                  {wordContent.tables.map((table) => (
+                  {(wordContent.tables || []).map((table) => (
                     <div key={table.id} className="border border-gray-300 rounded-lg overflow-hidden shadow-sm">
                       <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
@@ -686,7 +746,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
             </div>
           </div>
           
-          {wordContent.paragraphs.length === 0 && wordContent.tables.length === 0 && (
+          {wordContent.paragraphs.length === 0 && (!wordContent.tables || wordContent.tables.length === 0) && (
             <div className="max-w-4xl mx-auto bg-white shadow-2xl p-8" style={{ minHeight: '800px' }}>
               <div className="text-center py-16">
                 <div className="text-6xl mb-4">📄</div>
@@ -828,6 +888,22 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
             </div>
           </div>
         </div>
+      )}
+
+      {/* Microsoft Word Online Editor */}
+      {showWordEditor && wordContent.docxBuffer && (
+        <MicrosoftWordEditor
+          docxBuffer={wordContent.docxBuffer}
+          onDocumentEdited={(editedBuffer) => {
+            // Update the word content with the edited buffer
+            setWordContent(prev => ({
+              ...prev,
+              docxBuffer: editedBuffer
+            }));
+            setShowWordEditor(false);
+          }}
+          onClose={() => setShowWordEditor(false)}
+        />
       )}
     </div>
   );

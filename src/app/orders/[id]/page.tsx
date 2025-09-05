@@ -4,13 +4,35 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 
 interface Order {
-  id: string;
-  templateId: string;
-  templateName: string;
-  formData: { [key: string]: string };
-  pdfFile: string;
-  status: string;
-  totalAmount: number;
+  _id: string;
+  orderId: string;
+  templateId?: string;
+  templateName?: string;
+  formData?: { [key: string]: string };
+  filledPdfUrl?: string;
+  filledDocxUrl?: string;
+  status?: string;
+  paymentStatus?: string;
+  orderStatus?: string;
+  amount: number;
+  customerInfo: {
+    name: string;
+    phone: string;
+    email: string;
+  };
+  printingOptions: {
+    pageSize: string;
+    color: string;
+    sided: string;
+    copies: number;
+    pageCount?: number;
+  };
+  deliveryOption: {
+    type: string;
+    address?: string;
+    city?: string;
+    pinCode?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -46,10 +68,21 @@ export default function OrderDetailsPage() {
   };
 
   const downloadPDF = () => {
-    if (order?.pdfFile) {
+    if (order?.filledPdfUrl) {
       const link = document.createElement('a');
-      link.href = order.pdfFile;
-      link.download = `${order.templateName}_${order.id}.pdf`;
+      link.href = order.filledPdfUrl;
+      link.download = `${order.templateName || 'document'}_${order.orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const downloadDOCX = () => {
+    if (order?.filledDocxUrl) {
+      const link = document.createElement('a');
+      link.href = order.filledDocxUrl;
+      link.download = `${order.templateName || 'document'}_${order.orderId}.docx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -97,10 +130,14 @@ export default function OrderDetailsPage() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Order #{order.id.substring(0, 8)}
+              Order #{order.orderId}
             </h1>
             <p className="text-gray-600">
-              Your personalized <strong>{order.templateName}</strong> is ready!
+              {order.templateName ? (
+                <>Your personalized <strong>{order.templateName}</strong> is ready!</>
+              ) : (
+                <>Your document is ready!</>
+              )}
             </p>
           </div>
 
@@ -110,19 +147,33 @@ export default function OrderDetailsPage() {
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Order Details</h2>
               
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Template</label>
-                  <p className="text-gray-900">{order.templateName}</p>
-                </div>
+                {order.templateName && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Template</label>
+                    <p className="text-gray-900">{order.templateName}</p>
+                  </div>
+                )}
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <label className="block text-sm font-medium text-gray-700">Payment Status</label>
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    order.paymentStatus === 'completed' ? 'bg-green-100 text-green-800' :
+                    order.paymentStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                    {order.paymentStatus ? order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1) : 'Unknown'}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Order Status</label>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                    order.orderStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                    order.orderStatus === 'dispatched' ? 'bg-blue-100 text-blue-800' :
+                    order.orderStatus === 'printing' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {order.orderStatus ? order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1) : 'Unknown'}
                   </span>
                 </div>
                 
@@ -133,52 +184,78 @@ export default function OrderDetailsPage() {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Amount</label>
-                  <p className="text-gray-900">${order.totalAmount.toFixed(2)}</p>
+                  <p className="text-gray-900">₹{order.amount.toFixed(2)}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Customer</label>
+                  <p className="text-gray-900">{order.customerInfo.name}</p>
+                  <p className="text-sm text-gray-600">{order.customerInfo.email}</p>
+                  <p className="text-sm text-gray-600">{order.customerInfo.phone}</p>
                 </div>
               </div>
 
               {/* Form Data */}
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Information</h3>
-                <div className="space-y-2">
-                  {Object.entries(order.formData).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-sm text-gray-600">
-                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:
-                      </span>
-                      <span className="text-sm font-medium text-gray-900">{value}</span>
-                    </div>
-                  ))}
+              {order.formData && Object.keys(order.formData).length > 0 && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Your Information</h3>
+                  <div className="space-y-2">
+                    {Object.entries(order.formData).map(([key, value]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="text-sm text-gray-600">
+                          {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}:
+                        </span>
+                        <span className="text-sm font-medium text-gray-900">{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* PDF Preview */}
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h2>
               
-              <div className="border border-gray-300 rounded-lg overflow-hidden">
-                <iframe
-                  src={order.pdfFile}
-                  className="w-full h-96"
-                  title="PDF Preview"
-                />
-              </div>
-              
-              <div className="mt-4 flex space-x-3">
-                <button
-                  onClick={downloadPDF}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium"
-                >
-                  📥 Download PDF
-                </button>
-                <button
-                  onClick={() => window.open(order.pdfFile, '_blank')}
-                  className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 font-medium"
-                >
-                  👁️ View Full Screen
-                </button>
-              </div>
+              {order.filledPdfUrl ? (
+                <>
+                  <div className="border border-gray-300 rounded-lg overflow-hidden">
+                    <iframe
+                      src={order.filledPdfUrl}
+                      className="w-full h-96"
+                      title="PDF Preview"
+                    />
+                  </div>
+                  
+                  <div className="mt-4 flex space-x-3">
+                    <button
+                      onClick={downloadPDF}
+                      className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium"
+                    >
+                      📥 Download PDF
+                    </button>
+                    {order.filledDocxUrl && (
+                      <button
+                        onClick={downloadDOCX}
+                        className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 font-medium"
+                      >
+                        📄 Download DOCX
+                      </button>
+                    )}
+                    <button
+                      onClick={() => window.open(order.filledPdfUrl, '_blank')}
+                      className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 font-medium"
+                    >
+                      👁️ View Full Screen
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="border border-gray-300 rounded-lg p-8 text-center">
+                  <div className="text-gray-500 text-4xl mb-4">📄</div>
+                  <p className="text-gray-600">Document preview not available</p>
+                </div>
+              )}
             </div>
           </div>
 

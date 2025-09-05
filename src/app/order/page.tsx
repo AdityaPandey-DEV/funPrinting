@@ -483,7 +483,7 @@ export default function OrderPage() {
               {orderType === 'file' && (
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Upload File</h3>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <div className="form-file-upload">
                     <input
                       ref={fileInputRef}
                       type="file"
@@ -624,7 +624,7 @@ export default function OrderPage() {
                     <select
                       value={printingOptions.pageSize}
                       onChange={(e) => setPrintingOptions(prev => ({ ...prev, pageSize: e.target.value as 'A4' | 'A3' }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     >
                       <option value="A4">A4</option>
                       <option value="A3">A3</option>
@@ -638,7 +638,7 @@ export default function OrderPage() {
                     <select
                       value={printingOptions.color}
                       onChange={(e) => setPrintingOptions(prev => ({ ...prev, color: e.target.value as 'color' | 'bw' }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     >
                       <option value="bw">Black & White</option>
                       <option value="color">Color</option>
@@ -652,7 +652,7 @@ export default function OrderPage() {
                     <select
                       value={printingOptions.sided}
                       onChange={(e) => setPrintingOptions(prev => ({ ...prev, sided: e.target.value as 'single' | 'double' }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     >
                       <option value="single">Single-sided</option>
                       <option value="double">Double-sided</option>
@@ -685,7 +685,7 @@ export default function OrderPage() {
                           setPrintingOptions(prev => ({ ...prev, copies: 1 }));
                         }
                       }}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     />
                   </div>
                 </div>
@@ -765,7 +765,7 @@ export default function OrderPage() {
                         value={customerInfo.email}
                         onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
                         placeholder="Enter your email address"
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                        className="form-input flex-1"
                       />
                       <button
                         onClick={handleSendOTP}
@@ -797,7 +797,7 @@ export default function OrderPage() {
                           value={otp}
                           onChange={(e) => setOtp(e.target.value)}
                           maxLength={6}
-                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                          className="form-input flex-1"
                         />
                         <button
                           onClick={handleVerifyOTP}
@@ -847,7 +847,7 @@ export default function OrderPage() {
                       value={customerInfo.name}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Enter your full name"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     />
                   </div>
 
@@ -861,7 +861,7 @@ export default function OrderPage() {
                       value={customerInfo.phone}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="Enter your phone number"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                      className="form-select"
                     />
                   </div>
                 </div>
@@ -930,7 +930,7 @@ export default function OrderPage() {
                               }))}
                               rows={3}
                               placeholder="Enter your complete delivery address"
-                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                              className="form-select"
                             />
                           </div>
                           <div className="space-y-3">
@@ -947,7 +947,7 @@ export default function OrderPage() {
                                   city: e.target.value 
                                 }))}
                                 placeholder="Enter your city"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                                className="form-select"
                               />
                             </div>
                             <div>
@@ -963,7 +963,7 @@ export default function OrderPage() {
                                   pinCode: e.target.value 
                                 }))}
                                 placeholder="Enter PIN code"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors bg-white text-gray-900"
+                                className="form-select"
                               />
                             </div>
                           </div>
@@ -1127,7 +1127,7 @@ export default function OrderPage() {
               <div className="text-center pt-6">
                 {emailVerified ? (
                   <div className="space-y-4">
-                    <div className="bg-gray-100 border border-gray-300 text-gray-800 px-4 py-3 rounded-lg">
+                    <div className="form-message form-message-success">
                       <p className="font-medium">✅ Email Verified Successfully!</p>
                       <p className="text-sm">You can now proceed with your order</p>
                     </div>
@@ -1140,7 +1140,7 @@ export default function OrderPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-gray-100 border border-gray-300 text-gray-800 px-6 py-4 rounded-lg">
+                  <div className="form-message form-message-info">
                     <p className="font-medium">⚠️ Email Verification Required</p>
                     <p className="text-sm">Please verify your email address above to continue with your order</p>
                   </div>

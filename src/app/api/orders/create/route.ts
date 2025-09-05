@@ -7,8 +7,36 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     
-    // Check if this is a file upload or JSON data
+    // Check if this is a new template order (with templateId)
     const contentType = request.headers.get('content-type');
+    
+    if (contentType?.includes('application/json')) {
+      const body = await request.json();
+      
+      // Check if this is a new template order
+      if (body.templateId && body.formData) {
+        console.log('🔄 Detected new template order, routing to template endpoint...');
+        
+        // Route to our new template order endpoint
+        const templateOrderResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/orders/template`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+        
+        if (templateOrderResponse.ok) {
+          const templateResult = await templateOrderResponse.json();
+          return NextResponse.json(templateResult);
+        } else {
+          const errorResult = await templateOrderResponse.json();
+          return NextResponse.json(errorResult, { status: templateOrderResponse.status });
+        }
+      }
+    }
+    
+    // Continue with existing order processing for file orders and legacy template orders
     
     let customerInfo, orderType, fileURL, fileType, originalFileName, templateData, printingOptions, deliveryOption;
     

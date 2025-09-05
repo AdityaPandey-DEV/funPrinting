@@ -5,7 +5,7 @@ import ProfessionalWordConverter from '@/components/ProfessionalWordConverter';
 
 export default function DynamicTemplateUpload() {
   const [file, setFile] = useState<File | null>(null);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [docxUrl, setDocxUrl] = useState<string | null>(null);
   const [templateData, setTemplateData] = useState({
     name: '',
     description: '',
@@ -24,7 +24,7 @@ export default function DynamicTemplateUpload() {
     
     // Create preview URL
     const url = URL.createObjectURL(selectedFile);
-    setPdfUrl(url);
+    setDocxUrl(url);
     setStep('edit');
   };
 
@@ -74,14 +74,14 @@ export default function DynamicTemplateUpload() {
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'upload' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
               1
             </div>
-            <span className="ml-2">Upload PDF</span>
+            <span className="ml-2">Upload Word Document</span>
           </div>
           <div className="w-8 h-1 bg-gray-200"></div>
           <div className={`flex items-center ${step === 'edit' ? 'text-blue-600' : 'text-gray-400'}`}>
             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step === 'edit' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
               2
             </div>
-            <span className="ml-2">Convert to Word & Edit</span>
+            <span className="ml-2">Edit & Extract Placeholders</span>
           </div>
           <div className="w-8 h-1 bg-gray-200"></div>
           <div className={`flex items-center ${step === 'preview' ? 'text-blue-600' : 'text-gray-400'}`}>
@@ -99,7 +99,7 @@ export default function DynamicTemplateUpload() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf"
+              accept=".docx,.doc"
               onChange={handleFileUpload}
               className="hidden"
             />
@@ -107,16 +107,25 @@ export default function DynamicTemplateUpload() {
               onClick={() => fileInputRef.current?.click()}
               className="bg-black text-white px-8 py-4 rounded-lg hover:bg-gray-800 text-lg"
             >
-              Upload PDF Template
+              Upload Word Document
             </button>
             <p className="mt-4 text-gray-600">
-              Upload your lab manual PDF. It will be converted to Word format for easy editing.
+              Upload your Word document (.docx or .doc) with placeholders like @name, @date, etc.
             </p>
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-left">
+              <h4 className="text-sm font-medium text-blue-800 mb-2">📝 How to prepare your Word document:</h4>
+              <ul className="text-xs text-blue-700 space-y-1">
+                <li>• <strong>Use placeholders</strong> like @name, @date, @courseName, etc.</li>
+                <li>• <strong>Convert PDF to Word</strong> using Adobe online or other tools first</li>
+                <li>• <strong>Edit in Word</strong> to add your placeholders where needed</li>
+                <li>• <strong>Save as .docx</strong> format for best compatibility</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
 
-      {step === 'edit' && pdfUrl && (
+      {step === 'edit' && docxUrl && (
         <div className="space-y-6">
           {/* Template Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -159,7 +168,7 @@ export default function DynamicTemplateUpload() {
 
           {/* Professional Word Converter */}
           <ProfessionalWordConverter
-            pdfUrl={pdfUrl}
+            pdfUrl={docxUrl}
             onPlaceholdersExtracted={handlePlaceholdersExtracted}
           />
 
@@ -201,7 +210,7 @@ export default function DynamicTemplateUpload() {
                 onClick={() => {
                   setStep('upload');
                   setFile(null);
-                  setPdfUrl(null);
+                  setDocxUrl(null);
                   setExtractedPlaceholders([]);
                   setTemplateData({ name: '', description: '', category: 'lab-manual' });
                 }}

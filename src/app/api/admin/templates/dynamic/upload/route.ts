@@ -25,34 +25,79 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
-    // Convert PDF to Word using Adobe API via HTTPS
+    // Process Word document directly
     let wordContent: any;
     let wordBuffer: Buffer;
     
     try {
-      console.log('🔄 Converting PDF to Word using Adobe API via HTTPS...');
+      console.log('🔄 Processing Word document directly...');
       
-      const convertFormData = new FormData();
-      convertFormData.append('file', file);
+      // Get the Word document buffer
+      wordBuffer = Buffer.from(await file.arrayBuffer());
       
-      const convertResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/convert-pdf-to-word`, {
-        method: 'POST',
-        body: convertFormData
+      // Use mammoth to extract content from the Word document
+      const mammoth = await import('mammoth');
+      const result = await mammoth.convertToHtml({ buffer: wordBuffer });
+      const htmlContent = result.value;
+      
+      // Convert HTML to plain text for placeholder extraction
+      const textContent = htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      
+      // Extract placeholders using regex
+      const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+      const placeholders = [...new Set(
+        (textContent.match(placeholderRegex) || [])
+          .map(match => match.substring(1))
+      )];
+      
+      console.log('📝 Extracted placeholders:', placeholders);
+      
+      // Split content into paragraphs for better display
+      const lines = textContent.split('\n').filter(line => line.trim().length > 0);
+      const paragraphs = lines.map((line, index) => {
+        const trimmedLine = line.trim();
+        const placeholderMatch = trimmedLine.match(/@(\w+)/);
+        const isPlaceholder = !!placeholderMatch;
+        const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
+
+        let style = 'normal';
+        let level = 1;
+
+        // Detect headings (short lines, all caps, or ending with colon)
+        if (trimmedLine.length < 100 && (trimmedLine.toUpperCase() === trimmedLine || trimmedLine.endsWith(':')) && !isPlaceholder) {
+          style = 'heading';
+          level = trimmedLine.includes(':') ? 3 : (trimmedLine.length < 50 ? 1 : 2);
+        } else if (trimmedLine.match(/^\d+\./)) {
+          style = 'list';
+        }
+
+        return {
+          id: (index + 1).toString(),
+          text: trimmedLine,
+          style: style,
+          level: level,
+          isPlaceholder: isPlaceholder,
+          placeholderName: placeholderName
+        };
       });
-
-      if (!convertResponse.ok) {
-        throw new Error('Failed to convert PDF to Word via HTTPS API');
-      }
-
-      const convertResult = await convertResponse.json();
-      wordContent = convertResult.wordContent;
       
-      console.log('✅ PDF converted to Word successfully via HTTPS API');
+      // Create word content object
+      wordContent = {
+        paragraphs: paragraphs,
+        tables: [],
+        totalParagraphs: paragraphs.length,
+        placeholders: placeholders,
+        conversionMethod: 'mammoth',
+        docxBuffer: wordBuffer.toString('base64'),
+        fullHtml: htmlContent
+      };
+      
+      console.log('✅ Word document processed successfully');
       console.log('📝 Extracted placeholders:', wordContent.placeholders);
     } catch (error) {
-      console.error('❌ Error converting PDF to Word via HTTPS:', error);
+      console.error('❌ Error processing Word document:', error);
       return NextResponse.json(
-        { success: false, error: 'Failed to convert PDF to Word via HTTPS API' },
+        { success: false, error: 'Failed to process Word document' },
         { status: 500 }
       );
     }

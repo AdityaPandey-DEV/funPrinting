@@ -45,7 +45,7 @@ export default function AdminAuth({ onLogin, title = "Admin Login", subtitle = "
                 name="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black focus:z-10 sm:text-sm"
+                className="form-input rounded-t-md"
                 placeholder="Email address"
                 value={loginCredentials.email}
                 onChange={(e) => setLoginCredentials(prev => ({ ...prev, email: e.target.value }))}
@@ -60,7 +60,7 @@ export default function AdminAuth({ onLogin, title = "Admin Login", subtitle = "
                 name="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-2 focus:ring-black focus:border-black focus:z-10 sm:text-sm"
+                className="form-input rounded-b-md"
                 placeholder="Password"
                 value={loginCredentials.password}
                 onChange={(e) => setLoginCredentials(prev => ({ ...prev, password: e.target.value }))}
