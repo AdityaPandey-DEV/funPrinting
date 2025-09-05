@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import PlaceholderForm from './PlaceholderForm';
 
 interface MicrosoftWordEditorProps {
   docxBuffer: string; // Base64 encoded DOCX buffer
@@ -11,6 +12,8 @@ interface MicrosoftWordEditorProps {
 export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onClose }: MicrosoftWordEditorProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [documentUrl, setDocumentUrl] = useState<string>('');
+  const [showGoogleDocs, setShowGoogleDocs] = useState(false);
+  const [showPlaceholderForm, setShowPlaceholderForm] = useState(false);
 
   // Create a document URL for Microsoft Word Online
   useEffect(() => {
@@ -144,16 +147,26 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
               <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-6 flex items-center justify-center">
                 <div className="text-center max-w-2xl">
                   <div className="text-6xl mb-6">📝</div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Document Editor</h3>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Document Personalization</h3>
                   <p className="text-gray-600 mb-6 text-lg">
-                    Microsoft Word Online integration is temporarily unavailable. 
-                    Please use the download option below to edit your document locally.
+                    Upload a Word document with placeholders (like @name, @phone, @email) and we'll create a personalized form for you to fill out.
                   </p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">📥 Download & Edit</h4>
-                      <p className="text-sm text-gray-600 mb-3">Download the document and edit it locally</p>
+                      <h4 className="font-semibold text-gray-800 mb-2">🎯 Auto-Detect & Fill</h4>
+                      <p className="text-sm text-gray-600 mb-3">We'll detect placeholders and create a form</p>
+                      <button
+                        onClick={() => setShowPlaceholderForm(true)}
+                        className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                      >
+                        Fill Placeholders
+                      </button>
+                    </div>
+                    
+                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                      <h4 className="font-semibold text-gray-800 mb-2">📥 Download Original</h4>
+                      <p className="text-sm text-gray-600 mb-3">Download the original document</p>
                       <button
                         onClick={handleDownload}
                         className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
@@ -163,29 +176,14 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
                     </div>
                     
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">🌐 Microsoft Word Online</h4>
-                      <p className="text-sm text-gray-600 mb-3">Try Microsoft Word Online (may require login)</p>
-                      <a
-                        href={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(documentUrl)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm text-center"
+                      <h4 className="font-semibold text-gray-800 mb-2">🌐 Google Docs Viewer</h4>
+                      <p className="text-sm text-gray-600 mb-3">View document in Google Docs viewer</p>
+                      <button
+                        onClick={() => setShowGoogleDocs(!showGoogleDocs)}
+                        className="w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm"
                       >
-                        Open in Word Online
-                      </a>
-                    </div>
-                    
-                    <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">🌐 Google Docs</h4>
-                      <p className="text-sm text-gray-600 mb-3">Upload to Google Docs for editing</p>
-                      <a
-                        href="https://docs.google.com/document"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm text-center"
-                      >
-                        Open Google Docs
-                      </a>
+                        {showGoogleDocs ? 'Hide Viewer' : 'Show Read-Only Viewer'}
+                      </button>
                     </div>
                   </div>
                   
@@ -206,6 +204,44 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
             </div>
           )}
         </div>
+
+        {/* Google Docs Viewer */}
+        {showGoogleDocs && documentUrl && (
+          <div className="mt-4 border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-lg font-semibold text-gray-800">📄 Google Docs Viewer</h4>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => window.open(`https://docs.google.com/gview?url=${encodeURIComponent(documentUrl)}&embedded=true`, '_blank')}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                >
+                  Open in New Tab
+                </button>
+                <button
+                  onClick={() => setShowGoogleDocs(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <iframe
+                src={`https://docs.google.com/gview?url=${encodeURIComponent(documentUrl)}&embedded=true`}
+                className="w-full h-96 border-0"
+                title="Google Docs Viewer"
+                allow="clipboard-read; clipboard-write"
+                onError={() => {
+                  console.log('Google Docs viewer failed to load');
+                }}
+              />
+            </div>
+            <div className="mt-2 text-sm text-gray-600">
+              <p>💡 <strong>Note:</strong> This is a read-only view. To edit, download the document and use your preferred editor.</p>
+              <p className="mt-1">🔄 <strong>Alternative:</strong> If the viewer doesn't load, try opening in a new tab or use the download option above.</p>
+            </div>
+          </div>
+        )}
 
         {/* Footer with upload option */}
         <div className="p-4 border-t bg-gray-50">
@@ -232,6 +268,18 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
           </div>
         </div>
       </div>
+
+      {/* Placeholder Form Modal */}
+      {showPlaceholderForm && (
+        <PlaceholderForm
+          docxBuffer={docxBuffer}
+          onGenerateDocument={(formData) => {
+            console.log('Document generated with data:', formData);
+            setShowPlaceholderForm(false);
+          }}
+          onClose={() => setShowPlaceholderForm(false)}
+        />
+      )}
     </div>
   );
 }
