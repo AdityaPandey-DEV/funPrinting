@@ -165,9 +165,17 @@ export async function POST(request: NextRequest) {
     };
 
     const order = new Order(orderData);
-    await order.save();
-
-    console.log(`Template order created successfully with ID: ${order.orderId}`);
+    
+    try {
+      await order.save();
+      console.log(`✅ Template order created successfully with ID: ${order.orderId}`);
+    } catch (saveError) {
+      console.error('❌ Error saving template order to database:', saveError);
+      if (saveError instanceof Error) {
+        console.error('❌ Validation errors:', saveError.message);
+      }
+      throw saveError;
+    }
 
     return NextResponse.json({
       success: true,

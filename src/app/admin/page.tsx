@@ -79,6 +79,16 @@ function AdminDashboardContent() {
       const response = await fetch('/api/admin/orders');
       const data = await response.json();
 
+      console.log('🔍 ADMIN PANEL - Received data:', data);
+      console.log('🔍 ADMIN PANEL - Orders count:', data.orders?.length || 0);
+      console.log('🔍 ADMIN PANEL - Latest orders:', data.orders?.slice(0, 3).map((o: any) => ({
+        orderId: o.orderId,
+        createdAt: o.createdAt,
+        serviceOption: o.printingOptions?.serviceOption,
+        expectedDate: o.expectedDate,
+        amount: o.amount
+      })));
+
       if (data.success) {
         setOrders(data.orders);
       } else {

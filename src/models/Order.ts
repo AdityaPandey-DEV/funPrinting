@@ -170,9 +170,11 @@ const orderSchema = new mongoose.Schema<IOrder>({
     validate: {
       validator: function(value: Date) {
         if (!value) return true; // Optional field
-        return value > new Date(); // Must be greater than today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        return value >= today; // Must be today or later
       },
-      message: 'Expected delivery date must be greater than today'
+      message: 'Expected delivery date must be today or later'
     }
   },
 }, {
