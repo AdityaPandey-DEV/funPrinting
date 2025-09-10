@@ -8,7 +8,7 @@ interface PrintingOptions {
   color: 'color' | 'bw';
   sided: 'single' | 'double';
   copies: number;
-  binding: boolean;
+  serviceOption: 'binding' | 'file' | 'service';
 }
 
 interface CustomerInfo {
@@ -47,7 +47,7 @@ export default function OrderPage() {
     color: 'bw',
     sided: 'single',
     copies: 1,
-    binding: false,
+    serviceOption: 'service',
   });
   const [pageCount, setPageCount] = useState(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
@@ -168,9 +168,13 @@ export default function OrderPage() {
             // Calculate total amount: base price × page count × color × sided × copies
             let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
             
-            // Add binding cost if requested
-            if (printingOptions.binding) {
+            // Add compulsory service option cost
+            if (printingOptions.serviceOption === 'binding') {
               total += pricing.additionalServices.binding;
+            } else if (printingOptions.serviceOption === 'file') {
+              total += 10; // File handling fee (keep pages inside file)
+            } else if (printingOptions.serviceOption === 'service') {
+              total += 5; // Minimal service fee
             }
             
             // Add delivery charge if applicable
@@ -187,9 +191,13 @@ export default function OrderPage() {
             
             let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
             
-            // Add binding cost if requested (fallback price)
-            if (printingOptions.binding) {
+            // Add compulsory service option cost (fallback amounts)
+            if (printingOptions.serviceOption === 'binding') {
               total += 20; // Default binding cost
+            } else if (printingOptions.serviceOption === 'file') {
+              total += 10;
+            } else if (printingOptions.serviceOption === 'service') {
+              total += 5;
             }
             
             if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
@@ -711,24 +719,51 @@ export default function OrderPage() {
                 {/* Additional Services - Separate Section */}
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Additional Services
+                    Service Option (one is required)
                   </label>
                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center space-x-3">
-                      <label className="flex items-center cursor-pointer">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
                         <input
-                          type="checkbox"
-                          checked={printingOptions.binding}
-                          onChange={(e) => setPrintingOptions(prev => ({ ...prev, binding: e.target.checked }))}
+                          type="radio"
+                          name="serviceOption"
+                          checked={printingOptions.serviceOption === 'binding'}
+                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'binding' }))}
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
                         <span className="ml-3 text-sm font-medium text-gray-700">
-                          📎 Binding Service (+₹{pricingData?.additionalServices?.binding || 20})
+                          📎 Binding (+₹{pricingData?.additionalServices?.binding || 20})
+                        </span>
+                      </label>
+
+                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                        <input
+                          type="radio"
+                          name="serviceOption"
+                          checked={printingOptions.serviceOption === 'file'}
+                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'file' }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          🗂️ File handling (₹10)
+                        </span>
+                      </label>
+
+                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                        <input
+                          type="radio"
+                          name="serviceOption"
+                          checked={printingOptions.serviceOption === 'service'}
+                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'service' }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-3 text-sm font-medium text-gray-700">
+                          ✅ Minimal service fee (₹5)
                         </span>
                       </label>
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 ml-7">
-                      Professional binding for your documents
+                    <p className="text-xs text-gray-500 mt-2">
+                      Choose one: Binding, File handling to keep pages inside file, or minimal service fee.
                     </p>
                   </div>
                 </div>
@@ -768,10 +803,22 @@ export default function OrderPage() {
                     <span className="text-gray-600">Copies:</span>
                     <span className="font-medium text-gray-800">{printingOptions.copies}</span>
                   </div>
-                  {printingOptions.binding && (
+                  {printingOptions.serviceOption === 'binding' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Binding:</span>
                       <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
+                    </div>
+                  )}
+                  {printingOptions.serviceOption === 'file' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">File handling:</span>
+                      <span className="font-medium text-gray-800">₹10</span>
+                    </div>
+                  )}
+                  {printingOptions.serviceOption === 'service' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Service fee:</span>
+                      <span className="font-medium text-gray-800">₹5</span>
                     </div>
                   )}
                   <div className="border-t pt-3 mt-4">
@@ -1100,7 +1147,7 @@ export default function OrderPage() {
                           <span className="text-gray-600">Copies:</span>
                           <span className="font-medium text-gray-800">{printingOptions.copies}</span>
                         </div>
-                        {printingOptions.binding && (
+                        {printingOptions.serviceOption === 'binding' && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Binding:</span>
                             <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
@@ -1178,10 +1225,22 @@ export default function OrderPage() {
                         <span className="text-gray-600">Copies:</span>
                         <span className="font-medium text-gray-800">{printingOptions.copies} copy(ies)</span>
                       </div>
-                      {printingOptions.binding && (
+                      {printingOptions.serviceOption === 'binding' && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Binding Service:</span>
                           <span className="font-medium text-blue-600">₹{pricingData?.additionalServices?.binding || 20}</span>
+                        </div>
+                      )}
+                      {printingOptions.serviceOption === 'file' && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">File handling:</span>
+                          <span className="font-medium text-gray-800">₹10</span>
+                        </div>
+                      )}
+                      {printingOptions.serviceOption === 'service' && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Service fee:</span>
+                          <span className="font-medium text-gray-800">₹5</span>
                         </div>
                       )}
                       {deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge && (
