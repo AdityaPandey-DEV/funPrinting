@@ -26,10 +26,14 @@ export interface IOrder {
   };
   printingOptions: {
     pageSize: 'A4' | 'A3';
-    color: 'color' | 'bw';
+    color: 'color' | 'bw' | 'mixed';
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
+    pageColors?: {
+      colorPages: number[]; // Array of page numbers that should be printed in color
+      bwPages: number[];    // Array of page numbers that should be printed in B&W
+    };
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
@@ -94,7 +98,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
     },
     color: {
       type: String,
-      enum: ['color', 'bw'],
+      enum: ['color', 'bw', 'mixed'],
       required: true,
     },
     sided: {
@@ -110,6 +114,10 @@ const orderSchema = new mongoose.Schema<IOrder>({
     pageCount: {
       type: Number,
       default: 1,
+    },
+    pageColors: {
+      colorPages: [Number], // Array of page numbers for color printing
+      bwPages: [Number],    // Array of page numbers for B&W printing
     },
   },
   paymentStatus: {

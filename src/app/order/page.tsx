@@ -5,10 +5,14 @@ import { useRouter } from 'next/navigation';
 
 interface PrintingOptions {
   pageSize: 'A4' | 'A3';
-  color: 'color' | 'bw';
+  color: 'color' | 'bw' | 'mixed';
   sided: 'single' | 'double';
   copies: number;
   serviceOption: 'binding' | 'file' | 'service';
+  pageColors?: {
+    colorPages: number[];
+    bwPages: number[];
+  };
 }
 
 interface CustomerInfo {
@@ -31,6 +35,53 @@ interface DeliveryOption {
   pinCode?: string;
 }
 
+// Helper functions for page color selection
+const parsePageRange = (input: string): number[] => {
+  if (!input.trim()) return [];
+  
+  const pages: number[] = [];
+  const parts = input.split(',');
+  
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed.includes('-')) {
+      // Handle range like "5-8"
+      const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
+      if (!isNaN(start) && !isNaN(end) && start <= end) {
+        for (let i = start; i <= end; i++) {
+          pages.push(i);
+        }
+      }
+    } else {
+      // Handle single page
+      const page = parseInt(trimmed);
+      if (!isNaN(page)) {
+        pages.push(page);
+      }
+    }
+  }
+  
+  // Remove duplicates and sort
+  return [...new Set(pages)].sort((a, b) => a - b);
+};
+
+const generateBwPages = (totalPages: number, colorPages: number[]): number[] => {
+  const allPages = Array.from({ length: totalPages }, (_, i) => i + 1);
+  return allPages.filter(page => !colorPages.includes(page));
+};
+
+const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] }): string => {
+  if (!pageColors) return 'All pages in Black & White';
+  
+  const colorCount = pageColors.colorPages.length;
+  const bwCount = pageColors.bwPages.length;
+  
+  if (colorCount === 0) return 'All pages in Black & White';
+  if (bwCount === 0) return 'All pages in Color';
+  
+  return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
+};
+
 export default function OrderPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,6 +99,10 @@ export default function OrderPage() {
     sided: 'single',
     copies: 1,
     serviceOption: 'service',
+    pageColors: {
+      colorPages: [],
+      bwPages: [],
+    },
   });
   const [expectedDate, setExpectedDate] = useState<string>('');
   const [pageCount, setPageCount] = useState(1);
@@ -160,14 +215,24 @@ export default function OrderPage() {
             // Base price per page
             const basePrice = pricing.basePrices[printingOptions.pageSize];
             
-            // Color multiplier
-            const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
-            
-            // Sided multiplier
-            const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
-            
-            // Calculate total amount: base price × page count × color × sided × copies
-            let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            // Calculate color costs for mixed pages
+            let total = 0;
+            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+              // Mixed color pricing: calculate separately for color and B&W pages
+              const colorPages = printingOptions.pageColors.colorPages.length;
+              const bwPages = printingOptions.pageColors.bwPages.length;
+              
+              const colorCost = basePrice * colorPages * pricing.multipliers.color;
+              const bwCost = basePrice * bwPages;
+              
+              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1) * printingOptions.copies;
+            } else {
+              // Standard pricing for all color or all B&W
+              const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+              const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+              
+              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            }
             
             // Add compulsory service option cost (only for multi-page jobs)
             if (pageCount > 1) {
@@ -189,10 +254,24 @@ export default function OrderPage() {
           } else {
             // Fallback to hardcoded pricing if API fails
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
-            const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
             
-            let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            let total = 0;
+            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+              // Mixed color pricing fallback
+              const colorPages = printingOptions.pageColors.colorPages.length;
+              const bwPages = printingOptions.pageColors.bwPages.length;
+              
+              const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
+              const bwCost = basePrice * bwPages;
+              
+              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
+            } else {
+              // Standard pricing fallback
+              const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
+              const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
+              
+              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            }
             
             // Add compulsory service option cost (fallback amounts, only if multi-page)
             if (pageCount > 1) {
@@ -215,10 +294,24 @@ export default function OrderPage() {
           console.error('Error fetching pricing:', error);
           // Fallback to hardcoded pricing
           const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
-          const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-          const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
           
-          let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+          let total = 0;
+          if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+            // Mixed color pricing fallback
+            const colorPages = printingOptions.pageColors.colorPages.length;
+            const bwPages = printingOptions.pageColors.bwPages.length;
+            
+            const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
+            const bwCost = basePrice * bwPages;
+            
+            total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
+          } else {
+            // Standard pricing fallback
+            const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
+            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
+            
+            total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+          }
           
           if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
             total += deliveryOption.deliveryCharge;
@@ -670,13 +763,75 @@ export default function OrderPage() {
                     </label>
                     <select
                       value={printingOptions.color}
-                      onChange={(e) => setPrintingOptions(prev => ({ ...prev, color: e.target.value as 'color' | 'bw' }))}
+                      onChange={(e) => {
+                        const newColor = e.target.value as 'color' | 'bw' | 'mixed';
+                        setPrintingOptions(prev => ({ 
+                          ...prev, 
+                          color: newColor,
+                          pageColors: newColor === 'mixed' ? prev.pageColors : undefined
+                        }));
+                      }}
                       className="form-select"
                     >
                       <option value="bw">Black & White</option>
                       <option value="color">Color</option>
+                      <option value="mixed">Mixed (Select Pages)</option>
                     </select>
                   </div>
+
+                  {/* Page Color Selection - Only show when Mixed is selected */}
+                  {printingOptions.color === 'mixed' && pageCount > 1 && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                        Select Page Colors
+                      </label>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-green-700 mb-2">
+                            Color Pages
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g., 1,3,5-8,10"
+                            value={printingOptions.pageColors?.colorPages.join(',') || ''}
+                            onChange={(e) => {
+                              const pages = parsePageRange(e.target.value);
+                              setPrintingOptions(prev => ({
+                                ...prev,
+                                pageColors: {
+                                  ...prev.pageColors!,
+                                  colorPages: pages,
+                                  bwPages: generateBwPages(pageCount, pages)
+                                }
+                              }));
+                            }}
+                            className="w-full px-3 py-2 border border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                          />
+                          <p className="text-xs text-green-600 mt-1">
+                            Enter page numbers or ranges (e.g., 1,3,5-8,10)
+                          </p>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Black & White Pages
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Auto-generated"
+                            value={printingOptions.pageColors?.bwPages.join(',') || ''}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Automatically calculated from remaining pages
+                          </p>
+                        </div>
+                      </div>
+                      <div className="mt-3 text-sm text-blue-700">
+                        <strong>Preview:</strong> {getPageColorPreview(pageCount, printingOptions.pageColors)}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -817,9 +972,27 @@ export default function OrderPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Color:</span>
                     <span className="font-medium text-gray-800">
-                      {printingOptions.color === 'color' ? 'Color' : 'Black & White'}
+                      {printingOptions.color === 'color' ? 'Color' : 
+                       printingOptions.color === 'bw' ? 'Black & White' : 
+                       'Mixed'}
                     </span>
                   </div>
+                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">Color Pages:</span>
+                      <span className="font-medium text-green-600">
+                        {printingOptions.pageColors.colorPages.length} pages
+                      </span>
+                    </div>
+                  )}
+                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">B&W Pages:</span>
+                      <span className="font-medium text-gray-600">
+                        {printingOptions.pageColors.bwPages.length} pages
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Sided:</span>
                     <span className="font-medium text-gray-800">
@@ -1161,9 +1334,27 @@ export default function OrderPage() {
                         <div className="flex justify-between">
                           <span className="text-gray-600">Color:</span>
                           <span className="font-medium text-gray-800">
-                            {printingOptions.color === 'color' ? 'Color' : 'Black & White'}
+                            {printingOptions.color === 'color' ? 'Color' : 
+                             printingOptions.color === 'bw' ? 'Black & White' : 
+                             'Mixed'}
                           </span>
                         </div>
+                        {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">Color Pages:</span>
+                              <span className="font-medium text-green-600">
+                                {printingOptions.pageColors.colorPages.length} pages
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-600">B&W Pages:</span>
+                              <span className="font-medium text-gray-600">
+                                {printingOptions.pageColors.bwPages.length} pages
+                              </span>
+                            </div>
+                          </>
+                        )}
                         <div className="flex justify-between">
                           <span className="text-gray-600">Sided:</span>
                           <span className="font-medium text-gray-800">
@@ -1239,9 +1430,27 @@ export default function OrderPage() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Color Multiplier:</span>
                         <span className="font-medium text-gray-800">
-                          {printingOptions.color === 'color' ? '2x' : '1x'} ({printingOptions.color === 'color' ? 'Color' : 'B/W'})
+                          {printingOptions.color === 'color' ? '2x (Color)' : 
+                           printingOptions.color === 'bw' ? '1x (B/W)' : 
+                           'Mixed (See breakdown)'}
                         </span>
                       </div>
+                      {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Color Pages Cost:</span>
+                            <span className="font-medium text-green-600">
+                              {printingOptions.pageColors.colorPages.length} × ₹{pricingData?.basePrices?.[printingOptions.pageSize] || 5} × 2 = ₹{printingOptions.pageColors.colorPages.length * (pricingData?.basePrices?.[printingOptions.pageSize] || 5) * 2}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">B&W Pages Cost:</span>
+                            <span className="font-medium text-gray-600">
+                              {printingOptions.pageColors.bwPages.length} × ₹{pricingData?.basePrices?.[printingOptions.pageSize] || 5} × 1 = ₹{printingOptions.pageColors.bwPages.length * (pricingData?.basePrices?.[printingOptions.pageSize] || 5)}
+                            </span>
+                          </div>
+                        </>
+                      )}
                       <div className="flex justify-between">
                         <span className="text-gray-600">Sided Multiplier:</span>
                         <span className="font-medium text-gray-800">

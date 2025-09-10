@@ -90,12 +90,26 @@ export async function POST(request: NextRequest) {
     // Calculate pricing
     const pricing = await getPricing();
     const basePrice = pricing.basePrices[printingOptions.pageSize as keyof typeof pricing.basePrices];
-    const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
     const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
     
-    // Calculate total amount: base price × page count × color × sided × copies
+    // Calculate total amount based on color option
     const pageCount = printingOptions.pageCount || 1;
-    let amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+    let amount = 0;
+    
+    if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+      // Mixed color pricing: calculate separately for color and B&W pages
+      const colorPages = printingOptions.pageColors.colorPages.length;
+      const bwPages = printingOptions.pageColors.bwPages.length;
+      
+      const colorCost = basePrice * colorPages * pricing.multipliers.color;
+      const bwCost = basePrice * bwPages;
+      
+      amount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
+    } else {
+      // Standard pricing for all color or all B&W
+      const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+      amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+    }
     
     // Add compulsory service option cost (only for multi-page jobs)
     if (pageCount > 1) {

@@ -106,11 +106,23 @@ export async function POST(request: NextRequest) {
     const pricing = await getPricing();
     
     const basePrice = pricing.basePrices[printingOptions.pageSize as keyof typeof pricing.basePrices];
-    const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
     const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
     
-    // Calculate total amount: base price × page count × color × sided × copies
-    amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+    // Calculate total amount based on color option
+    if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+      // Mixed color pricing: calculate separately for color and B&W pages
+      const colorPages = printingOptions.pageColors.colorPages.length;
+      const bwPages = printingOptions.pageColors.bwPages.length;
+      
+      const colorCost = basePrice * colorPages * pricing.multipliers.color;
+      const bwCost = basePrice * bwPages;
+      
+      amount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
+    } else {
+      // Standard pricing for all color or all B&W
+      const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+      amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+    }
     
     // Add compulsory service option cost (only for multi-page jobs)
     if (pageCount > 1) {
@@ -131,7 +143,16 @@ export async function POST(request: NextRequest) {
     console.log(`🔍 BACKEND CALCULATION DEBUG:`);
     console.log(`  - Base Price (${printingOptions.pageSize}): ₹${basePrice}`);
     console.log(`  - Page Count: ${pageCount}`);
-    console.log(`  - Color (${printingOptions.color}): ${colorMultiplier}x`);
+    console.log(`  - Color Option: ${printingOptions.color}`);
+    
+    if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
+      console.log(`  - Color Pages: ${printingOptions.pageColors.colorPages.length} pages (₹${basePrice * printingOptions.pageColors.colorPages.length * pricing.multipliers.color})`);
+      console.log(`  - B&W Pages: ${printingOptions.pageColors.bwPages.length} pages (₹${basePrice * printingOptions.pageColors.bwPages.length})`);
+    } else {
+      const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+      console.log(`  - Color Multiplier: ${colorMultiplier}x`);
+    }
+    
     console.log(`  - Sided (${printingOptions.sided}): ${sidedMultiplier}x`);
     console.log(`  - Copies: ${printingOptions.copies}`);
     console.log(`  - Service Option: ${pageCount > 1 ? printingOptions.serviceOption : 'N/A (single page)'}`);
