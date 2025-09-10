@@ -65,7 +65,7 @@ interface Order {
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
-  expectedDate?: string;
+  expectedDate?: string | Date;
   createdAt: string;
 }
 
@@ -272,7 +272,7 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Expected Delivery:</span>
                     <span className="font-medium text-blue-600">
-                      {formatDate(order.expectedDate, 'long')}
+                      {formatDate(order.expectedDate.toString(), 'long')}
                     </span>
                   </div>
                 )}

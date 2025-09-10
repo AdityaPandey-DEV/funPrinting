@@ -30,6 +30,7 @@ export interface IOrder {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
+    serviceOption?: 'binding' | 'file' | 'service';
     pageColors?: {
       colorPages: number[]; // Array of page numbers that should be printed in color
       bwPages: number[];    // Array of page numbers that should be printed in B&W
@@ -114,6 +115,10 @@ const orderSchema = new mongoose.Schema<IOrder>({
     pageCount: {
       type: Number,
       default: 1,
+    },
+    serviceOption: {
+      type: String,
+      enum: ['binding', 'file', 'service'],
     },
     pageColors: {
       colorPages: [Number], // Array of page numbers for color printing

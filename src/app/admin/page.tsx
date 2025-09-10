@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
@@ -60,13 +60,18 @@ interface Order {
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
-  expectedDate?: string;
+  expectedDate?: string | Date;
   createdAt: string;
 }
 
 function AdminDashboardContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch orders on component mount
+  useEffect(() => {
+    fetchOrders();
+  }, []);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -251,33 +256,38 @@ function AdminDashboardContent() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        <div>{order.printingOptions.pageSize}</div>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 space-y-1">
+                        <div className="font-medium">{order.printingOptions.pageSize}</div>
                         <div>
-                          {order.printingOptions.color === 'color' ? 'Color' : 
-                           order.printingOptions.color === 'bw' ? 'B/W' : 
-                           'Mixed'}
+                          {order.printingOptions.color === 'color' ? '🟢 Color' : 
+                           order.printingOptions.color === 'bw' ? '⚫ B/W' : 
+                           '🎨 Mixed'}
                         </div>
-                        <div>{order.printingOptions.sided === 'double' ? 'Double' : 'Single'}</div>
+                        <div>{order.printingOptions.sided === 'double' ? '📄 Double' : '📃 Single'}</div>
                         <div>{order.printingOptions.copies} copies</div>
-                        {order.printingOptions.serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && (
-                          <div className="text-xs text-blue-600 font-medium">
+                        {order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && order.printingOptions.serviceOption && (
+                          <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded">
                             {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
-                             order.printingOptions.serviceOption === 'file' ? '🗂️ File' :
-                             '✅ Service'}
+                             order.printingOptions.serviceOption === 'file' ? '🗂️ File Handling' :
+                             '✅ Service Fee'}
+                          </div>
+                        )}
+                        {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
+                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            🎨 {order.printingOptions.pageColors.colorPages.length} color, {order.printingOptions.pageColors.bwPages.length} B&W
                           </div>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
                         {order.expectedDate ? (
-                          <div className="font-medium text-blue-600">
-                            {formatDate(order.expectedDate)}
+                          <div className="font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                            📅 {formatDate(order.expectedDate.toString())}
                           </div>
                         ) : (
-                          <div className="text-gray-400 italic">Not set</div>
+                          <div className="text-gray-400 italic bg-gray-50 px-2 py-1 rounded">⚠️ Not set</div>
                         )}
                       </div>
                     </td>
