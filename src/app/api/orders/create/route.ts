@@ -112,6 +112,17 @@ export async function POST(request: NextRequest) {
     // Calculate total amount: base price × page count × color × sided × copies
     amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
     
+    // Add compulsory service option cost (only for multi-page jobs)
+    if (pageCount > 1) {
+      if (printingOptions.serviceOption === 'binding') {
+        amount += pricing.additionalServices.binding;
+      } else if (printingOptions.serviceOption === 'file') {
+        amount += 10; // File handling fee (keep pages inside file)
+      } else if (printingOptions.serviceOption === 'service') {
+        amount += 5; // Minimal service fee
+      }
+    }
+    
     // Add delivery charge if delivery option is selected
     if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
       amount += deliveryOption.deliveryCharge;
@@ -123,8 +134,17 @@ export async function POST(request: NextRequest) {
     console.log(`  - Color (${printingOptions.color}): ${colorMultiplier}x`);
     console.log(`  - Sided (${printingOptions.sided}): ${sidedMultiplier}x`);
     console.log(`  - Copies: ${printingOptions.copies}`);
+    console.log(`  - Service Option: ${pageCount > 1 ? printingOptions.serviceOption : 'N/A (single page)'}`);
+    if (pageCount > 1) {
+      if (printingOptions.serviceOption === 'binding') {
+        console.log(`  - Binding Cost: ₹${pricing.additionalServices.binding}`);
+      } else if (printingOptions.serviceOption === 'file') {
+        console.log(`  - File Handling Cost: ₹10`);
+      } else if (printingOptions.serviceOption === 'service') {
+        console.log(`  - Service Fee: ₹5`);
+      }
+    }
     console.log(`  - Delivery: ${deliveryOption.type === 'delivery' ? `₹${deliveryOption.deliveryCharge}` : 'Free pickup'}`);
-    console.log(`  - Formula: ${basePrice} × ${pageCount} × ${colorMultiplier} × ${sidedMultiplier} × ${printingOptions.copies} + ${deliveryOption.type === 'delivery' ? deliveryOption.deliveryCharge : 0}`);
     console.log(`  - Total: ₹${amount}`);
 
     // Create Razorpay order

@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
       formData, 
       customerInfo, 
       printingOptions, 
-      deliveryOption 
+      deliveryOption,
+      expectedDate
     } = body;
 
     if (!templateId || !formData || !customerInfo || !printingOptions || !deliveryOption) {
@@ -96,6 +97,17 @@ export async function POST(request: NextRequest) {
     const pageCount = printingOptions.pageCount || 1;
     let amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
     
+    // Add compulsory service option cost (only for multi-page jobs)
+    if (pageCount > 1) {
+      if (printingOptions.serviceOption === 'binding') {
+        amount += pricing.additionalServices.binding;
+      } else if (printingOptions.serviceOption === 'file') {
+        amount += 10; // File handling fee (keep pages inside file)
+      } else if (printingOptions.serviceOption === 'service') {
+        amount += 5; // Minimal service fee
+      }
+    }
+    
     // Add delivery charge if delivery option is selected
     if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
       amount += deliveryOption.deliveryCharge;
@@ -132,6 +144,7 @@ export async function POST(request: NextRequest) {
         pageCount,
       },
       deliveryOption,
+      expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
       status: 'pending_payment',
