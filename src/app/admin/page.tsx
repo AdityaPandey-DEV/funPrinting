@@ -41,9 +41,15 @@ interface Order {
   };
   printingOptions: {
     pageSize: 'A4' | 'A3';
-    color: 'color' | 'bw';
+    color: 'color' | 'bw' | 'mixed';
     sided: 'single' | 'double';
     copies: number;
+    pageCount?: number;
+    serviceOption?: 'binding' | 'file' | 'service';
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -248,9 +254,20 @@ function AdminDashboardContent() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         <div>{order.printingOptions.pageSize}</div>
-                        <div>{order.printingOptions.color === 'color' ? 'Color' : 'B/W'}</div>
+                        <div>
+                          {order.printingOptions.color === 'color' ? 'Color' : 
+                           order.printingOptions.color === 'bw' ? 'B/W' : 
+                           'Mixed'}
+                        </div>
                         <div>{order.printingOptions.sided === 'double' ? 'Double' : 'Single'}</div>
                         <div>{order.printingOptions.copies} copies</div>
+                        {order.printingOptions.serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && (
+                          <div className="text-xs text-blue-600 font-medium">
+                            {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
+                             order.printingOptions.serviceOption === 'file' ? '🗂️ File' :
+                             '✅ Service'}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

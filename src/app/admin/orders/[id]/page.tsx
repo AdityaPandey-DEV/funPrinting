@@ -40,10 +40,15 @@ interface Order {
   };
   printingOptions: {
     pageSize: 'A4' | 'A3';
-    color: 'color' | 'bw';
+    color: 'color' | 'bw' | 'mixed';
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
+    serviceOption?: 'binding' | 'file' | 'service';
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -212,9 +217,27 @@ export default function OrderDetailPage() {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Color:</span>
                   <span className="font-medium">
-                    {order.printingOptions.color === 'color' ? 'Color' : 'Black & White'}
+                    {order.printingOptions.color === 'color' ? 'Color' : 
+                     order.printingOptions.color === 'bw' ? 'Black & White' : 
+                     'Mixed'}
                   </span>
                 </div>
+                {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Color Pages:</span>
+                      <span className="font-medium text-green-600">
+                        {order.printingOptions.pageColors.colorPages.length} pages
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">B&W Pages:</span>
+                      <span className="font-medium text-gray-600">
+                        {order.printingOptions.pageColors.bwPages.length} pages
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Sided:</span>
                   <span className="font-medium">
@@ -229,6 +252,16 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Pages:</span>
                     <span className="font-medium">{order.printingOptions.pageCount}</span>
+                  </div>
+                )}
+                {order.printingOptions.serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service Option:</span>
+                    <span className="font-medium">
+                      {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
+                       order.printingOptions.serviceOption === 'file' ? '🗂️ File Handling' :
+                       '✅ Service Fee'}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between">
