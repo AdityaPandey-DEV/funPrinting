@@ -52,6 +52,7 @@ export interface IOrder {
     address?: string;
     city?: string;
     pinCode?: string;
+    pickupLocationId?: string;
   };
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -151,7 +152,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
       required: true,
       default: 'pickup'
     },
-    pickupLocation: String,
+    pickupLocationId: String,
     location: {
       lat: Number,
       lng: Number,

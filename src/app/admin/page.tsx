@@ -53,7 +53,7 @@ interface Order {
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
-    pickupLocation?: string;
+    pickupLocationId?: string;
     deliveryCharge?: number;
     address?: string;
   };

@@ -33,6 +33,22 @@ interface DeliveryOption {
   address?: string;
   city?: string;
   pinCode?: string;
+  pickupLocationId?: string;
+}
+
+interface PickupLocation {
+  _id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  isActive: boolean;
+  isDefault: boolean;
+  description?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  operatingHours?: string;
+  gmapLink?: string;
 }
 
 // Helper functions for page color selection
@@ -120,6 +136,8 @@ export default function OrderPage() {
   });
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>({ type: 'pickup' });
   const [showMapModal, setShowMapModal] = useState(false);
+  const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
+  const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   
   // Email verification
   const [emailVerified, setEmailVerified] = useState(false);
@@ -192,7 +210,17 @@ export default function OrderPage() {
         const data = await response.json();
         
         if (data.success) {
+          setPickupLocations(data.locations || []);
           setDefaultPickupLocation(data.defaultLocation);
+          
+          // Set default pickup location as selected
+          if (data.defaultLocation) {
+            setSelectedPickupLocation(data.defaultLocation);
+            setDeliveryOption(prev => ({
+              ...prev,
+              pickupLocationId: data.defaultLocation._id
+            }));
+          }
         }
       } catch (error) {
         console.error('Error fetching pickup locations:', error);
@@ -418,6 +446,12 @@ export default function OrderPage() {
     // Validate expected date
     if (!expectedDate) {
       alert('Please select an expected delivery date');
+      return;
+    }
+
+    // Validate pickup location if pickup is selected
+    if (deliveryOption.type === 'pickup' && !deliveryOption.pickupLocationId) {
+      alert('Please select a pickup location');
       return;
     }
 
@@ -1306,23 +1340,73 @@ export default function OrderPage() {
                     </div>
                   )}
 
-                  {deliveryOption.type === 'pickup' && defaultPickupLocation && (
+                  {deliveryOption.type === 'pickup' && (
                     <div className="ml-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h4 className="font-medium text-green-800 mb-2">🏫 Pickup Location</h4>
-                      <div className="text-sm text-green-700">
-                        <p className="font-medium">{defaultPickupLocation.name}</p>
-                        <p>{defaultPickupLocation.address}</p>
-                        {defaultPickupLocation.gmapLink && (
-                          <a
-                            href={defaultPickupLocation.gmapLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline mt-1 inline-block"
-                          >
-                            View on Google Maps
-                          </a>
-                        )}
-                      </div>
+                      <h4 className="font-medium text-green-800 mb-3">🏫 Select Pickup Location</h4>
+                      
+                      {pickupLocations.length > 0 ? (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="block text-sm font-medium text-green-700 mb-2">
+                              Choose Pickup Location:
+                            </label>
+                            <select
+                              value={selectedPickupLocation?._id || ''}
+                              onChange={(e) => {
+                                const location = pickupLocations.find(loc => loc._id === e.target.value);
+                                setSelectedPickupLocation(location || null);
+                                setDeliveryOption(prev => ({
+                                  ...prev,
+                                  pickupLocationId: location?._id
+                                }));
+                              }}
+                              className="w-full px-3 py-2 border border-green-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                              <option value="">Select a pickup location</option>
+                              {pickupLocations.map((location) => (
+                                <option key={location._id} value={location._id}>
+                                  {location.name} {location.isDefault ? '(Default)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          {selectedPickupLocation && (
+                            <div className="bg-white p-3 rounded border border-green-200">
+                              <div className="text-sm text-green-700">
+                                <p><strong>📍 {selectedPickupLocation.name}</strong></p>
+                                <p className="text-gray-600">{selectedPickupLocation.address}</p>
+                                {selectedPickupLocation.description && (
+                                  <p className="text-gray-600 mt-1">{selectedPickupLocation.description}</p>
+                                )}
+                                {selectedPickupLocation.contactPerson && (
+                                  <p><strong>Contact:</strong> {selectedPickupLocation.contactPerson}</p>
+                                )}
+                                {selectedPickupLocation.contactPhone && (
+                                  <p><strong>Phone:</strong> {selectedPickupLocation.contactPhone}</p>
+                                )}
+                                {selectedPickupLocation.operatingHours && (
+                                  <p><strong>Hours:</strong> {selectedPickupLocation.operatingHours}</p>
+                                )}
+                                {selectedPickupLocation.gmapLink && (
+                                  <a 
+                                    href={selectedPickupLocation.gmapLink} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="inline-block mt-2 text-blue-600 hover:text-blue-800 underline text-sm"
+                                  >
+                                    📍 View on Google Maps
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-green-700">
+                          <p>Loading pickup locations...</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1417,6 +1501,14 @@ export default function OrderPage() {
                             {deliveryOption.type === 'pickup' ? '🏫 Campus Pickup' : '🚚 Home Delivery'}
                           </span>
                         </div>
+                        {deliveryOption.type === 'pickup' && selectedPickupLocation && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Pickup Location:</span>
+                            <span className="font-medium text-gray-800 text-right max-w-xs">
+                              {selectedPickupLocation.name}
+                            </span>
+                          </div>
+                        )}
                         {deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge && (
                           <div className="flex justify-between">
                             <span className="text-gray-600">Delivery Charge:</span>
