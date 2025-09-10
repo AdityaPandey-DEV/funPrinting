@@ -54,6 +54,7 @@ interface Order {
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
+  expectedDate?: string;
   createdAt: string;
 }
 
@@ -201,6 +202,9 @@ function AdminDashboardContent() {
                     Printing Options
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expected Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -247,6 +251,17 @@ function AdminDashboardContent() {
                         <div>{order.printingOptions.color === 'color' ? 'Color' : 'B/W'}</div>
                         <div>{order.printingOptions.sided === 'double' ? 'Double' : 'Single'}</div>
                         <div>{order.printingOptions.copies} copies</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {order.expectedDate ? (
+                          <div className="font-medium text-blue-600">
+                            {formatDate(order.expectedDate)}
+                          </div>
+                        ) : (
+                          <div className="text-gray-400 italic">Not set</div>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

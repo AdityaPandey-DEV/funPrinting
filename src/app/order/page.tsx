@@ -49,6 +49,7 @@ export default function OrderPage() {
     copies: 1,
     serviceOption: 'service',
   });
+  const [expectedDate, setExpectedDate] = useState<string>('');
   const [pageCount, setPageCount] = useState(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoaded, setPdfLoaded] = useState(false);
@@ -322,6 +323,7 @@ export default function OrderPage() {
             pageCount,
           }));
           formData.append('deliveryOption', JSON.stringify(deliveryOption));
+          formData.append('expectedDate', expectedDate);
 
           // Debug: Log what we're sending
           console.log('🔍 DEBUG - Sending FormData:');
@@ -353,6 +355,7 @@ export default function OrderPage() {
               pageCount,
             },
             deliveryOption,
+            expectedDate,
           };
 
           const response = await fetch('/api/orders/create', {
@@ -773,6 +776,24 @@ export default function OrderPage() {
                   </div>
                 </div>
                 )}
+
+                {/* Expected Delivery Date */}
+                <div className="mt-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Expected Delivery Date
+                  </label>
+                  <input
+                    type="date"
+                    value={expectedDate}
+                    onChange={(e) => setExpectedDate(e.target.value)}
+                    min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // Tomorrow
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Please select a date at least 1 day from today
+                  </p>
+                </div>
               </div>
 
               {/* Order Summary */}

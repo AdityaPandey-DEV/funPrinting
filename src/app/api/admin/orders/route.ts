@@ -6,7 +6,7 @@ export async function GET() {
   try {
     await connectDB();
     
-    const orders = await Order.find({}).sort({ createdAt: -1 });
+    const orders = await Order.find({}).sort({ expectedDate: 1, createdAt: -1 });
 
     return NextResponse.json({
       success: true,

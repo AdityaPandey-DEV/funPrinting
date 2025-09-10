@@ -50,6 +50,7 @@ export interface IOrder {
   };
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  expectedDate?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -151,6 +152,16 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   razorpayOrderId: String,
   razorpayPaymentId: String,
+  expectedDate: {
+    type: Date,
+    validate: {
+      validator: function(value: Date) {
+        if (!value) return true; // Optional field
+        return value > new Date(); // Must be greater than today
+      },
+      message: 'Expected delivery date must be greater than today'
+    }
+  },
 }, {
   timestamps: true,
 });

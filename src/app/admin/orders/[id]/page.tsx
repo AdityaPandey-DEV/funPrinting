@@ -60,6 +60,7 @@ interface Order {
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
+  expectedDate?: string;
   createdAt: string;
 }
 
@@ -234,6 +235,14 @@ export default function OrderDetailPage() {
                   <span className="text-gray-600">Total Amount:</span>
                   <span className="text-xl font-bold text-gray-900">₹{order.amount}</span>
                 </div>
+                {order.expectedDate && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Expected Delivery:</span>
+                    <span className="font-medium text-blue-600">
+                      {formatDate(order.expectedDate, 'long')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

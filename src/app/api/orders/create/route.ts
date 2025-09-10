@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     
     // Continue with existing order processing for file orders and legacy template orders
     
-    let customerInfo, orderType, fileURL, fileType, originalFileName, templateData, printingOptions, deliveryOption;
+    let customerInfo, orderType, fileURL, fileType, originalFileName, templateData, printingOptions, deliveryOption, expectedDate;
     
     if (contentType?.includes('multipart/form-data')) {
       // Handle file upload
@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       printingOptions = JSON.parse(formData.get('printingOptions') as string);
       deliveryOption = JSON.parse(formData.get('deliveryOption') as string);
       templateData = formData.get('templateData') ? JSON.parse(formData.get('templateData') as string) : null;
+      expectedDate = formData.get('expectedDate') as string;
 
       // Debug: Log the parsed data
       console.log('🔍 DEBUG - Parsed FormData:');
@@ -83,7 +84,8 @@ export async function POST(request: NextRequest) {
         fileURL,
         templateData,
         printingOptions,
-        deliveryOption
+        deliveryOption,
+        expectedDate
       } = body);
 
       // Debug: Log the parsed JSON data
@@ -158,6 +160,7 @@ export async function POST(request: NextRequest) {
         pageCount: pageCount, // Add page count to printing options
       },
       deliveryOption,
+      expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
     };
