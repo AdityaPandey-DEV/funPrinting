@@ -35,6 +35,8 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+  const [redirectMessage, setRedirectMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const getParams = async () => {
@@ -158,8 +160,24 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       window.URL.revokeObjectURL(url);
       console.log('✅ Document downloaded successfully');
 
-      // Redirect user to Word->PDF conversion tool
-      window.location.href = 'https://www.ilovepdf.com/word_to_pdf';
+      // Show countdown and redirect after 10 seconds to allow download to finish
+      const targetUrl = 'https://www.ilovepdf.com/word_to_pdf';
+      setRedirectMessage('Redirecting to iLovePDF Word to PDF');
+      setRedirectCountdown(10);
+      const intervalId = window.setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev === null) return null;
+          if (prev <= 1) {
+            window.clearInterval(intervalId);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      window.setTimeout(() => {
+        window.clearInterval(intervalId);
+        window.location.href = targetUrl;
+      }, 10000);
 
     } catch (error) {
       console.error('❌ Error downloading document:', error);
@@ -317,12 +335,21 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div className="p-6">
-              {error && (
+              {(error || redirectCountdown !== null) && (
                 <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
                   <div className="flex">
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">Error</h3>
-                      <div className="mt-2 text-sm text-red-700">{error}</div>
+                      {error && (
+                        <>
+                          <h3 className="text-sm font-medium text-red-800">Error</h3>
+                          <div className="mt-2 text-sm text-red-700">{error}</div>
+                        </>
+                      )}
+                      {redirectCountdown !== null && (
+                        <div className="mt-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-3">
+                          {redirectMessage || 'Redirecting'} in {redirectCountdown}s... Please wait while your download starts.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
