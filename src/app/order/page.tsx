@@ -53,35 +53,46 @@ interface PickupLocation {
 
 // Helper functions for page color selection
 const parsePageRange = (input: string, maxPages?: number): number[] => {
-  if (!input.trim()) return [];
+  if (!input || !input.trim()) return [];
   
-  const pages: number[] = [];
-  const parts = input.split(',');
-  
-  for (const part of parts) {
-    const trimmed = part.trim();
-    if (trimmed.includes('-')) {
-      // Handle range like "5-8"
-      const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
-      if (!isNaN(start) && !isNaN(end) && start <= end && start > 0) {
-        for (let i = start; i <= end; i++) {
-          // Only add pages that are within the valid range
-          if (!maxPages || i <= maxPages) {
-            pages.push(i);
+  try {
+    const pages: number[] = [];
+    const parts = input.split(',');
+    
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue; // Skip empty parts
+      
+      if (trimmed.includes('-')) {
+        // Handle range like "5-8"
+        const rangeParts = trimmed.split('-');
+        if (rangeParts.length === 2) {
+          const start = parseInt(rangeParts[0].trim());
+          const end = parseInt(rangeParts[1].trim());
+          if (!isNaN(start) && !isNaN(end) && start <= end && start > 0) {
+            for (let i = start; i <= end; i++) {
+              // Only add pages that are within the valid range
+              if (!maxPages || i <= maxPages) {
+                pages.push(i);
+              }
+            }
           }
         }
-      }
-    } else {
-      // Handle single page
-      const page = parseInt(trimmed);
-      if (!isNaN(page) && page > 0 && (!maxPages || page <= maxPages)) {
-        pages.push(page);
+      } else {
+        // Handle single page
+        const page = parseInt(trimmed);
+        if (!isNaN(page) && page > 0 && (!maxPages || page <= maxPages)) {
+          pages.push(page);
+        }
       }
     }
+    
+    // Remove duplicates and sort
+    return [...new Set(pages)].sort((a, b) => a - b);
+  } catch (error) {
+    console.error('Error parsing page range:', error);
+    return [];
   }
-  
-  // Remove duplicates and sort
-  return [...new Set(pages)].sort((a, b) => a - b);
 };
 
 const generateBwPages = (totalPages: number, colorPages: number[]): number[] => {
@@ -138,6 +149,7 @@ export default function OrderPage() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
+  const [colorPagesInput, setColorPagesInput] = useState<string>('');
   
   // Email verification
   const [emailVerified, setEmailVerified] = useState(false);
@@ -823,8 +835,13 @@ export default function OrderPage() {
                         setPrintingOptions(prev => ({ 
                           ...prev, 
                           color: newColor,
-                          pageColors: newColor === 'mixed' ? prev.pageColors : undefined
+                          pageColors: newColor === 'mixed' ? (prev.pageColors || { colorPages: [], bwPages: [] }) : undefined
                         }));
+                        
+                        // Reset input when switching to mixed
+                        if (newColor === 'mixed') {
+                          setColorPagesInput('');
+                        }
                       }}
                       className="form-select"
                     >
@@ -848,13 +865,16 @@ export default function OrderPage() {
                           <input
                             type="text"
                             placeholder="e.g., 1,3,5-8,10"
-                            value={printingOptions.pageColors?.colorPages.join(',') || ''}
+                            value={colorPagesInput}
                             onChange={(e) => {
-                              const pages = parsePageRange(e.target.value, pageCount);
+                              const inputValue = e.target.value;
+                              setColorPagesInput(inputValue);
+                              
+                              // Parse and update page colors
+                              const pages = parsePageRange(inputValue, pageCount);
                               setPrintingOptions(prev => ({
                                 ...prev,
                                 pageColors: {
-                                  ...prev.pageColors!,
                                   colorPages: pages,
                                   bwPages: generateBwPages(pageCount, pages)
                                 }
