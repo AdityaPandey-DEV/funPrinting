@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     
     const imageCount = images.length;
 
-    // More consistent page estimation based on document structure
+    // More sophisticated page estimation based on actual document structure
     let estimatedPages = 1;
 
     // Method 1: Based on paragraphs (academic documents typically 3-4 paragraphs per page)
@@ -80,27 +80,19 @@ export async function POST(request: NextRequest) {
     const wordsPerPage = 275;
     const pagesByWords = Math.max(1, Math.ceil(wordCount / wordsPerPage));
 
-    // Method 3: Based on character count (including formatting) - more conservative
-    const charsPerPage = 1000; // Reduced from 1200 for more consistent estimation
+    // Method 3: Based on character count (including formatting)
+    const charsPerPage = 1200;
     const pagesByChars = Math.max(1, Math.ceil(charCount / charsPerPage));
 
     // Method 4: Based on content density (tables and images take more space)
     const contentDensity = (tableCount * 0.5) + (imageCount * 0.3) + 1;
     const pagesByContent = Math.max(1, Math.ceil(paragraphCount / (paragraphsPerPage * contentDensity)));
 
-    // Use the most conservative estimate to prevent page count variations
+    // Use the median of all estimates
     const estimates = [pagesByParagraphs, pagesByWords, pagesByChars, pagesByContent];
     estimates.sort((a, b) => a - b);
-    
-    // Use the median but with a minimum threshold to prevent underestimation
     const medianIndex = Math.floor(estimates.length / 2);
-    estimatedPages = Math.max(1, estimates[medianIndex]);
-    
-    // Add buffer for mobile device variations (10% increase)
-    estimatedPages = Math.ceil(estimatedPages * 1.1);
-    
-    console.log(`📄 Page estimation methods: paragraphs=${pagesByParagraphs}, words=${pagesByWords}, chars=${pagesByChars}, content=${pagesByContent}`);
-    console.log(`📄 Final estimated pages (with mobile buffer): ${estimatedPages}`);
+    estimatedPages = estimates[medianIndex];
 
     // Extract placeholders from the text
     const placeholderRegex = /@([A-Za-z0-9_]+)/g;

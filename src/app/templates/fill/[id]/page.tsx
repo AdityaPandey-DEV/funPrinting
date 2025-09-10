@@ -87,28 +87,9 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
   };
 
   const handleInputChange = (key: string, value: string) => {
-    // Normalize input to prevent page count variations
-    let normalizedValue = value;
-    
-    // Limit text length to prevent excessive page growth
-    const maxLength = 500;
-    if (normalizedValue.length > maxLength) {
-      normalizedValue = normalizedValue.substring(0, maxLength);
-      console.log(`⚠️ Truncated field ${key} to ${maxLength} characters to prevent page count variations`);
-    }
-    
-    // Normalize line breaks
-    normalizedValue = normalizedValue.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    
-    // Limit consecutive line breaks
-    normalizedValue = normalizedValue.replace(/\n{3,}/g, '\n\n');
-    
-    // Normalize spaces
-    normalizedValue = normalizedValue.replace(/\s{2,}/g, ' ');
-    
     setFormData(prev => ({
       ...prev,
-      [key]: normalizedValue
+      [key]: value
     }));
   };
 
@@ -209,39 +190,25 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
 
 
   const renderFormField = (field: FormField) => {
-    const currentValue = formData[field.key] || '';
-    const maxLength = 500;
-    const isNearLimit = currentValue.length > maxLength * 0.8;
-    const isOverLimit = currentValue.length > maxLength;
-    
     const commonProps = {
       id: field.key,
       name: field.key,
-      value: currentValue,
+      value: formData[field.key] || '',
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
         handleInputChange(field.key, e.target.value),
       placeholder: field.placeholder,
       required: field.required,
-      maxLength: maxLength,
-      className: `mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-        isOverLimit ? 'border-red-300 bg-red-50' : isNearLimit ? 'border-yellow-300 bg-yellow-50' : ''
-      }`
+      className: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
     };
 
     switch (field.type) {
       case 'textarea':
         return (
-          <div>
-            <textarea
-              {...commonProps}
-              rows={3}
-              className={`${commonProps.className} resize-vertical`}
-            />
-            <div className={`text-xs mt-1 ${isOverLimit ? 'text-red-600' : isNearLimit ? 'text-yellow-600' : 'text-gray-500'}`}>
-              {currentValue.length}/{maxLength} characters
-              {isOverLimit && ' (Text will be truncated)'}
-            </div>
-          </div>
+          <textarea
+            {...commonProps}
+            rows={3}
+            className={`${commonProps.className} resize-vertical`}
+          />
         );
       case 'email':
         return (
@@ -273,18 +240,10 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         );
       default:
         return (
-          <div>
-            <input
-              {...commonProps}
-              type="text"
-            />
-            {currentValue.length > 100 && (
-              <div className={`text-xs mt-1 ${isOverLimit ? 'text-red-600' : isNearLimit ? 'text-yellow-600' : 'text-gray-500'}`}>
-                {currentValue.length}/{maxLength} characters
-                {isOverLimit && ' (Text will be truncated)'}
-              </div>
-            )}
-          </div>
+          <input
+            {...commonProps}
+            type="text"
+          />
         );
     }
   };

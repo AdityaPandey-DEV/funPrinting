@@ -52,7 +52,7 @@ export async function preprocessDocxTemplate(docxBuffer: Buffer, data: Record<st
 }
 
 /**
- * Fill DOCX template with data using direct replacement with text length normalization
+ * Fill DOCX template with data using direct replacement
  * @param docxBuffer - DOCX file as Buffer
  * @param data - Object containing placeholder values
  * @returns Buffer - Filled DOCX as Buffer
@@ -72,15 +72,11 @@ export async function fillDocxTemplate(docxBuffer: Buffer, data: Record<string, 
       throw new Error('Invalid DOCX file: file does not appear to be a valid ZIP/DOCX file');
     }
     
-    // Normalize form data to prevent page count variations
-    const normalizedData = normalizeFormData(data);
-    console.log('📝 Normalized form data:', normalizedData);
-    
     // Preprocess the DOCX to directly replace @placeholder with form data
     let processedBuffer = docxBuffer;
     try {
       console.log('🔄 Preprocessing DOCX template with direct replacement...');
-      processedBuffer = await preprocessDocxTemplate(docxBuffer, normalizedData);
+      processedBuffer = await preprocessDocxTemplate(docxBuffer, data);
       console.log('✅ DOCX preprocessing completed successfully');
     } catch (preprocessError) {
       console.warn('⚠️ DOCX preprocessing failed, using original buffer:', preprocessError);
@@ -95,44 +91,6 @@ export async function fillDocxTemplate(docxBuffer: Buffer, data: Record<string, 
     console.error('Error filling DOCX template:', error);
     throw new Error('Failed to fill DOCX template');
   }
-}
-
-/**
- * Normalize form data to prevent page count variations across devices
- * @param data - Raw form data
- * @returns Normalized form data
- */
-function normalizeFormData(data: Record<string, any>): Record<string, any> {
-  const normalized: Record<string, any> = {};
-  
-  for (const [key, value] of Object.entries(data)) {
-    if (typeof value === 'string') {
-      // Normalize text content to prevent page count variations
-      let normalizedValue = value.trim();
-      
-      // Limit text length to prevent excessive page growth
-      const maxLength = 500; // Reasonable limit for form fields
-      if (normalizedValue.length > maxLength) {
-        normalizedValue = normalizedValue.substring(0, maxLength) + '...';
-        console.log(`⚠️ Truncated field ${key} from ${value.length} to ${maxLength} characters`);
-      }
-      
-      // Normalize line breaks to prevent inconsistent wrapping
-      normalizedValue = normalizedValue.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      
-      // Limit consecutive line breaks to prevent excessive spacing
-      normalizedValue = normalizedValue.replace(/\n{3,}/g, '\n\n');
-      
-      // Normalize spaces to prevent inconsistent spacing
-      normalizedValue = normalizedValue.replace(/\s{2,}/g, ' ');
-      
-      normalized[key] = normalizedValue;
-    } else {
-      normalized[key] = value;
-    }
-  }
-  
-  return normalized;
 }
 
 /**
