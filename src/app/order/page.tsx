@@ -36,7 +36,7 @@ interface DeliveryOption {
 }
 
 // Helper functions for page color selection
-const parsePageRange = (input: string): number[] => {
+const parsePageRange = (input: string, maxPages?: number): number[] => {
   if (!input.trim()) return [];
   
   const pages: number[] = [];
@@ -47,15 +47,18 @@ const parsePageRange = (input: string): number[] => {
     if (trimmed.includes('-')) {
       // Handle range like "5-8"
       const [start, end] = trimmed.split('-').map(n => parseInt(n.trim()));
-      if (!isNaN(start) && !isNaN(end) && start <= end) {
+      if (!isNaN(start) && !isNaN(end) && start <= end && start > 0) {
         for (let i = start; i <= end; i++) {
-          pages.push(i);
+          // Only add pages that are within the valid range
+          if (!maxPages || i <= maxPages) {
+            pages.push(i);
+          }
         }
       }
     } else {
       // Handle single page
       const page = parseInt(trimmed);
-      if (!isNaN(page)) {
+      if (!isNaN(page) && page > 0 && (!maxPages || page <= maxPages)) {
         pages.push(page);
       }
     }
@@ -397,6 +400,24 @@ export default function OrderPage() {
   const handlePayment = async () => {
     if (!emailVerified) {
       alert('Please verify your email first');
+      return;
+    }
+
+    // Validate service option for multi-page orders
+    if (pageCount > 1 && !printingOptions.serviceOption) {
+      alert('Please select a service option (Binding, File handling, or Service fee) for multi-page orders');
+      return;
+    }
+
+    // Validate mixed color page selection
+    if (printingOptions.color === 'mixed' && (!printingOptions.pageColors || printingOptions.pageColors.colorPages.length === 0)) {
+      alert('Please select which pages should be printed in color');
+      return;
+    }
+
+    // Validate expected date
+    if (!expectedDate) {
+      alert('Please select an expected delivery date');
       return;
     }
 
@@ -795,7 +816,7 @@ export default function OrderPage() {
                             placeholder="e.g., 1,3,5-8,10"
                             value={printingOptions.pageColors?.colorPages.join(',') || ''}
                             onChange={(e) => {
-                              const pages = parsePageRange(e.target.value);
+                              const pages = parsePageRange(e.target.value, pageCount);
                               setPrintingOptions(prev => ({
                                 ...prev,
                                 pageColors: {
@@ -1440,7 +1461,7 @@ export default function OrderPage() {
                           <div className="flex justify-between">
                             <span className="text-gray-600">Color Pages Cost:</span>
                             <span className="font-medium text-green-600">
-                              {printingOptions.pageColors.colorPages.length} × ₹{pricingData?.basePrices?.[printingOptions.pageSize] || 5} × 2 = ₹{printingOptions.pageColors.colorPages.length * (pricingData?.basePrices?.[printingOptions.pageSize] || 5) * 2}
+                              {printingOptions.pageColors.colorPages.length} × ₹{pricingData?.basePrices?.[printingOptions.pageSize] || 5} × {pricingData?.multipliers?.color || 2} = ₹{printingOptions.pageColors.colorPages.length * (pricingData?.basePrices?.[printingOptions.pageSize] || 5) * (pricingData?.multipliers?.color || 2)}
                             </span>
                           </div>
                           <div className="flex justify-between">
