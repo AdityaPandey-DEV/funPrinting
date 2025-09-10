@@ -66,12 +66,45 @@ interface Order {
 
 function AdminDashboardContent() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [paymentFilter, setPaymentFilter] = useState<string>('all');
 
-  // Fetch orders on component mount
+  // Fetch orders on component mount and run auto-cleanup
   useEffect(() => {
-    fetchOrders();
+    const initializeAdmin = async () => {
+      // Run auto-cleanup first
+      try {
+        await fetch('/api/admin/auto-cleanup');
+        console.log('✅ Auto-cleanup completed');
+      } catch (error) {
+        console.error('❌ Auto-cleanup failed:', error);
+      }
+      
+      // Then fetch orders
+      fetchOrders();
+    };
+    
+    initializeAdmin();
   }, []);
+
+  // Apply filters when orders or filter states change
+  useEffect(() => {
+    let filtered = orders;
+
+    // Filter by order status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.orderStatus === statusFilter);
+    }
+
+    // Filter by payment status
+    if (paymentFilter !== 'all') {
+      filtered = filtered.filter(order => order.paymentStatus === paymentFilter);
+    }
+
+    setFilteredOrders(filtered);
+  }, [orders, statusFilter, paymentFilter]);
 
   const fetchOrders = async () => {
     setIsLoading(true);
@@ -132,6 +165,29 @@ function AdminDashboardContent() {
     }
   };
 
+  const cleanupFailedOrders = async () => {
+    try {
+      const response = await fetch('/api/admin/cleanup-failed-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Successfully cleaned up ${data.removedCount} failed orders`);
+        fetchOrders(); // Refresh the orders list
+      } else {
+        alert('Failed to cleanup failed orders');
+      }
+    } catch (error) {
+      console.error('Error cleaning up failed orders:', error);
+      alert('An error occurred while cleaning up failed orders');
+    }
+  };
+
   if (isLoading) {
     return <LoadingSpinner message="Loading orders..." />;
   }
@@ -164,6 +220,55 @@ function AdminDashboardContent() {
             </>
           }
         />
+
+        {/* Order Status Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Orders</p>
+                <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
+              </div>
+              <div className="text-2xl">📋</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-2xl font-bold text-yellow-600">
+                  {orders.filter(o => o.orderStatus === 'pending').length}
+                </p>
+              </div>
+              <div className="text-2xl">⏳</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Printing</p>
+                <p className="text-2xl font-bold text-blue-600">
+                  {orders.filter(o => o.orderStatus === 'printing').length}
+                </p>
+              </div>
+              <div className="text-2xl">🖨️</div>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Payment Pending</p>
+                <p className="text-2xl font-bold text-red-600">
+                  {orders.filter(o => o.paymentStatus === 'pending').length}
+                </p>
+              </div>
+              <div className="text-2xl">💳</div>
+            </div>
+          </div>
+        </div>
 
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -203,9 +308,58 @@ function AdminDashboardContent() {
         {/* Orders Table */}
         <div className="bg-white shadow-xl rounded-lg overflow-hidden border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-900">All Orders</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">All Orders ({filteredOrders.length})</h2>
               <p className="text-sm text-gray-600">💡 Click on any order row to view detailed information</p>
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Order Status:</label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="printing">Printing</option>
+                  <option value="dispatched">Dispatched</option>
+                  <option value="delivered">Delivered</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-sm font-medium text-gray-700">Payment:</label>
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">All Payments</option>
+                  <option value="pending">Payment Pending</option>
+                  <option value="completed">Payment Completed</option>
+                  <option value="failed">Payment Failed</option>
+                </select>
+              </div>
+              
+              <button
+                onClick={cleanupFailedOrders}
+                className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+              >
+                🗑️ Cleanup Failed Orders
+              </button>
+              
+              <button
+                onClick={() => {
+                  setStatusFilter('all');
+                  setPaymentFilter('all');
+                }}
+                className="px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
+              >
+                🔄 Clear Filters
+              </button>
             </div>
           </div>
           
@@ -234,7 +388,7 @@ function AdminDashboardContent() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr 
                     key={order._id} 
                     className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group"
