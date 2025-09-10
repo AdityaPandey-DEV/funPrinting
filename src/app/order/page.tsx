@@ -168,13 +168,15 @@ export default function OrderPage() {
             // Calculate total amount: base price × page count × color × sided × copies
             let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
             
-            // Add compulsory service option cost
-            if (printingOptions.serviceOption === 'binding') {
-              total += pricing.additionalServices.binding;
-            } else if (printingOptions.serviceOption === 'file') {
-              total += 10; // File handling fee (keep pages inside file)
-            } else if (printingOptions.serviceOption === 'service') {
-              total += 5; // Minimal service fee
+            // Add compulsory service option cost (only for multi-page jobs)
+            if (pageCount > 1) {
+              if (printingOptions.serviceOption === 'binding') {
+                total += pricing.additionalServices.binding;
+              } else if (printingOptions.serviceOption === 'file') {
+                total += 10; // File handling fee (keep pages inside file)
+              } else if (printingOptions.serviceOption === 'service') {
+                total += 5; // Minimal service fee
+              }
             }
             
             // Add delivery charge if applicable
@@ -191,13 +193,15 @@ export default function OrderPage() {
             
             let total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
             
-            // Add compulsory service option cost (fallback amounts)
-            if (printingOptions.serviceOption === 'binding') {
-              total += 20; // Default binding cost
-            } else if (printingOptions.serviceOption === 'file') {
-              total += 10;
-            } else if (printingOptions.serviceOption === 'service') {
-              total += 5;
+            // Add compulsory service option cost (fallback amounts, only if multi-page)
+            if (pageCount > 1) {
+              if (printingOptions.serviceOption === 'binding') {
+                total += 20; // Default binding cost
+              } else if (printingOptions.serviceOption === 'file') {
+                total += 10;
+              } else if (printingOptions.serviceOption === 'service') {
+                total += 5;
+              }
             }
             
             if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
@@ -716,7 +720,8 @@ export default function OrderPage() {
                   </div>
                 </div>
 
-                {/* Additional Services - Separate Section */}
+                {/* Service Option (only if multi-page) */}
+                {pageCount > 1 && (
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Service Option (one is required)
@@ -767,6 +772,7 @@ export default function OrderPage() {
                     </p>
                   </div>
                 </div>
+                )}
               </div>
 
               {/* Order Summary */}
@@ -803,19 +809,19 @@ export default function OrderPage() {
                     <span className="text-gray-600">Copies:</span>
                     <span className="font-medium text-gray-800">{printingOptions.copies}</span>
                   </div>
-                  {printingOptions.serviceOption === 'binding' && (
+                  {pageCount > 1 && printingOptions.serviceOption === 'binding' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Binding:</span>
                       <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
                     </div>
                   )}
-                  {printingOptions.serviceOption === 'file' && (
+                  {pageCount > 1 && printingOptions.serviceOption === 'file' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">File handling:</span>
                       <span className="font-medium text-gray-800">₹10</span>
                     </div>
                   )}
-                  {printingOptions.serviceOption === 'service' && (
+                  {pageCount > 1 && printingOptions.serviceOption === 'service' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service fee:</span>
                       <span className="font-medium text-gray-800">₹5</span>
@@ -1225,19 +1231,19 @@ export default function OrderPage() {
                         <span className="text-gray-600">Copies:</span>
                         <span className="font-medium text-gray-800">{printingOptions.copies} copy(ies)</span>
                       </div>
-                      {printingOptions.serviceOption === 'binding' && (
+                      {pageCount > 1 && printingOptions.serviceOption === 'binding' && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Binding Service:</span>
                           <span className="font-medium text-blue-600">₹{pricingData?.additionalServices?.binding || 20}</span>
                         </div>
                       )}
-                      {printingOptions.serviceOption === 'file' && (
+                      {pageCount > 1 && printingOptions.serviceOption === 'file' && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">File handling:</span>
                           <span className="font-medium text-gray-800">₹10</span>
                         </div>
                       )}
-                      {printingOptions.serviceOption === 'service' && (
+                      {pageCount > 1 && printingOptions.serviceOption === 'service' && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Service fee:</span>
                           <span className="font-medium text-gray-800">₹5</span>
