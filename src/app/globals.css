@@ -26,6 +26,11 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-stroke: 0.01em transparent;
+  font-feature-settings: "kern" 1;
+  font-kerning: normal;
+  font-variant-ligatures: common-ligatures;
 }
 
 /* Enhanced Form Styling */
@@ -332,4 +337,229 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Fix blurry text issues */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Improve white text clarity on dark backgrounds */
+.text-white,
+button,
+.btn,
+[class*="bg-"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-stroke: 0.01em transparent;
+  font-weight: 500;
+}
+
+/* Fix form input text clarity */
+input,
+textarea,
+select,
+.form-input,
+.form-textarea,
+.form-select {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 400;
+  color: #111827 !important;
+}
+
+/* Fix button text clarity */
+button,
+.btn,
+.form-button {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 600;
+  text-shadow: 0 0 0 transparent;
+}
+
+/* Fix label text clarity */
+label,
+.form-label {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 600;
+  color: #374151 !important;
+}
+
+/* Fix placeholder text clarity */
+::placeholder {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  opacity: 0.7;
+}
+
+/* Fix dropdown/select text clarity */
+select,
+.form-select {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 400;
+}
+
+/* Fix table text clarity */
+table,
+th,
+td {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix navigation text clarity */
+nav,
+.nav,
+.navbar {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix card text clarity */
+.card,
+[class*="card"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix heading text clarity */
+h1, h2, h3, h4, h5, h6 {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 600;
+}
+
+/* Fix paragraph text clarity */
+p {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  line-height: 1.6;
+}
+
+/* Fix span text clarity */
+span {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix div text clarity */
+div {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Specific fixes for order page form elements */
+.order-form input,
+.order-form select,
+.order-form textarea,
+.order-form button {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 500;
+}
+
+/* Fix progress indicator text */
+.progress-indicator,
+[class*="progress"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 600;
+}
+
+/* Fix section titles */
+.section-title,
+[class*="title"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 700;
+}
+
+/* Fix upload area text */
+.upload-area,
+[class*="upload"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix date input text */
+input[type="date"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 500;
+  color: #111827 !important;
+}
+
+/* Fix radio button labels */
+input[type="radio"] + label {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 500;
+}
+
+/* Fix checkbox labels */
+input[type="checkbox"] + label {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 500;
+}
+
+/* Fix dropdown option text */
+option {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 400;
+  color: #111827 !important;
+}
+
+/* Fix admin panel text */
+.admin-panel,
+[class*="admin"] {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fix table text in admin */
+.admin-table th,
+.admin-table td {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 500;
+}
+
+/* Fix button text in admin */
+.admin-button,
+.admin-btn {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-weight: 600;
+  text-shadow: 0 0 0 transparent;
 }
