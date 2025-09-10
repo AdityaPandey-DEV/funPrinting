@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
-import { getStatusColor, getPaymentStatusColor, formatDate } from '@/lib/adminUtils';
+import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
   _id: string;
@@ -268,14 +268,18 @@ export default function OrderDetailPage() {
                   <span className="text-gray-600">Total Amount:</span>
                   <span className="text-xl font-bold text-gray-900">₹{order.amount}</span>
                 </div>
-                {order.expectedDate && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Expected Delivery:</span>
-                    <span className="font-medium text-blue-600">
-                      {formatDate(order.expectedDate.toString(), 'long')}
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Expected Delivery:</span>
+                  <span className="font-medium text-blue-600">
+                    {order.expectedDate ? (
+                      formatDate(order.expectedDate.toString(), 'long')
+                    ) : (
+                      <span className="text-orange-600">
+                        {formatDate(getDefaultExpectedDate(order.createdAt), 'long')} (Default)
+                      </span>
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
 

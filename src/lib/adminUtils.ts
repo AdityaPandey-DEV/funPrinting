@@ -78,6 +78,12 @@ export const formatDate = (dateString: string, format: 'short' | 'long' = 'short
   });
 };
 
+export const getDefaultExpectedDate = (createdAt: string) => {
+  const orderDate = new Date(createdAt);
+  const defaultDate = new Date(orderDate.getTime() + 24 * 60 * 60 * 1000); // Add 1 day
+  return defaultDate.toISOString();
+};
+
 export const getCategoryIcon = (category: string) => {
   switch (category) {
     case 'lab-manual':

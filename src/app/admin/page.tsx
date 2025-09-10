@@ -5,7 +5,7 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
-import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate } from '@/lib/adminUtils';
+import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
   _id: string;
@@ -297,7 +297,9 @@ function AdminDashboardContent() {
                             📅 {formatDate(order.expectedDate.toString())}
                           </div>
                         ) : (
-                          <div className="text-gray-400 italic bg-gray-50 px-2 py-1 rounded">⚠️ Not set</div>
+                          <div className="text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                            📅 {formatDate(getDefaultExpectedDate(order.createdAt))} (Default)
+                          </div>
                         )}
                       </div>
                     </td>
