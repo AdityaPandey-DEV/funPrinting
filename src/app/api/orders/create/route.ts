@@ -56,6 +56,7 @@ export async function POST(request: NextRequest) {
       console.log('  - customerInfo:', JSON.stringify(customerInfo, null, 2));
       console.log('  - printingOptions:', JSON.stringify(printingOptions, null, 2));
       console.log('  - deliveryOption:', JSON.stringify(deliveryOption, null, 2));
+      console.log('  - expectedDate:', expectedDate);
 
       // Upload file to Cloudinary if it's a file order
       if (orderType === 'file' && file) {

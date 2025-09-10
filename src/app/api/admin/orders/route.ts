@@ -8,7 +8,7 @@ export async function GET() {
     
     const orders = await Order.find({}).sort({ expectedDate: 1, createdAt: -1 });
     
-    console.log(`🔍 ADMIN API - Fetched ${orders.length} orders from database`);
+    console.log(`🔍 ADMIN API - Fetched ${orders.length} orders from database at ${new Date().toISOString()}`);
     console.log('🔍 ADMIN API - Latest orders:', orders.slice(0, 3).map(o => ({
       orderId: o.orderId,
       createdAt: o.createdAt,
@@ -20,6 +20,8 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       orders,
+      timestamp: new Date().toISOString(),
+      count: orders.length
     });
   } catch (error) {
     console.error('Error fetching orders:', error);

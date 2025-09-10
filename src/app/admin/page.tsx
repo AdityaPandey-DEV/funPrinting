@@ -76,7 +76,7 @@ function AdminDashboardContent() {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/admin/orders');
+      const response = await fetch(`/api/admin/orders?t=${Date.now()}`);
       const data = await response.json();
 
       console.log('🔍 ADMIN PANEL - Received data:', data);
@@ -311,8 +311,8 @@ function AdminDashboardContent() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="space-y-2">
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <div className="space-y-2 min-w-[200px]">
                         {/* Status Update Dropdown */}
                         <select
                           value={order.orderStatus}
@@ -331,9 +331,10 @@ function AdminDashboardContent() {
                             href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors"
+                            className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
+                            title={`Download ${order.originalFileName || 'File'}`}
                           >
-                            Download {order.originalFileName || 'File'}
+                            Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
                           </a>
                         )}
 
