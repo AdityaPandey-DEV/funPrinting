@@ -158,6 +158,9 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       window.URL.revokeObjectURL(url);
       console.log('✅ Document downloaded successfully');
 
+      // Redirect user to Word->PDF conversion tool
+      window.location.href = 'https://www.ilovepdf.com/word_to_pdf';
+
     } catch (error) {
       console.error('❌ Error downloading document:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to download document. Please try again.';
