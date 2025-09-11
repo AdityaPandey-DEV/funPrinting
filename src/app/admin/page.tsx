@@ -84,22 +84,9 @@ function AdminDashboardContent() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
 
-  // Fetch orders on component mount and run auto-cleanup
+  // Fetch orders on component mount
   useEffect(() => {
-    const initializeAdmin = async () => {
-      // Run auto-cleanup first
-      try {
-        await fetch('/api/admin/auto-cleanup');
-        console.log('✅ Auto-cleanup completed');
-      } catch (error) {
-        console.error('❌ Auto-cleanup failed:', error);
-      }
-      
-      // Then fetch orders
-      fetchOrders();
-    };
-    
-    initializeAdmin();
+    fetchOrders();
   }, []);
 
   // Apply filters when orders or filter states change
@@ -178,28 +165,6 @@ function AdminDashboardContent() {
     }
   };
 
-  const cleanupFailedOrders = async () => {
-    try {
-      const response = await fetch('/api/admin/cleanup-failed-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Successfully cleaned up ${data.removedCount} failed orders`);
-        fetchOrders(); // Refresh the orders list
-      } else {
-        alert('Failed to cleanup failed orders');
-      }
-    } catch (error) {
-      console.error('Error cleaning up failed orders:', error);
-      alert('An error occurred while cleaning up failed orders');
-    }
-  };
 
   if (isLoading) {
     return <LoadingSpinner message="Loading orders..." />;
@@ -356,13 +321,6 @@ function AdminDashboardContent() {
                   <option value="failed">Payment Failed</option>
                 </select>
               </div>
-              
-              <button
-                onClick={cleanupFailedOrders}
-                className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
-              >
-                🗑️ Cleanup Failed Orders
-              </button>
               
               <button
                 onClick={() => {

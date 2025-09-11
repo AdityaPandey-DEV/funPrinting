@@ -164,6 +164,12 @@ export default function OrderPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [amount, setAmount] = useState(0);
   const [pricingData, setPricingData] = useState<any>(null);
+  const [pricingLoading, setPricingLoading] = useState(true);
+  
+  // Debug: Log pricingData changes
+  useEffect(() => {
+    console.log('🔍 PricingData updated:', pricingData);
+  }, [pricingData]);
   
   // Payment state
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -247,18 +253,26 @@ export default function OrderPage() {
   // Calculate amount based on printing options and delivery
   useEffect(() => {
     const calculateAmount = async () => {
-      if (pageCount > 0 && printingOptions.copies > 0) {
+      console.log('🔄 Pricing calculation triggered:', { pageCount, copies: printingOptions.copies });
+      // Always run pricing calculation to show base prices, even with default values
+      if (printingOptions.copies > 0) {
         try {
+          setPricingLoading(true);
           // Fetch pricing from API
+          console.log('🔍 Fetching pricing from API...');
           const response = await fetch('/api/pricing');
           const data = await response.json();
+          
+          console.log('📊 Pricing API response:', data);
           
           if (data.success) {
             const pricing = data.pricing;
             setPricingData(pricing); // Store pricing data for UI display
+            setPricingLoading(false);
             
             // Base price per page
             const basePrice = pricing.basePrices[printingOptions.pageSize];
+            console.log(`💰 Base price for ${printingOptions.pageSize}: ₹${basePrice}`);
             
             // Calculate color costs for mixed pages
             let total = 0;
@@ -307,9 +321,12 @@ export default function OrderPage() {
             
             setAmount(total);
           } else {
-            console.error('Pricing API failed:', data.error);
+            console.error('❌ Pricing API failed:', data.error);
+            console.log('🔄 Using fallback pricing...');
+            setPricingLoading(false);
             // Fallback to hardcoded pricing if API fails
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
+            console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
             
             let total = 0;
             if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
@@ -357,9 +374,11 @@ export default function OrderPage() {
             setAmount(total);
           }
         } catch (error) {
-          console.error('Error fetching pricing:', error);
+          console.error('❌ Error fetching pricing:', error);
+          console.log('🔄 Using fallback pricing due to error...');
           // Fallback to hardcoded pricing
           const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
+          console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
           
           let total = 0;
           if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
@@ -396,7 +415,8 @@ export default function OrderPage() {
           setAmount(total);
         }
       } else {
-        // Reset amount if pageCount or copies is invalid
+        // Reset amount if copies is invalid
+        console.log('🔄 Resetting amount - copies is 0 or invalid');
         setAmount(0);
       }
     };
@@ -515,66 +535,73 @@ export default function OrderPage() {
     }
 
     setIsProcessingPayment(true);
-          try {
-        let data;
-        
-        // Create order and get Razorpay order details
-        if (selectedFile && orderType === 'file') {
-          // For file orders, use FormData to upload file and create order in one request
-          const formData = new FormData();
-          formData.append('file', selectedFile);
-          formData.append('orderType', 'file');
-          formData.append('customerInfo', JSON.stringify(customerInfo));
-          formData.append('printingOptions', JSON.stringify({
-            ...printingOptions,
-            pageCount,
-          }));
-          formData.append('deliveryOption', JSON.stringify(deliveryOption));
-          formData.append('expectedDate', expectedDate);
-
-          // Debug: Log what we're sending
-          console.log('🔍 DEBUG - Sending FormData:');
-          console.log('  - customerInfo:', customerInfo);
-          console.log('  - printingOptions:', { ...printingOptions, pageCount });
-          console.log('  - deliveryOption:', deliveryOption);
-
-          const response = await fetch('/api/orders/create', {
+    try {
+      
+      // First, upload file if it's a file order
+      let fileURL, fileType, originalFileName;
+      if (selectedFile && orderType === 'file') {
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append('file', selectedFile);
+          
+          const uploadResponse = await fetch('/api/upload-file', {
             method: 'POST',
-            body: formData,
+            body: uploadFormData,
           });
-
-          data = await response.json();
-        } else {
-          // For template orders, use JSON
-          const orderData = {
-            customerInfo,
-            orderType: 'template',
-            templateData: {
-              templateType: 'custom',
-              formData: {
-                name: customerInfo.name,
-                email: customerInfo.email,
-                phone: customerInfo.phone,
-              }
-            },
-            printingOptions: {
-              ...printingOptions,
-              pageCount,
-            },
-            deliveryOption,
-            expectedDate,
-          };
-
-          const response = await fetch('/api/orders/create', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(orderData),
-          });
-
-          data = await response.json();
+          
+          const uploadData = await uploadResponse.json();
+          
+          if (uploadData.success) {
+            fileURL = uploadData.fileURL;
+            fileType = uploadData.fileType;
+            originalFileName = uploadData.originalFileName;
+            console.log(`✅ File uploaded successfully: ${fileURL}`);
+          } else {
+            throw new Error(uploadData.error || 'Upload failed');
+          }
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          alert('Failed to upload file. Please try again.');
+          setIsProcessingPayment(false);
+          return;
         }
+      }
+
+      // Prepare order data for payment initiation
+      const orderData = {
+        customerInfo,
+        orderType,
+        fileURL: orderType === 'file' ? fileURL : undefined,
+        fileType: orderType === 'file' ? fileType : undefined,
+        originalFileName: orderType === 'file' ? originalFileName : undefined,
+        templateData: orderType === 'template' ? {
+          templateType: 'custom',
+          formData: {
+            name: customerInfo.name,
+            email: customerInfo.email,
+            phone: customerInfo.phone,
+          }
+        } : undefined,
+        printingOptions: {
+          ...printingOptions,
+          pageCount,
+        },
+        deliveryOption,
+        expectedDate,
+      };
+
+      console.log('🔍 Initiating payment with order data:', orderData);
+
+      // Initiate payment (this will NOT create order in database yet)
+      const response = await fetch('/api/payment/initiate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      const data = await response.json();
 
       if (data.success) {
         // Initialize Razorpay payment
@@ -583,13 +610,13 @@ export default function OrderPage() {
           amount: data.amount * 100, // Razorpay expects amount in paise
           currency: 'INR',
           name: 'College Print Service',
-          description: `Print Order #${data.orderId}`,
+          description: `Print Order Payment`,
           order_id: data.razorpayOrderId,
           handler: async function (response: any) {
             try {
               console.log('💳 Payment response received:', response);
               
-              // Verify payment on backend
+              // Verify payment and create order on backend
               const verifyResponse = await fetch('/api/payment/verify', {
                 method: 'POST',
                 headers: {
@@ -599,7 +626,6 @@ export default function OrderPage() {
                   razorpay_order_id: response.razorpay_order_id,
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
-                  orderId: data.orderId,
                 }),
               });
 
@@ -607,7 +633,7 @@ export default function OrderPage() {
               console.log('🔍 Payment verification response:', verifyData);
 
               if (verifyData.success) {
-                alert('🎉 Payment successful! Your order has been placed.');
+                alert(`🎉 Payment successful! Your order #${verifyData.order.orderId} has been placed.`);
                 // Redirect to my orders page
                 window.location.href = '/my-orders';
               } else {
@@ -622,9 +648,24 @@ export default function OrderPage() {
           modal: {
             ondismiss: function() {
               console.log('Payment modal dismissed');
+              // Clean up temporary order data
+              if (data.razorpayOrderId) {
+                fetch('/api/payment/cleanup', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    razorpay_order_id: data.razorpayOrderId,
+                  }),
+                }).catch(cleanupError => {
+                  console.error('Error cleaning up payment data:', cleanupError);
+                });
+              }
               setIsProcessingPayment(false);
             }
           },
+          callback_url: window.location.origin + '/payment-callback',
           prefill: {
             name: customerInfo.name,
             email: customerInfo.email,
