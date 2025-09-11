@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -117,6 +118,7 @@ export default function OrderPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
+  const { user, isAuthenticated } = useAuth();
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
@@ -143,22 +145,27 @@ export default function OrderPage() {
   
   // Step 2: Details, delivery, and payment
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
-    name: '',
+    name: user?.name || '',
     phone: '',
-    email: '',
+    email: user?.email || '',
   });
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>({ type: 'pickup' });
   const [showMapModal, setShowMapModal] = useState(false);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   const [colorPagesInput, setColorPagesInput] = useState<string>('');
+
+  // Update customer info when user authentication changes
+  useEffect(() => {
+    if (user) {
+      setCustomerInfo(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+      }));
+    }
+  }, [user]);
   
-  // Email verification
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
   
   // General state
   const [isLoading, setIsLoading] = useState(false);
@@ -298,7 +305,7 @@ export default function OrderPage() {
               if (printingOptions.serviceOption === 'binding') {
                 total += pricing.additionalServices.binding;
               } else if (printingOptions.serviceOption === 'file') {
-                total += 10; // File handling fee (keep pages inside file)
+                total += 10; // Plastic file fee (keep pages inside file)
               } else if (printingOptions.serviceOption === 'service') {
                 total += 5; // Minimal service fee
               }
@@ -424,78 +431,12 @@ export default function OrderPage() {
     calculateAmount();
   }, [pageCount, printingOptions, deliveryOption]);
 
-  // Email verification functions
-  const handleSendOTP = async () => {
-    if (!customerInfo.email) {
-      alert('Please enter your email first');
-      return;
-    }
-
-    setIsSendingOtp(true);
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: customerInfo.email }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setOtpSent(true);
-        alert('OTP sent to your email! Please check your inbox.');
-      } else {
-        alert(`Failed to send OTP: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error sending OTP:', error);
-      alert('Failed to send OTP. Please try again.');
-    } finally {
-      setIsSendingOtp(false);
-    }
-  };
-
-  const handleVerifyOTP = async () => {
-    if (!otp) {
-      alert('Please enter the OTP');
-      return;
-    }
-
-    setIsVerifying(true);
-    try {
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email: customerInfo.email, 
-          otp: otp 
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setEmailVerified(true);
-        alert('Email verified successfully!');
-      } else {
-        alert(`OTP verification failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error verifying OTP:', error);
-      alert('Failed to verify OTP. Please try again.');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
 
   // Payment function
   const handlePayment = async () => {
-    if (!emailVerified) {
-      alert('Please verify your email first');
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      alert('Please sign in to place an order. You can sign in or create an account to continue.');
       return;
     }
 
@@ -512,7 +453,7 @@ export default function OrderPage() {
 
     // Validate service option for multi-page orders
     if (pageCount > 1 && !printingOptions.serviceOption) {
-      alert('Please select a service option (Binding, File handling, or Service fee) for multi-page orders');
+      alert('Please select a service option (Binding, Plastic file, or Service fee) for multi-page orders');
       return;
     }
 
@@ -1075,7 +1016,7 @@ export default function OrderPage() {
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
                         <span className="ml-3 text-sm font-medium text-gray-700">
-                          🗂️ File handling (₹10)
+                          🗂️ Plastic file (₹10)
                         </span>
                       </label>
 
@@ -1093,7 +1034,7 @@ export default function OrderPage() {
                       </label>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">
-                      Choose one: Binding, File handling to keep pages inside file, or minimal service fee.
+                      Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
                     </p>
                   </div>
                 </div>
@@ -1178,7 +1119,7 @@ export default function OrderPage() {
                   )}
                   {pageCount > 1 && printingOptions.serviceOption === 'file' && (
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">File handling:</span>
+                      <span className="text-gray-600">Plastic file:</span>
                       <span className="font-medium text-gray-800">₹10</span>
                     </div>
                   )}
@@ -1226,95 +1167,25 @@ export default function OrderPage() {
                 </button>
               </div>
 
-              {/* Email Verification Section */}
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">📧 Email Verification Required</h3>
-                <p className="text-gray-700 mb-4">
-                  Please verify your email address to continue with your order. We&apos;ll send you a 6-digit OTP.
-                </p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <div className="flex space-x-2">
-                      <input
-                        type="email"
-                        required
-                        value={customerInfo.email}
-                        onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
-                        placeholder="Enter your email address"
-                        className="form-input flex-1"
-                      />
-                      <button
-                        onClick={handleSendOTP}
-                        disabled={!customerInfo.email || isSendingOtp}
-                        className="px-4 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                      >
-                        {isSendingOtp ? 'Sending...' : 'Send OTP'}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* OTP Input Section */}
-                  {otpSent && (
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="text-gray-600">📧</div>
-                        <div>
-                          <h4 className="font-medium text-gray-800">OTP Sent Successfully!</h4>
-                          <p className="text-sm text-gray-700">
-                            We&apos;ve sent a 6-digit OTP to {customerInfo.email}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <input
-                          type="text"
-                          placeholder="Enter 6-digit OTP"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value)}
-                          maxLength={6}
-                          className="form-input flex-1"
-                        />
-                        <button
-                          onClick={handleVerifyOTP}
-                          disabled={!otp || isVerifying || emailVerified}
-                          className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                          {isVerifying ? 'Verifying...' : emailVerified ? '✓ Verified' : 'Verify OTP'}
-                        </button>
-                      </div>
-                      
-                      {emailVerified && (
-                        <div className="mt-2 text-sm text-gray-700 font-medium bg-gray-100 p-3 rounded-lg border border-gray-300">
-                          ✅ Email verified successfully! You can now proceed with your order.
-                        </div>
-                      )}
-                      
-                      {/* Resend OTP Option */}
-                      {otpSent && !emailVerified && (
-                        <div className="mt-3 text-center">
-                          <button
-                            type="button"
-                            onClick={handleSendOTP}
-                            disabled={isSendingOtp}
-                            className="text-sm text-gray-600 hover:text-gray-800 underline disabled:opacity-50"
-                          >
-                            {isSendingOtp ? 'Sending...' : "Didn't receive OTP? Resend"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
 
               {/* Customer Information Form */}
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Contact Information</h3>
+                {isAuthenticated ? (
+                  <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800">
+                      ✅ Signed in as <strong>{user?.name || user?.email}</strong>. Your information has been pre-filled.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ <strong>Sign in required:</strong> You need to sign in to place an order. 
+                      <a href="/auth/signin" className="text-blue-600 hover:text-blue-800 underline ml-1">Sign in here</a> or 
+                      <a href="/auth/signup" className="text-blue-600 hover:text-blue-800 underline ml-1">create an account</a>.
+                    </p>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1525,8 +1396,7 @@ export default function OrderPage() {
               </div>
 
               {/* Complete Order Summary */}
-              {emailVerified && (
-                <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
+              <div className="bg-gray-50 p-6 rounded-lg border-2 border-gray-200">
                   <h3 className="text-xl font-semibold text-gray-800 mb-4">🎯 Complete Order Summary</h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1646,16 +1516,13 @@ export default function OrderPage() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Base Price ({printingOptions.pageSize}):</span>
                         <span className="font-medium text-gray-800">
-                          ₹{(() => {
-                            // This will be updated by the pricing API
-                            return printingOptions.pageSize === 'A3' ? 10 : 5;
-                          })()}/page × {pageCount} pages
+                          ₹{pricingLoading ? '...' : (pricingData?.basePrices?.[printingOptions.pageSize] || (printingOptions.pageSize === 'A3' ? 10 : 5))}/page × {pageCount} pages
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Color Multiplier:</span>
                         <span className="font-medium text-gray-800">
-                          {printingOptions.color === 'color' ? '2x (Color)' : 
+                          {printingOptions.color === 'color' ? `${pricingLoading ? '...' : (pricingData?.multipliers?.color || 2)}x (Color)` : 
                            printingOptions.color === 'bw' ? '1x (B/W)' : 
                            'Mixed (See breakdown)'}
                         </span>
@@ -1679,7 +1546,7 @@ export default function OrderPage() {
                       <div className="flex justify-between">
                         <span className="text-gray-600">Sided Multiplier:</span>
                         <span className="font-medium text-gray-800">
-                          {printingOptions.sided === 'double' ? '1.5x' : '1x'} ({printingOptions.sided === 'double' ? 'Double' : 'Single'})
+                          {printingOptions.sided === 'double' ? `${pricingLoading ? '...' : (pricingData?.multipliers?.doubleSided || 1.5)}x` : '1x'} ({printingOptions.sided === 'double' ? 'Double' : 'Single'})
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -1694,7 +1561,7 @@ export default function OrderPage() {
                       )}
                       {pageCount > 1 && printingOptions.serviceOption === 'file' && (
                         <div className="flex justify-between">
-                          <span className="text-gray-600">File handling:</span>
+                          <span className="text-gray-600">Plastic file:</span>
                           <span className="font-medium text-gray-800">₹10</span>
                         </div>
                       )}
@@ -1719,42 +1586,70 @@ export default function OrderPage() {
                     </div>
                   </div>
                 </div>
+
+              {/* Authentication Prompt */}
+              {!isAuthenticated && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                  <div className="text-center">
+                    <div className="mb-4">
+                      <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-blue-900 mb-2">Sign In Required</h3>
+                      <p className="text-blue-700 mb-4">
+                        You need to sign in to place an order. Create an account or sign in to continue with your printing order.
+                      </p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                      <a
+                        href="/auth/signin"
+                        className="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Sign In
+                      </a>
+                      <a
+                        href="/auth/signup"
+                        className="bg-white text-blue-600 border border-blue-600 px-6 py-3 rounded-lg font-medium hover:bg-blue-50 transition-colors"
+                      >
+                        Create Account
+                      </a>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {/* Proceed to Payment Button */}
               <div className="text-center pt-6">
-                {emailVerified ? (
-                  <div className="space-y-4">
+                <div className="space-y-4">
+                  {isAuthenticated && (
                     <div className="form-message form-message-success">
-                      <p className="font-medium">✅ Email Verified Successfully!</p>
-                      <p className="text-sm">You can now proceed with your order</p>
+                      <p className="font-medium">✅ Ready to Proceed!</p>
+                      <p className="text-sm">You&apos;re signed in and ready to complete your order</p>
                     </div>
-                    <button
-                      onClick={handlePayment}
-                      disabled={isProcessingPayment || !isRazorpayLoaded}
-                      className="px-12 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {!isRazorpayLoaded ? '⏳ Loading Payment Gateway...' : 
-                       isProcessingPayment ? '🔄 Processing...' : 
-                       `🚀 Proceed to Payment - ₹${amount.toFixed(2)}`}
-                    </button>
-                    {!isRazorpayLoaded && (
-                      <p className="text-sm text-gray-500 mt-2">
-                        Please wait while we load the payment gateway...
-                      </p>
-                    )}
-                    {razorpayError && (
-                      <p className="text-sm text-red-500 mt-2">
-                        Payment gateway error: {razorpayError}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <div className="form-message form-message-info">
-                    <p className="font-medium">⚠️ Email Verification Required</p>
-                    <p className="text-sm">Please verify your email address above to continue with your order</p>
-                  </div>
-                )}
+                  )}
+                  <button
+                    onClick={handlePayment}
+                    disabled={isProcessingPayment || !isRazorpayLoaded || !isAuthenticated}
+                    className="px-12 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {!isAuthenticated ? '🔒 Sign In to Place Order' :
+                     !isRazorpayLoaded ? '⏳ Loading Payment Gateway...' : 
+                     isProcessingPayment ? '🔄 Processing...' : 
+                     `🚀 Proceed to Payment - ₹${amount.toFixed(2)}`}
+                  </button>
+                  {!isRazorpayLoaded && (
+                    <p className="text-sm text-gray-500 mt-2">
+                      Please wait while we load the payment gateway...
+                    </p>
+                  )}
+                  {razorpayError && (
+                    <p className="text-sm text-red-500 mt-2">
+                      Payment gateway error: {razorpayError}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}

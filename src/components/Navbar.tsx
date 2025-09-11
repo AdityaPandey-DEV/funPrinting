@@ -3,6 +3,27 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
+import dynamic from 'next/dynamic';
+
+const ClientAuthSection = dynamic(() => import('./ClientAuthSection'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex items-center space-x-3">
+      <div className="w-20 h-6 bg-gray-200 rounded animate-pulse"></div>
+      <div className="w-16 h-8 bg-gray-200 rounded animate-pulse"></div>
+    </div>
+  )
+});
+
+const ClientMobileAuthSection = dynamic(() => import('./ClientMobileAuthSection'), {
+  ssr: false,
+  loading: () => (
+    <div className="px-3 py-2">
+      <div className="w-32 h-4 bg-gray-200 rounded animate-pulse mb-3"></div>
+      <div className="w-20 h-8 bg-gray-200 rounded animate-pulse"></div>
+    </div>
+  )
+});
 
 export default function Navbar() {
   const { adminInfo } = useAdminInfo();
@@ -18,9 +39,9 @@ export default function Navbar() {
   ];
 
   return (
-    <nav className="bg-white shadow-lg border-b border-gray-200">
+    <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
+        <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 flex items-center">
               <span className="text-2xl font-bold text-black">{adminInfo?.name || 'PrintService'}</span>
@@ -28,16 +49,23 @@ export default function Navbar() {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-gray-700 hover:text-black px-3 py-2 rounded-md text-sm font-medium transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <div className="hidden md:flex items-center">
+            <div className="flex items-center space-x-6">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-gray-700 hover:text-black px-3 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+            
+            {/* Authentication Section */}
+            <div className="flex items-center ml-8 pl-6 border-l border-gray-300">
+              <ClientAuthSection />
+            </div>
           </div>
 
           {/* Mobile menu button */}
@@ -75,6 +103,11 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+            
+            {/* Mobile Authentication Section */}
+            <div className="border-t border-gray-200 pt-4 mt-4">
+              <ClientMobileAuthSection onMenuClose={() => setIsMenuOpen(false)} />
+            </div>
           </div>
         </div>
       )}

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { otpStore } from '@/lib/otp-store';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useRouter } from 'next/navigation';
 
 interface Order {
   _id: string;
@@ -33,104 +34,41 @@ interface Order {
 }
 
 export default function MyOrdersPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [searchEmail, setSearchEmail] = useState('');
-  const [searchedOrders, setSearchedOrders] = useState<Order[]>([]);
-  
-  // Email verification state
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  // Email verification functions
-  const handleSendOTP = async () => {
-    if (!searchEmail) {
-      alert('Please enter your email first');
-      return;
+  // Redirect to sign in if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/signin?callbackUrl=/my-orders');
     }
+  }, [isAuthenticated, authLoading, router]);
 
-    setIsSendingOtp(true);
-    try {
-      const response = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email: searchEmail }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setOtpSent(true);
-        alert('OTP sent to your email! Please check your inbox.');
-      } else {
-        alert(`Failed to send OTP: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error sending OTP:', error);
-      alert('Failed to send OTP. Please try again.');
-    } finally {
-      setIsSendingOtp(false);
+  // Load orders when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user?.email) {
+      loadOrders();
     }
-  };
+  }, [isAuthenticated, user?.email]);
 
-  const handleVerifyOTP = async () => {
-    if (!otp) {
-      alert('Please enter the OTP');
-      return;
-    }
-
-    setIsVerifying(true);
-    try {
-      const response = await fetch('/api/auth/verify-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email: searchEmail, 
-          otp: otp 
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        setEmailVerified(true);
-        alert('Email verified successfully!');
-      } else {
-        alert(`OTP verification failed: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error verifying OTP:', error);
-      alert('Failed to verify OTP. Please try again.');
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const searchOrders = async () => {
-    if (!emailVerified) {
-      alert('Please verify your email first');
-      return;
-    }
+  // Load orders for authenticated user
+  const loadOrders = async () => {
+    if (!user?.email) return;
 
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/orders?email=${encodeURIComponent(searchEmail)}`);
+      const response = await fetch(`/api/orders?email=${encodeURIComponent(user.email)}`);
       const data = await response.json();
 
       if (data.success) {
-        setSearchedOrders(data.orders);
+        setOrders(data.orders);
       } else {
-        alert('Failed to fetch orders. Please try again.');
+        console.error('Failed to fetch orders:', data.error);
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
-      alert('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -174,141 +112,74 @@ export default function MyOrdersPage() {
     });
   };
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show sign in prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">My Orders</h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Please sign in to view your orders
+            </p>
+            <a
+              href="/auth/signin?callbackUrl=/my-orders"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              Sign In
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">My Orders</h1>
           <p className="text-lg text-gray-600">
-            Track your printing orders and download generated documents
+            Welcome back, {user?.name || user?.email}! Here are your printing orders.
           </p>
         </div>
 
-        {/* Email Verification Section */}
-        <div className="form-container mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-            <span className="text-2xl">📧</span>
-            Email Verification Required
-          </h2>
-          <p className="text-gray-600 mb-6 text-lg">
-            Please verify your email address to view your orders. We&apos;ll send you a 6-digit OTP.
-          </p>
-          
-          <div className="form-section">
-            <div className="form-group">
-              <label className="form-label">
-                Email Address *
-              </label>
-              <div className="flex space-x-3">
-                <input
-                  type="email"
-                  required
-                  value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
-                  placeholder="Enter your email address"
-                  className="form-input flex-1"
-                />
-                <button
-                  type="button"
-                  onClick={handleSendOTP}
-                  disabled={!searchEmail || isSendingOtp}
-                  className="form-button form-button-primary whitespace-nowrap"
-                >
-                  {isSendingOtp ? 'Sending...' : 'Send OTP'}
-                </button>
-              </div>
-            </div>
-            
-            {/* OTP Input Section */}
-            {otpSent && (
-              <div className="form-section">
-                <div className="form-message form-message-info flex items-center space-x-3">
-                  <div className="text-xl">📧</div>
-                  <div>
-                    <h4 className="font-semibold">OTP Sent Successfully!</h4>
-                    <p className="text-sm">
-                      We&apos;ve sent a 6-digit OTP to {searchEmail}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="form-group">
-                  <label className="form-label">Enter OTP Code</label>
-                  <div className="flex space-x-3">
-                    <input
-                      type="text"
-                      placeholder="Enter 6-digit OTP"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      maxLength={6}
-                      className="form-input flex-1 text-center text-2xl tracking-widest"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleVerifyOTP}
-                      disabled={!otp || isVerifying || emailVerified}
-                      className="form-button form-button-success whitespace-nowrap"
-                    >
-                      {isVerifying ? 'Verifying...' : emailVerified ? '✓ Verified' : 'Verify OTP'}
-                    </button>
-                  </div>
-                </div>
-                
-                {emailVerified && (
-                  <div className="form-message form-message-success">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xl">✅</span>
-                      <span className="font-semibold">Email verified successfully! You can now search for your orders.</span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Resend OTP Option */}
-                {otpSent && !emailVerified && (
-                  <div className="text-center">
-                    <button
-                      type="button"
-                      onClick={handleSendOTP}
-                      disabled={isSendingOtp}
-                      className="text-sm text-blue-600 hover:text-blue-800 underline disabled:opacity-50 font-medium"
-                    >
-                      {isSendingOtp ? 'Sending...' : "Didn't receive OTP? Resend"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+        {/* Refresh Button */}
+        <div className="text-center mb-8">
+          <button
+            onClick={loadOrders}
+            disabled={isLoading}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? 'Refreshing...' : 'Refresh Orders'}
+          </button>
         </div>
-
-        {/* Search Orders Button */}
-        {emailVerified && (
-          <div className="form-container mb-8 text-center">
-            <h3 className="text-2xl font-bold text-blue-800 mb-3 flex items-center justify-center gap-2">
-              <span className="text-2xl">🔍</span>
-              Ready to Search Orders
-            </h3>
-            <p className="text-gray-600 mb-6 text-lg">Your email has been verified. Click below to search for your orders.</p>
-            <button
-              onClick={searchOrders}
-              className="form-button form-button-primary text-lg px-12 py-4"
-            >
-              Search My Orders
-            </button>
-          </div>
-        )}
 
         {/* Orders List */}
         {isLoading && (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Searching orders...</p>
+            <p className="mt-4 text-gray-600">Loading orders...</p>
           </div>
         )}
         
-        {!isLoading && searchedOrders.length > 0 && (
+        {!isLoading && orders.length > 0 && (
           <div className="space-y-6">
-            {searchedOrders.map((order) => (
+            {orders.map((order) => (
               <div key={order._id} className="bg-white rounded-lg shadow-lg p-6">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                   <div>
@@ -421,16 +292,10 @@ export default function MyOrdersPage() {
           </div>
         )}
         
-        {!isLoading && searchedOrders.length === 0 && searchEmail && emailVerified && (
+        {!isLoading && orders.length === 0 && (
           <div className="text-center py-8">
-            <div className="text-gray-500 text-lg">No orders found for this email address.</div>
-            <p className="text-gray-400 mt-2">Please check your email or place a new order.</p>
-          </div>
-        )}
-        
-        {!isLoading && searchedOrders.length === 0 && !searchEmail && (
-          <div className="text-center py-8">
-            <div className="text-gray-500 text-lg">Enter your email and verify it to view your orders.</div>
+            <div className="text-gray-500 text-lg">No orders found.</div>
+                  <p className="text-gray-400 mt-2">You haven&apos;t placed any orders yet. <a href="/order" className="text-blue-600 hover:text-blue-800 underline">Place your first order</a> to get started!</p>
           </div>
         )}
       </div>
