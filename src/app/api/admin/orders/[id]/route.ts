@@ -67,3 +67,34 @@ export async function PATCH(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    const { id } = await context.params;
+    
+    const order = await Order.findByIdAndDelete(id);
+    if (!order) {
+      return NextResponse.json(
+        { success: false, error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+    
+    console.log(`Order ${order.orderId} deleted successfully`);
+    return NextResponse.json({
+      success: true,
+      message: 'Order deleted successfully',
+      orderId: order.orderId,
+    });
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete order' },
+      { status: 500 }
+    );
+  }
+}
