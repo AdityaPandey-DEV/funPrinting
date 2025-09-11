@@ -31,8 +31,7 @@ const userSchema = new mongoose.Schema<IUser>({
   timestamps: true,
 });
 
-// Index for faster queries
-userSchema.index({ email: 1 });
+// Index for faster queries (email already has unique index from schema)
 userSchema.index({ providerId: 1 });
 // Note: Removed unique index on phone field to allow multiple null values
 

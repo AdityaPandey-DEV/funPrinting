@@ -490,6 +490,25 @@ export default function OrderPage() {
             body: uploadFormData,
           });
           
+          // Check if response is ok before trying to parse JSON
+          if (!uploadResponse.ok) {
+            let errorMessage = 'Upload failed';
+            try {
+              const errorData = await uploadResponse.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch (parseError) {
+              // If we can't parse JSON, it might be an HTML error page from Vercel
+              if (uploadResponse.status === 413) {
+                errorMessage = 'File size too large. Please try a smaller file.';
+              } else if (uploadResponse.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+              } else {
+                errorMessage = `Upload failed with status ${uploadResponse.status}`;
+              }
+            }
+            throw new Error(errorMessage);
+          }
+          
           const uploadData = await uploadResponse.json();
           
           if (uploadData.success) {
@@ -502,7 +521,8 @@ export default function OrderPage() {
           }
         } catch (error) {
           console.error('Error uploading file:', error);
-          alert('Failed to upload file. Please try again.');
+          const errorMessage = error instanceof Error ? error.message : 'Failed to upload file. Please try again.';
+          alert(`Upload Error: ${errorMessage}`);
           setIsProcessingPayment(false);
           return;
         }
