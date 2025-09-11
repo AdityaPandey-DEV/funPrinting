@@ -184,9 +184,37 @@ const orderSchema = new mongoose.Schema<IOrder>({
 
 // Generate order ID before saving
 orderSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const count = await mongoose.model('Order').countDocuments();
-    this.orderId = `ORD${String(count + 1).padStart(6, '0')}`;
+  if (this.isNew && !this.orderId) {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
+      try {
+        // Use timestamp + random number for better uniqueness
+        const timestamp = Date.now().toString().slice(-6);
+        const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+        const candidateOrderId = `ORD${timestamp}${random}`;
+        
+        // Check if this orderId already exists
+        const existingOrder = await mongoose.model('Order').findOne({ orderId: candidateOrderId });
+        
+        if (!existingOrder) {
+          this.orderId = candidateOrderId;
+          break;
+        }
+        
+        attempts++;
+      } catch (error) {
+        console.error('Error generating order ID:', error);
+        attempts++;
+      }
+    }
+    
+    // Fallback to UUID if all attempts fail
+    if (!this.orderId) {
+      const { v4: uuidv4 } = await import('uuid');
+      this.orderId = `ORD${uuidv4().replace(/-/g, '').substring(0, 10).toUpperCase()}`;
+    }
   }
   next();
 });
