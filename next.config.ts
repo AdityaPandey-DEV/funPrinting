@@ -3,6 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // External packages for server components
   serverExternalPackages: ['mongoose'],
+  // Experimental features for larger request bodies
+  experimental: {
+    serverComponentsExternalPackages: ['mongoose'],
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Handle PDF.js worker files
