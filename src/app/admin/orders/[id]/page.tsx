@@ -52,7 +52,18 @@ interface Order {
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
-    pickupLocation?: string;
+    pickupLocationId?: string;
+    pickupLocation?: {
+      _id: string;
+      name: string;
+      address: string;
+      lat: number;
+      lng: number;
+      contactPerson?: string;
+      contactPhone?: string;
+      operatingHours?: string;
+      gmapLink?: string;
+    };
     deliveryCharge?: number;
     address?: string;
     city?: string;
@@ -324,9 +335,45 @@ export default function OrderDetailPage() {
                     </span>
                   </div>
                   {order.deliveryOption.type === 'pickup' && order.deliveryOption.pickupLocation && (
-                    <div>
-                      <span className="text-gray-600">Pickup Location:</span>
-                      <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation}</span>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-gray-600">Pickup Location:</span>
+                        <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Address:</span>
+                        <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation.address}</span>
+                      </div>
+                      {order.deliveryOption.pickupLocation.contactPerson && (
+                        <div>
+                          <span className="text-gray-600">Contact Person:</span>
+                          <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation.contactPerson}</span>
+                        </div>
+                      )}
+                      {order.deliveryOption.pickupLocation.contactPhone && (
+                        <div>
+                          <span className="text-gray-600">Contact Phone:</span>
+                          <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation.contactPhone}</span>
+                        </div>
+                      )}
+                      {order.deliveryOption.pickupLocation.operatingHours && (
+                        <div>
+                          <span className="text-gray-600">Operating Hours:</span>
+                          <span className="ml-2 font-medium">{order.deliveryOption.pickupLocation.operatingHours}</span>
+                        </div>
+                      )}
+                      {order.deliveryOption.pickupLocation.gmapLink && (
+                        <div>
+                          <a 
+                            href={order.deliveryOption.pickupLocation.gmapLink} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline text-sm"
+                          >
+                            📍 View on Google Maps
+                          </a>
+                        </div>
+                      )}
                     </div>
                   )}
                   {order.deliveryOption.type === 'delivery' && order.deliveryOption.deliveryCharge && (

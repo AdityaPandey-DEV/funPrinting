@@ -185,6 +185,38 @@ export async function POST(request: NextRequest) {
       throw new Error('Missing required fields: name, phone, and email are required');
     }
 
+    // Fetch pickup location details if pickup is selected
+    let enhancedDeliveryOption = deliveryOption;
+    if (deliveryOption.type === 'pickup' && deliveryOption.pickupLocationId) {
+      try {
+        const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
+        const pickupData = await pickupResponse.json();
+        
+        if (pickupData.success) {
+          const selectedLocation = pickupData.locations.find((loc: any) => loc._id === deliveryOption.pickupLocationId);
+          if (selectedLocation) {
+            enhancedDeliveryOption = {
+              ...deliveryOption,
+              pickupLocation: {
+                _id: selectedLocation._id,
+                name: selectedLocation.name,
+                address: selectedLocation.address,
+                lat: selectedLocation.lat,
+                lng: selectedLocation.lng,
+                contactPerson: selectedLocation.contactPerson,
+                contactPhone: selectedLocation.contactPhone,
+                operatingHours: selectedLocation.operatingHours,
+                gmapLink: selectedLocation.gmapLink
+              }
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching pickup location details:', error);
+        // Continue with original delivery option if fetch fails
+      }
+    }
+
     // Ensure all required fields are present and handle optional fields
     const orderData = {
       customerInfo: {
@@ -201,7 +233,7 @@ export async function POST(request: NextRequest) {
         ...printingOptions,
         pageCount: pageCount, // Add page count to printing options
       },
-      deliveryOption,
+      deliveryOption: enhancedDeliveryOption,
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
@@ -223,6 +255,9 @@ export async function POST(request: NextRequest) {
       }
       throw saveError;
     }
+
+    console.log('🔑 Razorpay Key ID:', process.env.RAZORPAY_KEY_ID ? 'Present' : 'Missing');
+    console.log('🔑 Razorpay Key Secret:', process.env.RAZORPAY_KEY_SECRET ? 'Present' : 'Missing');
 
     return NextResponse.json({
       success: true,

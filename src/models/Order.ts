@@ -53,6 +53,17 @@ export interface IOrder {
     city?: string;
     pinCode?: string;
     pickupLocationId?: string;
+    pickupLocation?: {
+      _id: string;
+      name: string;
+      address: string;
+      lat: number;
+      lng: number;
+      contactPerson?: string;
+      contactPhone?: string;
+      operatingHours?: string;
+      gmapLink?: string;
+    };
   };
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -153,6 +164,17 @@ const orderSchema = new mongoose.Schema<IOrder>({
       default: 'pickup'
     },
     pickupLocationId: String,
+    pickupLocation: {
+      _id: String,
+      name: String,
+      address: String,
+      lat: Number,
+      lng: Number,
+      contactPerson: String,
+      contactPhone: String,
+      operatingHours: String,
+      gmapLink: String
+    },
     location: {
       lat: Number,
       lng: Number,

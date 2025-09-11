@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRazorpay } from '@/hooks/useRazorpay';
 
 interface PrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -115,6 +116,7 @@ const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: numb
 export default function OrderPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
   
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
@@ -245,7 +247,7 @@ export default function OrderPage() {
   // Calculate amount based on printing options and delivery
   useEffect(() => {
     const calculateAmount = async () => {
-      if (pageCount > 0) {
+      if (pageCount > 0 && printingOptions.copies > 0) {
         try {
           // Fetch pricing from API
           const response = await fetch('/api/pricing');
@@ -293,8 +295,19 @@ export default function OrderPage() {
               total += deliveryOption.deliveryCharge;
             }
             
+            console.log(`💰 Frontend pricing calculation:`, {
+              pageCount,
+              basePrice,
+              color: printingOptions.color,
+              sided: printingOptions.sided,
+              copies: printingOptions.copies,
+              serviceOption: printingOptions.serviceOption,
+              total
+            });
+            
             setAmount(total);
           } else {
+            console.error('Pricing API failed:', data.error);
             // Fallback to hardcoded pricing if API fails
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
             
@@ -331,6 +344,16 @@ export default function OrderPage() {
               total += deliveryOption.deliveryCharge;
             }
             
+            console.log(`💰 Frontend fallback pricing calculation:`, {
+              pageCount,
+              basePrice,
+              color: printingOptions.color,
+              sided: printingOptions.sided,
+              copies: printingOptions.copies,
+              serviceOption: printingOptions.serviceOption,
+              total
+            });
+            
             setAmount(total);
           }
         } catch (error) {
@@ -360,8 +383,21 @@ export default function OrderPage() {
             total += deliveryOption.deliveryCharge;
           }
           
+          console.log(`💰 Frontend error fallback pricing calculation:`, {
+            pageCount,
+            basePrice,
+            color: printingOptions.color,
+            sided: printingOptions.sided,
+            copies: printingOptions.copies,
+            serviceOption: printingOptions.serviceOption,
+            total
+          });
+          
           setAmount(total);
         }
+      } else {
+        // Reset amount if pageCount or copies is invalid
+        setAmount(0);
       }
     };
 
@@ -440,6 +476,17 @@ export default function OrderPage() {
   const handlePayment = async () => {
     if (!emailVerified) {
       alert('Please verify your email first');
+      return;
+    }
+
+    // Check if Razorpay is loaded
+    if (!isRazorpayLoaded) {
+      alert('Payment gateway is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    if (razorpayError) {
+      alert(`Payment gateway error: ${razorpayError}`);
       return;
     }
 
@@ -540,6 +587,8 @@ export default function OrderPage() {
           order_id: data.razorpayOrderId,
           handler: async function (response: any) {
             try {
+              console.log('💳 Payment response received:', response);
+              
               // Verify payment on backend
               const verifyResponse = await fetch('/api/payment/verify', {
                 method: 'POST',
@@ -555,17 +604,25 @@ export default function OrderPage() {
               });
 
               const verifyData = await verifyResponse.json();
+              console.log('🔍 Payment verification response:', verifyData);
 
               if (verifyData.success) {
                 alert('🎉 Payment successful! Your order has been placed.');
                 // Redirect to my orders page
                 window.location.href = '/my-orders';
               } else {
-                alert('❌ Payment verification failed. Please contact support.');
+                console.error('Payment verification failed:', verifyData.error);
+                alert(`❌ Payment verification failed: ${verifyData.error || 'Unknown error'}`);
               }
             } catch (error) {
               console.error('Error verifying payment:', error);
               alert('❌ Payment verification failed. Please contact support.');
+            }
+          },
+          modal: {
+            ondismiss: function() {
+              console.log('Payment modal dismissed');
+              setIsProcessingPayment(false);
             }
           },
           prefill: {
@@ -578,7 +635,7 @@ export default function OrderPage() {
           },
         };
 
-        const razorpay = new (window as any).Razorpay(options);
+        const razorpay = openRazorpay(options);
         razorpay.open();
       } else {
         alert(`Failed to create order: ${data.error}`);
@@ -593,12 +650,6 @@ export default function OrderPage() {
 
   return (
     <>
-      {/* Razorpay Script */}
-      <script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        async
-      />
-      
       <div className="min-h-screen bg-gray-100 py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
@@ -1639,11 +1690,23 @@ export default function OrderPage() {
                     </div>
                     <button
                       onClick={handlePayment}
-                      disabled={isProcessingPayment}
+                      disabled={isProcessingPayment || !isRazorpayLoaded}
                       className="px-12 py-4 bg-black text-white rounded-lg font-semibold hover:bg-gray-800 transition-colors text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {isProcessingPayment ? '🔄 Processing...' : `🚀 Proceed to Payment - ₹${amount.toFixed(2)}`}
+                      {!isRazorpayLoaded ? '⏳ Loading Payment Gateway...' : 
+                       isProcessingPayment ? '🔄 Processing...' : 
+                       `🚀 Proceed to Payment - ₹${amount.toFixed(2)}`}
                     </button>
+                    {!isRazorpayLoaded && (
+                      <p className="text-sm text-gray-500 mt-2">
+                        Please wait while we load the payment gateway...
+                      </p>
+                    )}
+                    {razorpayError && (
+                      <p className="text-sm text-red-500 mt-2">
+                        Payment gateway error: {razorpayError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="form-message form-message-info">

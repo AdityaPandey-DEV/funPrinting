@@ -54,8 +54,21 @@ interface Order {
   deliveryOption?: {
     type: 'pickup' | 'delivery';
     pickupLocationId?: string;
+    pickupLocation?: {
+      _id: string;
+      name: string;
+      address: string;
+      lat: number;
+      lng: number;
+      contactPerson?: string;
+      contactPhone?: string;
+      operatingHours?: string;
+      gmapLink?: string;
+    };
     deliveryCharge?: number;
     address?: string;
+    city?: string;
+    pinCode?: string;
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
@@ -377,6 +390,9 @@ function AdminDashboardContent() {
                     Printing Options
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Delivery Location
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Expected Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -440,6 +456,28 @@ function AdminDashboardContent() {
                         {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
                           <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
                             🎨 {order.printingOptions.pageColors.colorPages.length} color, {order.printingOptions.pageColors.bwPages.length} B&W
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-gray-900 space-y-1">
+                        <div className="font-medium">
+                          {order.deliveryOption?.type === 'pickup' ? '🏫 Pickup' : '🚚 Delivery'}
+                        </div>
+                        {order.deliveryOption?.type === 'pickup' && order.deliveryOption?.pickupLocation && (
+                          <div className="text-xs text-gray-600">
+                            {order.deliveryOption.pickupLocation.name}
+                          </div>
+                        )}
+                        {order.deliveryOption?.type === 'delivery' && order.deliveryOption?.address && (
+                          <div className="text-xs text-gray-600">
+                            {order.deliveryOption.address.substring(0, 30)}...
+                          </div>
+                        )}
+                        {order.deliveryOption?.deliveryCharge && (
+                          <div className="text-xs text-red-600 font-medium">
+                            +₹{order.deliveryOption.deliveryCharge}
                           </div>
                         )}
                       </div>
