@@ -18,21 +18,35 @@ export async function POST(request: NextRequest) {
       if (body.templateId && body.formData) {
         console.log('🔄 Detected new template order, routing to template endpoint...');
         
-        // Route to our new template order endpoint
-        const templateOrderResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/orders/template`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(body),
-        });
-        
-        if (templateOrderResponse.ok) {
-          const templateResult = await templateOrderResponse.json();
-          return NextResponse.json(templateResult);
-        } else {
-          const errorResult = await templateOrderResponse.json();
-          return NextResponse.json(errorResult, { status: templateOrderResponse.status });
+        try {
+          // Route to our new template order endpoint
+          const templateOrderResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/orders/template`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(body),
+          });
+          
+          if (templateOrderResponse.ok) {
+            const templateResult = await templateOrderResponse.json();
+            return NextResponse.json(templateResult);
+          } else {
+            const errorResult = await templateOrderResponse.json();
+            logOrderEvent('template_order_routing_failed', 'unknown', { 
+              status: templateOrderResponse.status, 
+              error: errorResult.error 
+            }, 'error');
+            return NextResponse.json(errorResult, { status: templateOrderResponse.status });
+          }
+        } catch (error) {
+          logOrderEvent('template_order_routing_error', 'unknown', { 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          }, 'error');
+          return NextResponse.json(
+            { success: false, error: 'Template order processing failed. Please try again.' },
+            { status: 500 }
+          );
         }
       }
     }
@@ -218,9 +232,14 @@ export async function POST(request: NextRequest) {
     if (deliveryOption.type === 'pickup' && deliveryOption.pickupLocationId) {
       try {
         const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
+        
+        if (!pickupResponse.ok) {
+          throw new Error(`Pickup locations API returned ${pickupResponse.status}`);
+        }
+        
         const pickupData = await pickupResponse.json();
         
-        if (pickupData.success) {
+        if (pickupData.success && pickupData.locations) {
           const selectedLocation = pickupData.locations.find((loc: any) => loc._id === deliveryOption.pickupLocationId);
           if (selectedLocation) {
             enhancedDeliveryOption = {
@@ -237,9 +256,27 @@ export async function POST(request: NextRequest) {
                 gmapLink: selectedLocation.gmapLink
               }
             };
+            logOrderEvent('pickup_location_enhanced', 'unknown', { 
+              locationId: deliveryOption.pickupLocationId,
+              locationName: selectedLocation.name 
+            }, 'info');
+          } else {
+            logOrderEvent('pickup_location_not_found', 'unknown', { 
+              locationId: deliveryOption.pickupLocationId 
+            }, 'warn');
+            // Continue with original delivery option - pickup location not found
           }
+        } else {
+          logOrderEvent('pickup_locations_api_failed', 'unknown', { 
+            error: pickupData.error || 'Unknown API error' 
+          }, 'warn');
+          // Continue with original delivery option - API failed
         }
       } catch (error) {
+        logOrderEvent('pickup_location_fetch_error', 'unknown', { 
+          error: error instanceof Error ? error.message : 'Unknown error',
+          locationId: deliveryOption.pickupLocationId 
+        }, 'error');
         console.error('Error fetching pickup location details:', error);
         // Continue with original delivery option if fetch fails
       }
@@ -265,6 +302,9 @@ export async function POST(request: NextRequest) {
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
+      status: 'pending_payment', // Consistent status field
+      paymentStatus: 'pending', // Consistent payment status
+      orderStatus: 'pending', // Consistent order status
     };
 
     console.log('🔍 DEBUG - Order data being saved:', JSON.stringify(orderData, null, 2));
