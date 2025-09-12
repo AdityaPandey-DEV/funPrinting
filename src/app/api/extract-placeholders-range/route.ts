@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       
       // Split text into paragraphs (rough approximation of pages)
       const paragraphs = text.split('\n\n').filter(p => p.trim().length > 0);
-      const wordsPerPage = Math.ceil(paragraphs.length / 10); // Rough estimate
+      const wordsPerPage = Math.max(1, Math.ceil(paragraphs.length / 10)); // Rough estimate, prevent division by zero
       
       const startIndex = Math.max(0, (start - 1) * wordsPerPage);
       const endIndex = Math.min(paragraphs.length, end * wordsPerPage);

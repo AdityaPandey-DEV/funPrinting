@@ -38,7 +38,7 @@ export interface IOrder {
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
-  status?: 'pending_payment' | 'paid' | 'processing' | 'completed' | 'cancelled';
+  status: 'pending_payment' | 'paid' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
   amount: number;
   deliveryOption: {
     type: 'pickup' | 'delivery';
@@ -134,8 +134,24 @@ const orderSchema = new mongoose.Schema<IOrder>({
       enum: ['binding', 'file', 'service'],
     },
     pageColors: {
-      colorPages: [Number], // Array of page numbers for color printing
-      bwPages: [Number],    // Array of page numbers for B&W printing
+      colorPages: [{
+        type: Number,
+        validate: {
+          validator: function(v: number[]) {
+            return v.every(page => page >= 1 && page <= 1000);
+          },
+          message: 'Color page numbers must be between 1 and 1000'
+        }
+      }],
+      bwPages: [{
+        type: Number,
+        validate: {
+          validator: function(v: number[]) {
+            return v.every(page => page >= 1 && page <= 1000);
+          },
+          message: 'B&W page numbers must be between 1 and 1000'
+        }
+      }]
     },
   },
   paymentStatus: {
@@ -150,7 +166,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   status: {
     type: String,
-    enum: ['pending_payment', 'paid', 'processing', 'completed', 'cancelled'],
+    enum: ['pending_payment', 'paid', 'processing', 'printing', 'dispatched', 'delivered', 'cancelled', 'refunded'],
     default: 'pending_payment',
   },
   amount: {

@@ -299,12 +299,15 @@ export async function POST(request: NextRequest) {
         pageCount: pageCount, // Add page count to printing options
       },
       deliveryOption: enhancedDeliveryOption,
-      expectedDate: expectedDate ? new Date(expectedDate) : undefined,
+      expectedDate: expectedDate ? (() => {
+        const date = new Date(expectedDate);
+        return isNaN(date.getTime()) ? undefined : date;
+      })() : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
-      status: 'pending_payment', // Consistent status field
-      paymentStatus: 'pending', // Consistent payment status
-      orderStatus: 'pending', // Consistent order status
+      status: 'pending_payment', // Use consistent status field
+      paymentStatus: 'pending', // Use consistent payment status
+      orderStatus: 'pending', // Use consistent order status
     };
 
     console.log('🔍 DEBUG - Order data being saved:', JSON.stringify(orderData, null, 2));

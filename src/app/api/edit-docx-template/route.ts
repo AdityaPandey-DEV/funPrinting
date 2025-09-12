@@ -29,9 +29,9 @@ export async function POST(request: NextRequest) {
           return new Date(date).toLocaleDateString();
         },
         formatCurrency: (amount: number) => {
-          return new Intl.NumberFormat('en-US', {
+          return new Intl.NumberFormat('en-IN', {
             style: 'currency',
-            currency: 'USD'
+            currency: 'INR'
           }).format(amount);
         }
       }

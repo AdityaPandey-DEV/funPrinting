@@ -31,10 +31,10 @@ export async function POST(request: NextRequest) {
           return new Date(date).toLocaleDateString();
         },
         formatCurrency: (amount: number) => {
-          if (!amount) return '$0.00';
-          return new Intl.NumberFormat('en-US', {
+          if (!amount) return '₹0.00';
+          return new Intl.NumberFormat('en-IN', {
             style: 'currency',
-            currency: 'USD'
+            currency: 'INR'
           }).format(amount);
         },
         formatNumber: (num: number) => {
