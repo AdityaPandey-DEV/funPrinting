@@ -171,18 +171,24 @@ export default function MyOrdersPage() {
         
         // Add success handler
         options.handler = async function (paymentResponse: any) {
+          console.log('🎉 Payment response received:', paymentResponse);
           try {
             const result = await handlePaymentSuccess(paymentResponse, order.orderId);
+            console.log('🔍 Payment verification result:', result);
             
             if (result.success) {
               alert(`🎉 Payment successful! Order #${order.orderId} is now confirmed.`);
               await loadOrders(); // Refresh orders
             } else {
-              alert(`❌ ${result.error}`);
+              console.error('❌ Payment verification failed:', result.error);
+              alert(`❌ Payment verification failed: ${result.error}`);
             }
           } catch (error) {
+            console.error('❌ Payment success handler error:', error);
             const failureResult = handlePaymentFailure(error, order.orderId);
             alert(`❌ ${failureResult.error}`);
+          } finally {
+            setProcessingPayment(null);
           }
         };
 
@@ -192,9 +198,23 @@ export default function MyOrdersPage() {
           setProcessingPayment(null);
         };
 
+        // Add error handler
+        options.handler = options.handler || function() {};
+        options.modal.ondismiss = options.modal.ondismiss || function() {};
+
         try {
           const razorpay = openRazorpay(options);
           razorpay.open();
+          
+          // Add timeout to detect stuck payments
+          setTimeout(() => {
+            if (processingPayment === order.orderId) {
+              console.log('⚠️ Payment timeout detected for order:', order.orderId);
+              alert('⚠️ Payment is taking longer than expected. Please check your payment status or try again.');
+              setProcessingPayment(null);
+            }
+          }, 300000); // 5 minutes timeout
+          
         } catch (razorpayError) {
           logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
           alert('❌ Failed to open payment gateway. Please try again.');
