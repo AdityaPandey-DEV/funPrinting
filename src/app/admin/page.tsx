@@ -249,24 +249,6 @@ function AdminDashboardContent() {
           </div>
         </div>
 
-        {/* Admin Actions */}
-        <div className="mb-6">
-          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={fetchOrders}
-                disabled={isLoading}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Loading...' : '🔄 Refresh Orders'}
-              </button>
-            </div>
-            <div className="mt-3 text-sm text-gray-600">
-              <p>ℹ️ Pending orders are automatically cancelled after 24 hours</p>
-            </div>
-          </div>
-        </div>
 
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
