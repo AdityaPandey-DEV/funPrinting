@@ -19,8 +19,8 @@ Previously, your website only accepted immediate payments. If a payment took tim
 - Creates print jobs automatically after successful payment
 
 ### 3. **Order Timeout System**
-- Automatically cancels orders pending payment for >15 minutes
-- Admin can manually cleanup pending orders
+- Automatically cancels orders pending payment for >24 hours
+- Fully automated cleanup via cron jobs
 - Prevents abandoned orders from cluttering the system
 
 ## 🚀 Setup Instructions
@@ -75,7 +75,7 @@ RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
 
 ### Admin Dashboard Updates
 - **Payment Pending Counter**: Shows orders waiting for payment
-- **Cleanup Button**: Cancels orders pending >15 minutes
+- **Automatic Cleanup**: Orders pending >24 hours are automatically cancelled
 - **Refresh Button**: Updates order list
 
 ### Order Status Flow
@@ -105,7 +105,7 @@ User places order → Order created (pending) → Payment → Webhook updates or
 
 ### New Endpoints
 - `POST /api/webhooks/razorpay` - Razorpay webhook handler
-- `POST /api/admin/cleanup-pending-orders` - Cleanup pending orders
+- `GET /api/cron/cleanup-pending-orders` - Automated cleanup (cron job)
 - `GET /api/admin/cleanup-pending-orders` - Check pending orders
 
 ### Updated Endpoints
@@ -127,10 +127,19 @@ User places order → Order created (pending) → Payment → Webhook updates or
 curl https://yourdomain.com/api/admin/cleanup-pending-orders
 ```
 
-### Manual Cleanup
-```bash
-curl -X POST https://yourdomain.com/api/admin/cleanup-pending-orders
+### Setup Automated Cleanup (Vercel Cron)
+Add to your `vercel.json`:
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-pending-orders",
+      "schedule": "0 */6 * * *"
+    }
+  ]
+}
 ```
+This runs every 6 hours to cleanup orders pending >24 hours.
 
 ## 🚨 Troubleshooting
 
@@ -145,13 +154,14 @@ curl -X POST https://yourdomain.com/api/admin/cleanup-pending-orders
 3. Check server logs for webhook processing errors
 
 ### Pending Orders Not Cleaning Up
-1. Check admin cleanup button
+1. Check cron job is running (Vercel dashboard)
 2. Verify database connection
 3. Check order creation timestamps
+4. Verify CRON_SECRET environment variable
 
 ## 📝 Notes
 
-- Orders are automatically cancelled after 15 minutes of pending payment
+- Orders are automatically cancelled after 24 hours of pending payment
 - Webhooks are the source of truth for payment status
 - Frontend payment verification is still used for immediate feedback
 - Print jobs are only created after successful payment confirmation

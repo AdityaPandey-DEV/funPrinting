@@ -12,5 +12,11 @@
     "src/app/api/upload-file/route.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-pending-orders",
+      "schedule": "0 */6 * * *"
+    }
+  ]
 }

@@ -6,13 +6,13 @@ export async function POST(request: NextRequest) {
   try {
     await connectDB();
     
-    // Find orders that are pending payment for more than 15 minutes
-    const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+    // Find orders that are pending payment for more than 24 hours
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
     const pendingOrders = await Order.find({
       paymentStatus: 'pending',
       status: 'pending_payment',
-      createdAt: { $lt: fifteenMinutesAgo }
+      createdAt: { $lt: twentyFourHoursAgo }
     });
 
     console.log(`🧹 Found ${pendingOrders.length} pending orders to cleanup`);
@@ -55,13 +55,13 @@ export async function GET(request: NextRequest) {
   try {
     await connectDB();
     
-    // Find orders that are pending payment for more than 10 minutes
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+    // Find orders that are pending payment for more than 20 hours (to show upcoming cancellations)
+    const twentyHoursAgo = new Date(Date.now() - 20 * 60 * 60 * 1000);
     
     const pendingOrders = await Order.find({
       paymentStatus: 'pending',
       status: 'pending_payment',
-      createdAt: { $lt: tenMinutesAgo }
+      createdAt: { $lt: twentyHoursAgo }
     }).select('orderId createdAt customerInfo.name amount razorpayOrderId');
 
     return NextResponse.json({

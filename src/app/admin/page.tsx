@@ -89,30 +89,6 @@ function AdminDashboardContent() {
     fetchOrders();
   }, []);
 
-  // Cleanup pending orders function
-  const cleanupPendingOrders = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/admin/cleanup-pending-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(`✅ Cleaned up ${data.cleanedCount} pending orders`);
-        await fetchOrders(); // Refresh the orders list
-      } else {
-        alert(`❌ Error: ${data.error}`);
-      }
-    } catch (error) {
-      console.error('Error cleaning up pending orders:', error);
-      alert('❌ Failed to cleanup pending orders');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Apply filters when orders or filter states change
   useEffect(() => {
@@ -279,19 +255,15 @@ function AdminDashboardContent() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
             <div className="flex flex-wrap gap-4">
               <button
-                onClick={cleanupPendingOrders}
-                disabled={isLoading}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? 'Cleaning...' : '🧹 Cleanup Pending Orders'}
-              </button>
-              <button
                 onClick={fetchOrders}
                 disabled={isLoading}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? 'Loading...' : '🔄 Refresh Orders'}
               </button>
+            </div>
+            <div className="mt-3 text-sm text-gray-600">
+              <p>ℹ️ Pending orders are automatically cancelled after 24 hours</p>
             </div>
           </div>
         </div>
