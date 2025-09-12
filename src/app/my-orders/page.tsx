@@ -193,7 +193,8 @@ export default function MyOrdersPage() {
         };
 
         try {
-          await openRazorpay(options);
+          const razorpay = openRazorpay(options);
+          razorpay.open();
         } catch (razorpayError) {
           logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
           alert('❌ Failed to open payment gateway. Please try again.');
