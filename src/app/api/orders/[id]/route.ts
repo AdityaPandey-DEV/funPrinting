@@ -10,19 +10,24 @@ export async function DELETE(
     await connectDB();
     
     const { id: orderId } = await params;
+    console.log(`🗑️ Attempting to delete order with ID: ${orderId}`);
     
     // Find the order
     const order = await Order.findById(orderId);
     
     if (!order) {
+      console.log(`❌ Order not found with ID: ${orderId}`);
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
       );
     }
 
+    console.log(`📋 Found order: ${order.orderId}, paymentStatus: ${order.paymentStatus}, status: ${order.status}`);
+
     // Only allow deletion of pending payment orders
     if (order.paymentStatus !== 'pending' || order.status !== 'pending_payment') {
+      console.log(`❌ Order ${order.orderId} cannot be cancelled - not in pending payment state`);
       return NextResponse.json(
         { success: false, error: 'Only pending payment orders can be cancelled' },
         { status: 400 }

@@ -23,6 +23,16 @@ export async function POST(request: NextRequest) {
 
     // If this is for completing payment on an existing order
     if (razorpayOrderId && amount) {
+      console.log(`🔄 Completing payment for existing order: ${razorpayOrderId}, amount: ₹${amount}`);
+      
+      if (!process.env.RAZORPAY_KEY_ID) {
+        console.error('❌ RAZORPAY_KEY_ID not found in environment variables');
+        return NextResponse.json(
+          { success: false, error: 'Payment gateway configuration error' },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json({
         success: true,
         razorpayOrderId,

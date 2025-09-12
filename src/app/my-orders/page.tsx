@@ -155,6 +155,10 @@ export default function MyOrdersPage() {
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
       
       if (data.success) {
@@ -200,14 +204,20 @@ export default function MyOrdersPage() {
           }
         };
 
-        await openRazorpay(options);
+        try {
+          await openRazorpay(options);
+        } catch (razorpayError) {
+          console.error('Razorpay error:', razorpayError);
+          alert('❌ Failed to open payment gateway. Please try again.');
+          setProcessingPayment(null);
+        }
       } else {
         alert(`❌ Failed to initiate payment: ${data.error}`);
+        setProcessingPayment(null);
       }
     } catch (error) {
       console.error('Error processing payment:', error);
       alert('❌ Failed to process payment. Please try again.');
-    } finally {
       setProcessingPayment(null);
     }
   };
@@ -225,6 +235,10 @@ export default function MyOrdersPage() {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const data = await response.json();
       
