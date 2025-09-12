@@ -5,7 +5,7 @@
 ### **Step 1: Create Adobe Developer Account**
 1. Go to: https://developer.adobe.com/
 2. Click **"Get Started"** or **"Sign In"**
-3. Create a free Adobe ID account if you don't have one
+
 
 ### **Step 2: Create a New Project**
 1. Once logged in, go to: https://developer.adobe.com/console/
