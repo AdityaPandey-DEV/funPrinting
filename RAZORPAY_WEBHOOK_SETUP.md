@@ -20,7 +20,7 @@ Previously, your website only accepted immediate payments. If a payment took tim
 
 ### 3. **Order Timeout System**
 - Automatically cancels orders pending payment for >24 hours
-- Fully automated cleanup via cron jobs
+- Daily automated cleanup via cron jobs (Vercel Hobby plan compatible)
 - Prevents abandoned orders from cluttering the system
 
 ## 🚀 Setup Instructions
@@ -134,12 +134,12 @@ Add to your `vercel.json`:
   "crons": [
     {
       "path": "/api/cron/cleanup-pending-orders",
-      "schedule": "0 */6 * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
 ```
-This runs every 6 hours to cleanup orders pending >24 hours.
+This runs daily at midnight to cleanup orders pending >24 hours.
 
 ## 🚨 Troubleshooting
 
