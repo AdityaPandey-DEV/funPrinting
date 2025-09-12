@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { validatePendingOrderPayment, createPaymentOptions, handlePaymentSuccess, handlePaymentFailure, logPaymentEvent } from '@/lib/paymentUtils';
 
 interface Order {
   _id: string;
@@ -127,8 +128,10 @@ export default function MyOrdersPage() {
 
   // Handle payment for pending orders
   const handlePayment = async (order: Order) => {
-    if (!order.razorpayOrderId) {
-      alert('Payment information not available for this order');
+    // Validate order before processing payment
+    const validation = validatePendingOrderPayment(order);
+    if (!validation.isValid) {
+      alert(`❌ ${validation.error}`);
       return;
     }
 
@@ -143,6 +146,7 @@ export default function MyOrdersPage() {
     }
 
     setProcessingPayment(order._id);
+    logPaymentEvent('payment_initiated', { orderId: order.orderId, amount: order.amount }, 'info');
     
     try {
       // Get Razorpay key from environment
@@ -162,61 +166,46 @@ export default function MyOrdersPage() {
       const data = await response.json();
       
       if (data.success) {
-        // Initialize Razorpay payment
-        const options = {
-          key: data.key,
-          amount: order.amount * 100, // Razorpay expects amount in paise
-          currency: 'INR',
-          name: 'College Print Service',
-          description: `Complete Payment for Order #${order.orderId}`,
-          order_id: order.razorpayOrderId,
-          handler: async function (response: any) {
-            try {
-              // Verify payment
-              const verifyResponse = await fetch('/api/payment/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              });
-
-              const verifyData = await verifyResponse.json();
-              
-              if (verifyData.success) {
-                alert(`🎉 Payment successful! Order #${order.orderId} is now confirmed.`);
-                await loadOrders(); // Refresh orders
-              } else {
-                alert(`❌ Payment verification failed: ${verifyData.error || 'Unknown error'}`);
-              }
-            } catch (error) {
-              console.error('Error verifying payment:', error);
-              alert('❌ Payment verification failed. Please contact support.');
+        // Create payment options using utility function
+        const options = createPaymentOptions(order, data.key);
+        
+        // Add success handler
+        options.handler = async function (paymentResponse: any) {
+          try {
+            const result = await handlePaymentSuccess(paymentResponse, order.orderId);
+            
+            if (result.success) {
+              alert(`🎉 Payment successful! Order #${order.orderId} is now confirmed.`);
+              await loadOrders(); // Refresh orders
+            } else {
+              alert(`❌ ${result.error}`);
             }
-          },
-          modal: {
-            ondismiss: function() {
-              console.log('Payment modal dismissed');
-              setProcessingPayment(null);
-            }
+          } catch (error) {
+            const failureResult = handlePaymentFailure(error, order.orderId);
+            alert(`❌ ${failureResult.error}`);
           }
+        };
+
+        // Add modal dismiss handler
+        options.modal.ondismiss = function() {
+          console.log('Payment modal dismissed');
+          setProcessingPayment(null);
         };
 
         try {
           await openRazorpay(options);
         } catch (razorpayError) {
-          console.error('Razorpay error:', razorpayError);
+          logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
           alert('❌ Failed to open payment gateway. Please try again.');
           setProcessingPayment(null);
         }
       } else {
+        logPaymentEvent('payment_initiation_failed', { orderId: order.orderId, error: data.error }, 'error');
         alert(`❌ Failed to initiate payment: ${data.error}`);
         setProcessingPayment(null);
       }
     } catch (error) {
-      console.error('Error processing payment:', error);
+      logPaymentEvent('payment_processing_error', { orderId: order.orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
       alert('❌ Failed to process payment. Please try again.');
       setProcessingPayment(null);
     }
@@ -224,11 +213,18 @@ export default function MyOrdersPage() {
 
   // Handle order deletion/cancellation
   const handleDeleteOrder = async (order: Order) => {
+    // Validate that order can be cancelled
+    if (order.paymentStatus === 'completed') {
+      alert('❌ Cannot cancel a paid order. Please contact support for refunds.');
+      return;
+    }
+
     if (!confirm(`Are you sure you want to cancel order #${order.orderId}? This action cannot be undone.`)) {
       return;
     }
 
     setDeletingOrder(order._id);
+    logPaymentEvent('order_cancellation_initiated', { orderId: order.orderId }, 'info');
     
     try {
       const response = await fetch(`/api/orders/${order._id}`, {
@@ -243,12 +239,15 @@ export default function MyOrdersPage() {
       const data = await response.json();
       
       if (data.success) {
+        logPaymentEvent('order_cancelled', { orderId: order.orderId }, 'info');
         alert(`✅ Order #${order.orderId} has been cancelled successfully.`);
         await loadOrders(); // Refresh orders
       } else {
+        logPaymentEvent('order_cancellation_failed', { orderId: order.orderId, error: data.error }, 'error');
         alert(`❌ Failed to cancel order: ${data.error}`);
       }
     } catch (error) {
+      logPaymentEvent('order_cancellation_error', { orderId: order.orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
       console.error('Error deleting order:', error);
       alert('❌ Failed to cancel order. Please try again.');
     } finally {

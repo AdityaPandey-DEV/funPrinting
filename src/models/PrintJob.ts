@@ -34,7 +34,7 @@ export interface IPrintJob extends Document {
 }
 
 const printJobSchema: Schema = new Schema({
-  orderId: { type: String, required: true, index: true },
+  orderId: { type: String, required: true },
   orderNumber: { type: String, required: true, index: true },
   customerName: { type: String, required: true },
   customerEmail: { type: String, required: true },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import { createRazorpayOrder } from '@/lib/razorpay';
+import { validateOrderData, sanitizeOrderData, handleOrderError, logOrderEvent } from '@/lib/orderUtils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,6 +95,33 @@ export async function POST(request: NextRequest) {
       console.log('  - customerInfo:', JSON.stringify(customerInfo, null, 2));
       console.log('  - printingOptions:', JSON.stringify(printingOptions, null, 2));
       console.log('  - deliveryOption:', JSON.stringify(deliveryOption, null, 2));
+    }
+
+    // Sanitize and validate order data
+    const sanitizedOrderData = sanitizeOrderData({
+      customerInfo,
+      orderType,
+      fileURL,
+      fileType,
+      originalFileName,
+      templateData,
+      printingOptions,
+      deliveryOption,
+      expectedDate
+    });
+
+    // Validate order data
+    const validation = validateOrderData(sanitizedOrderData);
+    if (!validation.isValid) {
+      logOrderEvent('validation_failed', 'unknown', { errors: validation.errors }, 'warn');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Order validation failed', 
+          details: validation.errors 
+        },
+        { status: 400 }
+      );
     }
 
     let amount = 0;
@@ -259,6 +287,13 @@ export async function POST(request: NextRequest) {
     console.log('🔑 Razorpay Key ID:', process.env.RAZORPAY_KEY_ID ? 'Present' : 'Missing');
     console.log('🔑 Razorpay Key Secret:', process.env.RAZORPAY_KEY_SECRET ? 'Present' : 'Missing');
 
+    logOrderEvent('order_created', order.orderId, {
+      orderType: sanitizedOrderData.orderType,
+      amount,
+      pageCount,
+      customerEmail: sanitizedOrderData.customerInfo.email
+    });
+
     return NextResponse.json({
       success: true,
       orderId: order.orderId,
@@ -268,10 +303,7 @@ export async function POST(request: NextRequest) {
       key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    console.error('Error creating order:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to create order' },
-      { status: 500 }
-    );
+    logOrderEvent('order_creation_failed', 'unknown', { error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
+    return handleOrderError(error);
   }
 }

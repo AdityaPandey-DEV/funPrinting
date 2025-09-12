@@ -47,63 +47,109 @@ export async function POST(request: NextRequest) {
 
     console.log(`📋 Found pending order: ${order.orderId}`);
 
-    // Update order with payment details
-    order.paymentStatus = 'completed';
-    order.razorpayPaymentId = razorpay_payment_id;
-    order.status = 'paid';
-    order.orderStatus = 'pending'; // Ready for processing
-    
-    try {
-      await order.save();
-      console.log(`✅ Order ${order.orderId} marked as paid`);
-    } catch (saveError) {
-      console.error('❌ Error updating order:', saveError);
-      throw saveError;
+    // Check if order is already processed (race condition protection)
+    if (order.paymentStatus === 'completed' && order.razorpayPaymentId === razorpay_payment_id) {
+      console.log(`ℹ️ Order ${order.orderId} already processed for payment ${razorpay_payment_id}`);
+      return NextResponse.json({
+        success: true,
+        message: 'Payment already verified',
+        order: {
+          orderId: order.orderId,
+          amount: order.amount,
+          paymentStatus: order.paymentStatus,
+          createdAt: order.createdAt,
+        }
+      });
     }
+
+    // Update order with payment details using atomic operation
+    const updateResult = await Order.findOneAndUpdate(
+      { 
+        _id: order._id, 
+        paymentStatus: { $ne: 'completed' } // Only update if not already completed
+      },
+      {
+        $set: {
+          paymentStatus: 'completed',
+          razorpayPaymentId: razorpay_payment_id,
+          status: 'paid',
+          orderStatus: 'pending', // Ready for processing
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!updateResult) {
+      console.log(`ℹ️ Order ${order.orderId} already processed or not found`);
+      return NextResponse.json({
+        success: true,
+        message: 'Order already processed',
+        order: {
+          orderId: order.orderId,
+          amount: order.amount,
+          paymentStatus: 'completed',
+          createdAt: order.createdAt,
+        }
+      });
+    }
+
+    console.log(`✅ Order ${order.orderId} marked as paid`);
 
     // Create print job if this is a file order
     let printJob = null;
-    if (order.orderType === 'file' && order.fileURL) {
+    if (updateResult.orderType === 'file' && updateResult.fileURL) {
       try {
-        console.log('🖨️ Creating print job for order:', order.orderId);
-        
-        // Calculate estimated duration
-        const estimatedDuration = Math.ceil(
-          (order.printingOptions.pageCount * order.printingOptions.copies * 0.5) + // 0.5 minutes per page
-          (order.printingOptions.color === 'color' ? order.printingOptions.pageCount * 0.3 : 0) // Extra time for color
-        );
-
-        printJob = new PrintJob({
-          orderId: order._id.toString(),
-          orderNumber: order.orderId,
-          customerName: order.customerInfo.name,
-          customerEmail: order.customerInfo.email,
-          fileURL: order.fileURL,
-          fileName: order.originalFileName || 'document.pdf',
-          fileType: order.fileType || 'application/pdf',
-          printingOptions: order.printingOptions,
-          priority: 'normal',
-          estimatedDuration,
-          status: 'pending'
-        });
-
-        await printJob.save();
-        console.log(`✅ Print job created: ${printJob.orderNumber}`);
-
-        // Trigger auto-printing
-        try {
-          const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: order._id.toString() })
-          });
+        // Check if print job already exists
+        const existingPrintJob = await PrintJob.findOne({ orderId: updateResult._id.toString() });
+        if (existingPrintJob) {
+          console.log(`ℹ️ Print job already exists for order ${updateResult.orderId}`);
+          printJob = existingPrintJob;
+        } else {
+          console.log('🖨️ Creating print job for order:', updateResult.orderId);
           
-          if (autoPrintResponse.ok) {
-            console.log('🔄 Auto-print triggered successfully');
-          }
-        } catch (autoPrintError) {
-          console.error('Error triggering auto-print:', autoPrintError);
-          // Don't fail the order if auto-print fails
+          // Calculate estimated duration
+          const estimatedDuration = Math.ceil(
+            (updateResult.printingOptions.pageCount * updateResult.printingOptions.copies * 0.5) + // 0.5 minutes per page
+            (updateResult.printingOptions.color === 'color' ? updateResult.printingOptions.pageCount * 0.3 : 0) // Extra time for color
+          );
+
+          printJob = new PrintJob({
+            orderId: updateResult._id.toString(),
+            orderNumber: updateResult.orderId,
+            customerName: updateResult.customerInfo.name,
+            customerEmail: updateResult.customerInfo.email,
+            fileURL: updateResult.fileURL,
+            fileName: updateResult.originalFileName || 'document.pdf',
+            fileType: updateResult.fileType || 'application/pdf',
+            printingOptions: updateResult.printingOptions,
+            priority: 'normal',
+            estimatedDuration,
+            status: 'pending'
+          });
+
+          await printJob.save();
+          console.log(`✅ Print job created: ${printJob.orderNumber}`);
+
+          // Trigger auto-printing asynchronously (don't wait for response)
+          setImmediate(async () => {
+            try {
+              const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: updateResult._id.toString() })
+              });
+              
+              if (autoPrintResponse.ok) {
+                console.log('🔄 Auto-print triggered successfully');
+              } else {
+                console.error('❌ Auto-print failed:', autoPrintResponse.status);
+              }
+            } catch (autoPrintError) {
+              console.error('Error triggering auto-print:', autoPrintError);
+              // Don't fail the order if auto-print fails
+            }
+          });
         }
       } catch (printJobError) {
         console.error('Error creating print job:', printJobError);
@@ -115,10 +161,10 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Payment verified and order created successfully',
       order: {
-        orderId: order.orderId,
-        amount: order.amount,
-        paymentStatus: order.paymentStatus,
-        createdAt: order.createdAt,
+        orderId: updateResult.orderId,
+        amount: updateResult.amount,
+        paymentStatus: updateResult.paymentStatus,
+        createdAt: updateResult.createdAt,
       },
       printJob: printJob ? {
         id: printJob._id,

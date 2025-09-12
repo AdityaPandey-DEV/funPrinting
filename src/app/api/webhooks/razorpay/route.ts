@@ -8,12 +8,24 @@ import PrintJob from '@/models/PrintJob';
 const processedEvents = new Map<string, number>();
 const MAX_EVENT_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
+// Rate limiting store
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 100; // Max 100 requests per minute per IP
+
 // Clean up old events periodically
 setInterval(() => {
   const now = Date.now();
   for (const [eventId, timestamp] of processedEvents.entries()) {
     if (now - timestamp > MAX_EVENT_AGE) {
       processedEvents.delete(eventId);
+    }
+  }
+  
+  // Clean up rate limit data
+  for (const [ip, data] of rateLimitStore.entries()) {
+    if (now > data.resetTime) {
+      rateLimitStore.delete(ip);
     }
   }
 }, 60 * 60 * 1000); // Clean every hour
@@ -33,6 +45,31 @@ function verifyWebhookSignature(body: string, signature: string, secret: string)
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIP = request.headers.get('x-forwarded-for') || 
+                     request.headers.get('x-real-ip') || 
+                     'unknown';
+    
+    const now = Date.now();
+    const rateLimitData = rateLimitStore.get(clientIP);
+    
+    if (rateLimitData) {
+      if (now > rateLimitData.resetTime) {
+        // Reset window
+        rateLimitStore.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      } else if (rateLimitData.count >= RATE_LIMIT_MAX_REQUESTS) {
+        console.error(`❌ Rate limit exceeded for IP: ${clientIP}`);
+        return NextResponse.json(
+          { success: false, error: 'Rate limit exceeded' },
+          { status: 429 }
+        );
+      } else {
+        rateLimitData.count++;
+      }
+    } else {
+      rateLimitStore.set(clientIP, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    }
+
     const body = await request.text();
     const signature = request.headers.get('x-razorpay-signature');
     
@@ -65,6 +102,18 @@ export async function POST(request: NextRequest) {
 
     const event = JSON.parse(body);
     console.log('🔔 Razorpay webhook received:', event.event);
+
+    // Check for duplicate events (idempotency protection)
+    const eventId = event.payload?.payment?.entity?.id || event.payload?.order?.entity?.id;
+    if (eventId && processedEvents.has(eventId)) {
+      console.log(`ℹ️ Duplicate webhook event ignored: ${eventId}`);
+      return NextResponse.json({ success: true, message: 'Duplicate event ignored' });
+    }
+
+    // Mark event as processed
+    if (eventId) {
+      processedEvents.set(eventId, Date.now());
+    }
 
     await connectDB();
 
@@ -107,18 +156,54 @@ async function handlePaymentCaptured(payment: any) {
       return;
     }
 
-    // Update order with payment details
-    order.paymentStatus = 'completed';
-    order.razorpayPaymentId = payment.id;
-    order.status = 'paid';
-    order.orderStatus = 'pending'; // Ready for processing
-    
-    await order.save();
+    // Check if order is already processed (race condition protection)
+    if (order.paymentStatus === 'completed' && order.razorpayPaymentId === payment.id) {
+      console.log(`ℹ️ Order ${order.orderId} already processed for payment ${payment.id}`);
+      return;
+    }
+
+    // Validate payment amount matches order amount
+    const expectedAmount = Math.round(order.amount * 100); // Convert to paise
+    if (payment.amount !== expectedAmount) {
+      console.error(`❌ Payment amount mismatch for order ${order.orderId}: expected ${expectedAmount}, got ${payment.amount}`);
+      // Log but don't fail - this could be due to rounding differences
+    }
+
+    // Update order with payment details using atomic operation
+    const updateResult = await Order.findOneAndUpdate(
+      { 
+        _id: order._id, 
+        paymentStatus: { $ne: 'completed' } // Only update if not already completed
+      },
+      {
+        $set: {
+          paymentStatus: 'completed',
+          razorpayPaymentId: payment.id,
+          status: 'paid',
+          orderStatus: 'pending', // Ready for processing
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!updateResult) {
+      console.log(`ℹ️ Order ${order.orderId} already processed or not found`);
+      return;
+    }
+
     console.log(`✅ Order ${order.orderId} marked as paid`);
 
     // Create print job if this is a file order
     if (order.orderType === 'file' && order.fileURL) {
       try {
+        // Check if print job already exists
+        const existingPrintJob = await PrintJob.findOne({ orderId: order._id.toString() });
+        if (existingPrintJob) {
+          console.log(`ℹ️ Print job already exists for order ${order.orderId}`);
+          return;
+        }
+
         console.log('🖨️ Creating print job for order:', order.orderId);
         
         // Calculate estimated duration
@@ -144,21 +229,25 @@ async function handlePaymentCaptured(payment: any) {
         await printJob.save();
         console.log(`✅ Print job created: ${printJob.orderNumber}`);
 
-        // Trigger auto-printing
-        try {
-          const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: order._id.toString() })
-          });
-          
-          if (autoPrintResponse.ok) {
-            console.log('🔄 Auto-print triggered successfully');
+        // Trigger auto-printing asynchronously (don't wait for response)
+        setImmediate(async () => {
+          try {
+            const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId: order._id.toString() })
+            });
+            
+            if (autoPrintResponse.ok) {
+              console.log('🔄 Auto-print triggered successfully');
+            } else {
+              console.error('❌ Auto-print failed:', autoPrintResponse.status);
+            }
+          } catch (autoPrintError) {
+            console.error('Error triggering auto-print:', autoPrintError);
+            // Don't fail the order if auto-print fails
           }
-        } catch (autoPrintError) {
-          console.error('Error triggering auto-print:', autoPrintError);
-          // Don't fail the order if auto-print fails
-        }
+        });
       } catch (printJobError) {
         console.error('Error creating print job:', printJobError);
         // Don't fail the order if print job creation fails
@@ -167,6 +256,7 @@ async function handlePaymentCaptured(payment: any) {
 
   } catch (error) {
     console.error('❌ Error handling payment captured:', error);
+    // Consider implementing retry logic or dead letter queue for failed webhook processing
   }
 }
 

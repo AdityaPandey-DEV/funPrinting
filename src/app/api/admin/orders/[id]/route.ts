@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import { validateOrderStateTransition, logOrderEvent, OrderStatus } from '@/lib/orderUtils';
 
 export async function GET(
   request: NextRequest,
@@ -38,23 +39,61 @@ export async function PATCH(
     const { id } = await context.params;
     const body = await request.json();
     const { orderStatus } = body;
+    
     if (!orderStatus) {
       return NextResponse.json(
         { success: false, error: 'Order status is required' },
         { status: 400 }
       );
     }
-    const order = await Order.findByIdAndUpdate(
-      id,
-      { orderStatus },
-      { new: true }
-    );
-    if (!order) {
+
+    // Get current order to validate state transition
+    const currentOrder = await Order.findById(id);
+    if (!currentOrder) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
       );
     }
+
+    // Validate state transition
+    const currentStatus = currentOrder.status as OrderStatus || 'pending_payment';
+    const newStatus = orderStatus as OrderStatus;
+    
+    const transition = validateOrderStateTransition(currentStatus, newStatus);
+    if (!transition.allowed) {
+      logOrderEvent('invalid_state_transition', currentOrder.orderId, {
+        from: currentStatus,
+        to: newStatus,
+        reason: transition.reason
+      }, 'warn');
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Invalid status transition: ${transition.reason}` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Update order status
+    const order = await Order.findByIdAndUpdate(
+      id,
+      { 
+        orderStatus,
+        status: newStatus, // Also update the unified status field
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    logOrderEvent('status_updated', order.orderId, {
+      from: currentStatus,
+      to: newStatus,
+      updatedBy: 'admin'
+    });
+
     return NextResponse.json({
       success: true,
       order,

@@ -32,6 +32,15 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
+      // Validate amount is reasonable (prevent manipulation)
+      if (amount <= 0 || amount > 100000) { // Max ₹1,00,000
+        console.error(`❌ Invalid amount: ₹${amount}`);
+        return NextResponse.json(
+          { success: false, error: 'Invalid payment amount' },
+          { status: 400 }
+        );
+      }
       
       return NextResponse.json({
         success: true,
@@ -92,6 +101,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`💰 Payment initiation - calculated amount: ₹${calculatedAmount}`);
+
+    // Validate calculated amount is reasonable
+    if (calculatedAmount <= 0 || calculatedAmount > 100000) { // Max ₹1,00,000
+      console.error(`❌ Invalid calculated amount: ₹${calculatedAmount}`);
+      return NextResponse.json(
+        { success: false, error: 'Invalid order amount. Please contact support.' },
+        { status: 400 }
+      );
+    }
 
     // Create Razorpay order
     const razorpayOrder = await createRazorpayOrder({
