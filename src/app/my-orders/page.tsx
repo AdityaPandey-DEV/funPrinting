@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { useRazorpay } from '@/hooks/useRazorpay';
 
 interface Order {
   _id: string;
@@ -23,13 +24,22 @@ interface Order {
   };
   printingOptions: {
     pageSize: 'A4' | 'A3';
-    color: 'color' | 'bw';
+    color: 'color' | 'bw' | 'mixed';
     sided: 'single' | 'double';
     copies: number;
+    pageCount?: number;
+    serviceOption?: 'binding' | 'file' | 'service';
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
+  status?: 'pending_payment' | 'paid' | 'processing' | 'completed' | 'cancelled';
   amount: number;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   createdAt: string;
 }
 
@@ -38,6 +48,9 @@ export default function MyOrdersPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [processingPayment, setProcessingPayment] = useState<string | null>(null);
+  const [deletingOrder, setDeletingOrder] = useState<string | null>(null);
+  const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
 
   // Redirect to sign in if not authenticated
   useEffect(() => {
@@ -112,6 +125,123 @@ export default function MyOrdersPage() {
     });
   };
 
+  // Handle payment for pending orders
+  const handlePayment = async (order: Order) => {
+    if (!order.razorpayOrderId) {
+      alert('Payment information not available for this order');
+      return;
+    }
+
+    if (!isRazorpayLoaded) {
+      alert('Payment gateway is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    if (razorpayError) {
+      alert(`Payment gateway error: ${razorpayError}`);
+      return;
+    }
+
+    setProcessingPayment(order._id);
+    
+    try {
+      // Get Razorpay key from environment
+      const response = await fetch('/api/payment/initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpayOrderId: order.razorpayOrderId,
+          amount: order.amount
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Initialize Razorpay payment
+        const options = {
+          key: data.key,
+          amount: order.amount * 100, // Razorpay expects amount in paise
+          currency: 'INR',
+          name: 'College Print Service',
+          description: `Complete Payment for Order #${order.orderId}`,
+          order_id: order.razorpayOrderId,
+          handler: async function (response: any) {
+            try {
+              // Verify payment
+              const verifyResponse = await fetch('/api/payment/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                }),
+              });
+
+              const verifyData = await verifyResponse.json();
+              
+              if (verifyData.success) {
+                alert(`🎉 Payment successful! Order #${order.orderId} is now confirmed.`);
+                await loadOrders(); // Refresh orders
+              } else {
+                alert(`❌ Payment verification failed: ${verifyData.error || 'Unknown error'}`);
+              }
+            } catch (error) {
+              console.error('Error verifying payment:', error);
+              alert('❌ Payment verification failed. Please contact support.');
+            }
+          },
+          modal: {
+            ondismiss: function() {
+              console.log('Payment modal dismissed');
+              setProcessingPayment(null);
+            }
+          }
+        };
+
+        await openRazorpay(options);
+      } else {
+        alert(`❌ Failed to initiate payment: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      alert('❌ Failed to process payment. Please try again.');
+    } finally {
+      setProcessingPayment(null);
+    }
+  };
+
+  // Handle order deletion/cancellation
+  const handleDeleteOrder = async (order: Order) => {
+    if (!confirm(`Are you sure you want to cancel order #${order.orderId}? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingOrder(order._id);
+    
+    try {
+      const response = await fetch(`/api/orders/${order._id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Order #${order.orderId} has been cancelled successfully.`);
+        await loadOrders(); // Refresh orders
+      } else {
+        alert(`❌ Failed to cancel order: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      alert('❌ Failed to cancel order. Please try again.');
+    } finally {
+      setDeletingOrder(null);
+    }
+  };
+
   // Show loading state while checking authentication
   if (authLoading) {
     return (
@@ -169,7 +299,84 @@ export default function MyOrdersPage() {
           </button>
         </div>
 
-        {/* Orders List */}
+        {/* Pending Orders Section */}
+        {!isLoading && orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length > 0 && (
+          <div className="mb-8">
+            <h2 className="text-2xl font-bold text-orange-600 mb-4">⚠️ Pending Payment</h2>
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+              <p className="text-orange-800">
+                You have {orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length} order(s) waiting for payment. 
+                Complete payment within 24 hours or your order will be automatically cancelled.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {orders
+                .filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment')
+                .map((order) => (
+                  <div key={order._id} className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-orange-900">
+                          Order #{order.orderId} - Payment Required
+                        </h3>
+                        <p className="text-sm text-orange-700">
+                          Placed on {formatDate(order.createdAt)} • Amount: ₹{order.amount}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-200 text-orange-800">
+                          Payment Pending
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                      <div>
+                        <span className="text-sm font-medium text-orange-700">Order Type:</span>
+                        <p className="text-sm text-orange-900">
+                          {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-orange-700">Page Size:</span>
+                        <p className="text-sm text-orange-900">{order.printingOptions.pageSize}</p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-orange-700">Color:</span>
+                        <p className="text-sm text-orange-900">
+                          {order.printingOptions.color === 'color' ? 'Color' : 
+                           order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-orange-700">Copies:</span>
+                        <p className="text-sm text-orange-900">{order.printingOptions.copies}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      <button
+                        onClick={() => handlePayment(order)}
+                        disabled={processingPayment === order._id || !isRazorpayLoaded}
+                        className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {processingPayment === order._id ? 'Processing...' : '💳 Complete Payment'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteOrder(order)}
+                        disabled={deletingOrder === order._id}
+                        className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {deletingOrder === order._id ? 'Cancelling...' : '❌ Cancel Order'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* All Orders List */}
         {isLoading && (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -231,25 +438,50 @@ export default function MyOrdersPage() {
                     </div>
                     
                     <div className="flex flex-wrap gap-2">
-                      {order.orderType === 'template' && order.templateData?.generatedPDF && (
-                        <a
-                          href={order.templateData.generatedPDF}
-                          download
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-                        >
-                          Download PDF
-                        </a>
+                      {/* Pending Payment Actions */}
+                      {order.paymentStatus === 'pending' && order.status === 'pending_payment' && (
+                        <>
+                          <button
+                            onClick={() => handlePayment(order)}
+                            disabled={processingPayment === order._id || !isRazorpayLoaded}
+                            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {processingPayment === order._id ? 'Processing...' : '💳 Complete Payment'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order)}
+                            disabled={deletingOrder === order._id}
+                            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {deletingOrder === order._id ? 'Cancelling...' : '❌ Cancel Order'}
+                          </button>
+                        </>
                       )}
                       
-                      {order.orderType === 'file' && order.fileURL && (
-                        <a
-                          href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                        >
-                          Download {order.originalFileName || 'File'}
-                        </a>
+                      {/* Completed Order Actions */}
+                      {order.paymentStatus === 'completed' && (
+                        <>
+                          {order.orderType === 'template' && order.templateData?.generatedPDF && (
+                            <a
+                              href={order.templateData.generatedPDF}
+                              download
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                            >
+                              Download PDF
+                            </a>
+                          )}
+                          
+                          {order.orderType === 'file' && order.fileURL && (
+                            <a
+                              href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                            >
+                              Download {order.originalFileName || 'File'}
+                            </a>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

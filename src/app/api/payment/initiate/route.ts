@@ -16,10 +16,22 @@ export async function POST(request: NextRequest) {
       fileURL,
       fileType,
       originalFileName,
-      templateData
+      templateData,
+      razorpayOrderId, // For completing payment on existing order
+      amount // For completing payment on existing order
     } = body;
 
-    // Validate required fields
+    // If this is for completing payment on an existing order
+    if (razorpayOrderId && amount) {
+      return NextResponse.json({
+        success: true,
+        razorpayOrderId,
+        amount,
+        key: process.env.RAZORPAY_KEY_ID,
+      });
+    }
+
+    // Validate required fields for new orders
     if (!customerInfo.name || !customerInfo.phone || !customerInfo.email) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields: name, phone, and email are required' },
@@ -37,7 +49,7 @@ export async function POST(request: NextRequest) {
     const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
     
     // Calculate total amount based on color option
-    let amount = 0;
+    let calculatedAmount = 0;
     if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
       // Mixed color pricing: calculate separately for color and B&W pages
       const colorPages = printingOptions.pageColors.colorPages.length;
@@ -46,40 +58,40 @@ export async function POST(request: NextRequest) {
       const colorCost = basePrice * colorPages * pricing.multipliers.color;
       const bwCost = basePrice * bwPages;
       
-      amount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
+      calculatedAmount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
     } else {
       // Standard pricing for all color or all B&W
       const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
-      amount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+      calculatedAmount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
     }
     
     // Add compulsory service option cost (only for multi-page jobs)
     if (pageCount > 1) {
       if (printingOptions.serviceOption === 'binding') {
-        amount += pricing.additionalServices.binding;
+        calculatedAmount += pricing.additionalServices.binding;
       } else if (printingOptions.serviceOption === 'file') {
-        amount += 10; // File handling fee
+        calculatedAmount += 10; // File handling fee
       } else if (printingOptions.serviceOption === 'service') {
-        amount += 5; // Minimal service fee
+        calculatedAmount += 5; // Minimal service fee
       }
     }
     
     // Add delivery charge if delivery option is selected
     if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
-      amount += deliveryOption.deliveryCharge;
+      calculatedAmount += deliveryOption.deliveryCharge;
     }
 
-    console.log(`💰 Payment initiation - calculated amount: ₹${amount}`);
+    console.log(`💰 Payment initiation - calculated amount: ₹${calculatedAmount}`);
 
     // Create Razorpay order
     const razorpayOrder = await createRazorpayOrder({
-      amount,
+      amount: calculatedAmount,
       receipt: `payment_${Date.now()}`,
       notes: {
         orderType,
         customerName: customerInfo.name,
         pageCount: pageCount.toString(),
-        amount: amount.toString(),
+        amount: calculatedAmount.toString(),
       },
     });
 
@@ -134,7 +146,7 @@ export async function POST(request: NextRequest) {
       },
       deliveryOption: enhancedDeliveryOption,
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
-      amount,
+      amount: calculatedAmount,
       razorpayOrderId: razorpayOrder.id,
       paymentStatus: 'pending', // Will be updated by webhook
       orderStatus: 'pending',
@@ -150,7 +162,7 @@ export async function POST(request: NextRequest) {
       success: true,
       razorpayOrderId: razorpayOrder.id,
       orderId: order.orderId,
-      amount,
+      amount: calculatedAmount,
       pageCount,
       key: process.env.RAZORPAY_KEY_ID,
     });

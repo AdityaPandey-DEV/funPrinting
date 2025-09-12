@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import NewOrder from '@/models/NewOrder';
+import Order from '@/models/Order';
 
-export async function GET(
+export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await connectDB();
-    const { id } = await params;
-
-    const order = await NewOrder.findOne({ id });
-
+    
+    const { id: orderId } = await params;
+    
+    // Find the order
+    const order = await Order.findById(orderId);
+    
     if (!order) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
@@ -19,19 +21,55 @@ export async function GET(
       );
     }
 
+    // Only allow deletion of pending payment orders
+    if (order.paymentStatus !== 'pending' || order.status !== 'pending_payment') {
+      return NextResponse.json(
+        { success: false, error: 'Only pending payment orders can be cancelled' },
+        { status: 400 }
+      );
+    }
+
+    // Delete the order
+    await Order.findByIdAndDelete(orderId);
+    
+    console.log(`✅ Order ${order.orderId} cancelled by user`);
+    
     return NextResponse.json({
       success: true,
-      order: {
-        id: order.id,
-        templateId: order.templateId,
-        templateName: order.templateName,
-        formData: order.formData,
-        pdfFile: order.pdfFile,
-        status: order.status,
-        totalAmount: order.totalAmount,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt
-      }
+      message: 'Order cancelled successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting order:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to cancel order' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectDB();
+    
+    const { id: orderId } = await params;
+    
+    // Find the order
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return NextResponse.json(
+        { success: false, error: 'Order not found' },
+        { status: 404 }
+      );
+    }
+    
+    return NextResponse.json({
+      success: true,
+      order
     });
 
   } catch (error) {
