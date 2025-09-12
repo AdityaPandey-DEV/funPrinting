@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import PrintJob from '@/models/PrintJob';
 import { verifyPayment } from '@/lib/razorpay';
 
 export async function POST(request: NextRequest) {
@@ -33,81 +34,82 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Payment signature verified successfully');
 
-    // Get temporary order data
-    const tempOrderStore = (global as any).tempOrderStore;
-    if (!tempOrderStore) {
-      console.error('❌ Temporary order store not found');
+    // Find the existing pending order
+    const order = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+    
+    if (!order) {
+      console.error('❌ Order not found for Razorpay order ID:', razorpay_order_id);
       return NextResponse.json(
-        { success: false, error: 'Order data not found' },
+        { success: false, error: 'Order not found' },
         { status: 404 }
       );
     }
 
-    const orderData = tempOrderStore.get(razorpay_order_id);
-    if (!orderData) {
-      console.error('❌ Order data not found in temporary store');
-      return NextResponse.json(
-        { success: false, error: 'Order data not found' },
-        { status: 404 }
-      );
-    }
+    console.log(`📋 Found pending order: ${order.orderId}`);
 
-    console.log('📋 Found order data, creating order in database...');
-
-    // Fetch pickup location details if pickup is selected
-    let enhancedDeliveryOption = orderData.deliveryOption;
-    if (orderData.deliveryOption.type === 'pickup' && orderData.deliveryOption.pickupLocationId) {
-      try {
-        const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
-        const pickupData = await pickupResponse.json();
-        
-        if (pickupData.success) {
-          const selectedLocation = pickupData.locations.find((loc: any) => loc._id === orderData.deliveryOption.pickupLocationId);
-          if (selectedLocation) {
-            enhancedDeliveryOption = {
-              ...orderData.deliveryOption,
-              pickupLocation: {
-                _id: selectedLocation._id,
-                name: selectedLocation.name,
-                address: selectedLocation.address,
-                lat: selectedLocation.lat,
-                lng: selectedLocation.lng,
-                contactPerson: selectedLocation.contactPerson,
-                contactPhone: selectedLocation.contactPhone,
-                operatingHours: selectedLocation.operatingHours,
-                gmapLink: selectedLocation.gmapLink
-              }
-            };
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching pickup location details:', error);
-        // Continue with original delivery option if fetch fails
-      }
-    }
-
-    // Create the actual order in database with payment details
-    const finalOrderData = {
-      ...orderData,
-      deliveryOption: enhancedDeliveryOption,
-      paymentStatus: 'completed',
-      razorpayPaymentId: razorpay_payment_id,
-    };
-
-    console.log('💾 Creating order in database...');
-    const order = new Order(finalOrderData);
+    // Update order with payment details
+    order.paymentStatus = 'completed';
+    order.razorpayPaymentId = razorpay_payment_id;
+    order.status = 'paid';
+    order.orderStatus = 'pending'; // Ready for processing
     
     try {
       await order.save();
-      console.log(`✅ Order created successfully with ID: ${order.orderId}`);
+      console.log(`✅ Order ${order.orderId} marked as paid`);
     } catch (saveError) {
-      console.error('❌ Error saving order to database:', saveError);
+      console.error('❌ Error updating order:', saveError);
       throw saveError;
     }
 
-    // Clean up temporary order data
-    tempOrderStore.delete(razorpay_order_id);
-    console.log('🧹 Cleaned up temporary order data');
+    // Create print job if this is a file order
+    let printJob = null;
+    if (order.orderType === 'file' && order.fileURL) {
+      try {
+        console.log('🖨️ Creating print job for order:', order.orderId);
+        
+        // Calculate estimated duration
+        const estimatedDuration = Math.ceil(
+          (order.printingOptions.pageCount * order.printingOptions.copies * 0.5) + // 0.5 minutes per page
+          (order.printingOptions.color === 'color' ? order.printingOptions.pageCount * 0.3 : 0) // Extra time for color
+        );
+
+        printJob = new PrintJob({
+          orderId: order._id.toString(),
+          orderNumber: order.orderId,
+          customerName: order.customerInfo.name,
+          customerEmail: order.customerInfo.email,
+          fileURL: order.fileURL,
+          fileName: order.originalFileName || 'document.pdf',
+          fileType: order.fileType || 'application/pdf',
+          printingOptions: order.printingOptions,
+          priority: 'normal',
+          estimatedDuration,
+          status: 'pending'
+        });
+
+        await printJob.save();
+        console.log(`✅ Print job created: ${printJob.orderNumber}`);
+
+        // Trigger auto-printing
+        try {
+          const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: order._id.toString() })
+          });
+          
+          if (autoPrintResponse.ok) {
+            console.log('🔄 Auto-print triggered successfully');
+          }
+        } catch (autoPrintError) {
+          console.error('Error triggering auto-print:', autoPrintError);
+          // Don't fail the order if auto-print fails
+        }
+      } catch (printJobError) {
+        console.error('Error creating print job:', printJobError);
+        // Don't fail the order if print job creation fails
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -118,6 +120,11 @@ export async function POST(request: NextRequest) {
         paymentStatus: order.paymentStatus,
         createdAt: order.createdAt,
       },
+      printJob: printJob ? {
+        id: printJob._id,
+        status: printJob.status,
+        estimatedDuration: printJob.estimatedDuration
+      } : null,
     });
   } catch (error) {
     console.error('Error verifying payment:', error);

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
+import connectDB from '@/lib/mongodb';
+import Order from '@/models/Order';
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,7 +83,44 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Store order data temporarily (we'll create the actual order after payment success)
+    console.log(`✅ Razorpay order created: ${razorpayOrder.id}`);
+
+    // Connect to database and create pending order immediately
+    await connectDB();
+
+    // Fetch pickup location details if pickup is selected
+    let enhancedDeliveryOption = deliveryOption;
+    if (deliveryOption.type === 'pickup' && deliveryOption.pickupLocationId) {
+      try {
+        const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
+        const pickupData = await pickupResponse.json();
+        
+        if (pickupData.success) {
+          const selectedLocation = pickupData.locations.find((loc: any) => loc._id === deliveryOption.pickupLocationId);
+          if (selectedLocation) {
+            enhancedDeliveryOption = {
+              ...deliveryOption,
+              pickupLocation: {
+                _id: selectedLocation._id,
+                name: selectedLocation.name,
+                address: selectedLocation.address,
+                lat: selectedLocation.lat,
+                lng: selectedLocation.lng,
+                contactPerson: selectedLocation.contactPerson,
+                contactPhone: selectedLocation.contactPhone,
+                operatingHours: selectedLocation.operatingHours,
+                gmapLink: selectedLocation.gmapLink
+              }
+            };
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching pickup location details:', error);
+        // Continue with original delivery option if fetch fails
+      }
+    }
+
+    // Create pending order in database
     const orderData = {
       customerInfo,
       orderType,
@@ -93,23 +132,24 @@ export async function POST(request: NextRequest) {
         ...printingOptions,
         pageCount: pageCount,
       },
-      deliveryOption,
+      deliveryOption: enhancedDeliveryOption,
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,
       amount,
       razorpayOrderId: razorpayOrder.id,
+      paymentStatus: 'pending', // Will be updated by webhook
+      orderStatus: 'pending',
+      status: 'pending_payment',
     };
 
-    // Store order data in a temporary store (we'll use a simple in-memory store for now)
-    // In production, you might want to use Redis or a database for this
-    const tempOrderStore = (global as any).tempOrderStore || new Map();
-    tempOrderStore.set(razorpayOrder.id, orderData);
-    (global as any).tempOrderStore = tempOrderStore;
-
-    console.log(`✅ Payment initiated successfully - Razorpay Order ID: ${razorpayOrder.id}`);
+    const order = new Order(orderData);
+    await order.save();
+    
+    console.log(`✅ Pending order created: ${order.orderId} (Razorpay Order: ${razorpayOrder.id})`);
 
     return NextResponse.json({
       success: true,
       razorpayOrderId: razorpayOrder.id,
+      orderId: order.orderId,
       amount,
       pageCount,
       key: process.env.RAZORPAY_KEY_ID,

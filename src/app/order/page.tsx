@@ -565,13 +565,18 @@ export default function OrderPage() {
       const data = await response.json();
 
       if (data.success) {
+        // Show order ID immediately
+        if (data.orderId) {
+          alert(`📋 Order #${data.orderId} created! Please complete payment to confirm your order.`);
+        }
+
         // Initialize Razorpay payment
         const options = {
           key: data.key,
           amount: data.amount * 100, // Razorpay expects amount in paise
           currency: 'INR',
           name: 'College Print Service',
-          description: `Print Order Payment`,
+          description: `Print Order Payment - Order #${data.orderId || 'N/A'}`,
           order_id: data.razorpayOrderId,
           handler: async function (response: any) {
             try {

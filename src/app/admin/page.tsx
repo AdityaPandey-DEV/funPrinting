@@ -89,6 +89,31 @@ function AdminDashboardContent() {
     fetchOrders();
   }, []);
 
+  // Cleanup pending orders function
+  const cleanupPendingOrders = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/admin/cleanup-pending-orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`✅ Cleaned up ${data.cleanedCount} pending orders`);
+        await fetchOrders(); // Refresh the orders list
+      } else {
+        alert(`❌ Error: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Error cleaning up pending orders:', error);
+      alert('❌ Failed to cleanup pending orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Apply filters when orders or filter states change
   useEffect(() => {
     let filtered = orders;
@@ -248,14 +273,49 @@ function AdminDashboardContent() {
           </div>
         </div>
 
+        {/* Admin Actions */}
+        <div className="mb-6">
+          <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Admin Actions</h3>
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={cleanupPendingOrders}
+                disabled={isLoading}
+                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Cleaning...' : '🧹 Cleanup Pending Orders'}
+              </button>
+              <button
+                onClick={fetchOrders}
+                disabled={isLoading}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Loading...' : '🔄 Refresh Orders'}
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Quick Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
           <AdminCard
             icon="📋"
             title="Orders"
             description="Manage print orders"
             href="/admin/orders"
             count={orders.length}
+          />
+          <AdminCard
+            icon="🖨️"
+            title="Printing"
+            description="Monitor print jobs and queue"
+            href="/admin/printing"
+          />
+          <AdminCard
+            icon="⚙️"
+            title="Printer Setup"
+            description="Configure printing devices"
+            href="/admin/printing/setup"
           />
           <AdminCard
             icon="📄"
