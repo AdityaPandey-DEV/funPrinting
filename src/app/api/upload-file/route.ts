@@ -35,13 +35,28 @@ export async function POST(request: NextRequest) {
       }, { status: 413 });
     }
 
-    // Check file type
-    const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    // Check file type - allow PDF, Word documents, and common image formats
+    const allowedTypes = [
+      // Document formats
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      // Image formats
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/gif',
+      'image/bmp',
+      'image/tiff',
+      'image/webp',
+      'image/svg+xml'
+    ];
+    
     if (!allowedTypes.includes(file.type)) {
       console.log(`❌ Invalid file type: ${file.type}`);
       return NextResponse.json({ 
         success: false, 
-        error: 'Invalid file type. Only PDF and Word documents are allowed.' 
+        error: 'Invalid file type. Only PDF, Word documents, and image files (JPEG, PNG, GIF, BMP, TIFF, WebP, SVG) are allowed.' 
       }, { status: 400 });
     }
 

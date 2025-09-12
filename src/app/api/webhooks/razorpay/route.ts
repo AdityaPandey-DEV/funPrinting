@@ -4,6 +4,20 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import PrintJob from '@/models/PrintJob';
 
+// In-memory store to track processed webhook events (prevents duplicate processing)
+const processedEvents = new Map<string, number>();
+const MAX_EVENT_AGE = 24 * 60 * 60 * 1000; // 24 hours
+
+// Clean up old events periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [eventId, timestamp] of processedEvents.entries()) {
+    if (now - timestamp > MAX_EVENT_AGE) {
+      processedEvents.delete(eventId);
+    }
+  }
+}, 60 * 60 * 1000); // Clean every hour
+
 // Verify Razorpay webhook signature
 function verifyWebhookSignature(body: string, signature: string, secret: string): boolean {
   const expectedSignature = crypto

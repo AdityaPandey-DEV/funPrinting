@@ -738,7 +738,7 @@ export default function OrderPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.rtf"
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp,.svg"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
