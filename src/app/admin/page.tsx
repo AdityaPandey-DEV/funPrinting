@@ -427,7 +427,9 @@ function AdminDashboardContent() {
                         )}
                         {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
                           <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            🎨 {order.printingOptions.pageColors.colorPages.length} color, {order.printingOptions.pageColors.bwPages.length} B&W
+                            <div className="font-medium">🎨 Mixed Color Printing</div>
+                            <div>Color: {order.printingOptions.pageColors.colorPages.length} pages [{order.printingOptions.pageColors.colorPages.join(', ')}]</div>
+                            <div>B&W: {order.printingOptions.pageColors.bwPages.length} pages [{order.printingOptions.pageColors.bwPages.join(', ')}]</div>
                           </div>
                         )}
                       </div>

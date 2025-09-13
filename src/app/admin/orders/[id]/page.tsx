@@ -276,11 +276,17 @@ export default function OrderDetailPage() {
                         {order.printingOptions.pageColors.colorPages.length} pages
                       </span>
                     </div>
+                    <div className="text-xs text-green-600 ml-4">
+                      Pages: [{order.printingOptions.pageColors.colorPages.join(', ')}]
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">B&W Pages:</span>
                       <span className="font-medium text-gray-600">
                         {order.printingOptions.pageColors.bwPages.length} pages
                       </span>
+                    </div>
+                    <div className="text-xs text-gray-600 ml-4">
+                      Pages: [{order.printingOptions.pageColors.bwPages.join(', ')}]
                     </div>
                   </>
                 )}

@@ -134,24 +134,24 @@ const orderSchema = new mongoose.Schema<IOrder>({
       enum: ['binding', 'file', 'service'],
     },
     pageColors: {
-      colorPages: [{
-        type: Number,
+      colorPages: {
+        type: [Number],
         validate: {
           validator: function(v: number[]) {
             return v.every(page => page >= 1 && page <= 1000);
           },
           message: 'Color page numbers must be between 1 and 1000'
         }
-      }],
-      bwPages: [{
-        type: Number,
+      },
+      bwPages: {
+        type: [Number],
         validate: {
           validator: function(v: number[]) {
             return v.every(page => page >= 1 && page <= 1000);
           },
           message: 'B&W page numbers must be between 1 and 1000'
         }
-      }]
+      }
     },
   },
   paymentStatus: {

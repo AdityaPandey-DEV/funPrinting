@@ -141,31 +141,33 @@ export async function POST(request: NextRequest) {
     let enhancedDeliveryOption = deliveryOption;
     if (deliveryOption.type === 'pickup' && deliveryOption.pickupLocationId) {
       try {
-        const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
-        const pickupData = await pickupResponse.json();
+        // Import the PickupLocation model directly
+        const PickupLocation = (await import('@/models/PickupLocation')).default;
+        const selectedLocation = await PickupLocation.findById(deliveryOption.pickupLocationId);
         
-        if (pickupData.success) {
-          const selectedLocation = pickupData.locations.find((loc: any) => loc._id === deliveryOption.pickupLocationId);
-          if (selectedLocation) {
-            enhancedDeliveryOption = {
-              ...deliveryOption,
-              pickupLocation: {
-                _id: selectedLocation._id,
-                name: selectedLocation.name,
-                address: selectedLocation.address,
-                lat: selectedLocation.lat,
-                lng: selectedLocation.lng,
-                contactPerson: selectedLocation.contactPerson,
-                contactPhone: selectedLocation.contactPhone,
-                operatingHours: selectedLocation.operatingHours,
-                gmapLink: selectedLocation.gmapLink
-              }
-            };
-          }
+        if (selectedLocation) {
+          enhancedDeliveryOption = {
+            ...deliveryOption,
+            pickupLocation: {
+              _id: selectedLocation._id,
+              name: selectedLocation.name,
+              address: selectedLocation.address,
+              lat: selectedLocation.lat,
+              lng: selectedLocation.lng,
+              contactPerson: selectedLocation.contactPerson,
+              contactPhone: selectedLocation.contactPhone,
+              operatingHours: selectedLocation.operatingHours,
+              gmapLink: selectedLocation.gmapLink
+            }
+          };
+          console.log(`✅ Pickup location enhanced: ${selectedLocation.name}`);
+        } else {
+          console.warn(`⚠️ Pickup location not found: ${deliveryOption.pickupLocationId}`);
         }
       } catch (error) {
         console.error('Error fetching pickup location details:', error);
         // Continue with original delivery option if fetch fails
+        console.log('Continuing with original delivery option...');
       }
     }
 

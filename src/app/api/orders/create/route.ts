@@ -240,46 +240,34 @@ export async function POST(request: NextRequest) {
     let enhancedDeliveryOption = deliveryOption;
     if (deliveryOption.type === 'pickup' && deliveryOption.pickupLocationId) {
       try {
-        const pickupResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/pickup-locations`);
+        // Import the PickupLocation model directly
+        const PickupLocation = (await import('@/models/PickupLocation')).default;
+        const selectedLocation = await PickupLocation.findById(deliveryOption.pickupLocationId);
         
-        if (!pickupResponse.ok) {
-          throw new Error(`Pickup locations API returned ${pickupResponse.status}`);
-        }
-        
-        const pickupData = await pickupResponse.json();
-        
-        if (pickupData.success && pickupData.locations) {
-          const selectedLocation = pickupData.locations.find((loc: any) => loc._id === deliveryOption.pickupLocationId);
-          if (selectedLocation) {
-            enhancedDeliveryOption = {
-              ...deliveryOption,
-              pickupLocation: {
-                _id: selectedLocation._id,
-                name: selectedLocation.name,
-                address: selectedLocation.address,
-                lat: selectedLocation.lat,
-                lng: selectedLocation.lng,
-                contactPerson: selectedLocation.contactPerson,
-                contactPhone: selectedLocation.contactPhone,
-                operatingHours: selectedLocation.operatingHours,
-                gmapLink: selectedLocation.gmapLink
-              }
-            };
-            logOrderEvent('pickup_location_enhanced', 'unknown', { 
-              locationId: deliveryOption.pickupLocationId,
-              locationName: selectedLocation.name 
-            }, 'info');
-          } else {
-            logOrderEvent('pickup_location_not_found', 'unknown', { 
-              locationId: deliveryOption.pickupLocationId 
-            }, 'warn');
-            // Continue with original delivery option - pickup location not found
-          }
+        if (selectedLocation) {
+          enhancedDeliveryOption = {
+            ...deliveryOption,
+            pickupLocation: {
+              _id: selectedLocation._id,
+              name: selectedLocation.name,
+              address: selectedLocation.address,
+              lat: selectedLocation.lat,
+              lng: selectedLocation.lng,
+              contactPerson: selectedLocation.contactPerson,
+              contactPhone: selectedLocation.contactPhone,
+              operatingHours: selectedLocation.operatingHours,
+              gmapLink: selectedLocation.gmapLink
+            }
+          };
+          logOrderEvent('pickup_location_enhanced', 'unknown', { 
+            locationId: deliveryOption.pickupLocationId,
+            locationName: selectedLocation.name 
+          }, 'info');
         } else {
-          logOrderEvent('pickup_locations_api_failed', 'unknown', { 
-            error: pickupData.error || 'Unknown API error' 
+          logOrderEvent('pickup_location_not_found', 'unknown', { 
+            locationId: deliveryOption.pickupLocationId 
           }, 'warn');
-          // Continue with original delivery option - API failed
+          // Continue with original delivery option - pickup location not found
         }
       } catch (error) {
         logOrderEvent('pickup_location_fetch_error', 'unknown', { 
