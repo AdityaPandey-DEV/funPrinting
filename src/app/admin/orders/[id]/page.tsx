@@ -269,26 +269,31 @@ export default function OrderDetailPage() {
                   </span>
                 </div>
                 {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Color Pages:</span>
-                      <span className="font-medium text-green-600">
-                        {order.printingOptions.pageColors.colorPages.length} pages
-                      </span>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
+                    <div className="font-medium text-green-800 mb-2">🎨 Mixed Color Printing Details</div>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                        <span className="text-gray-700">Color Pages:</span>
+                        <span className="font-medium text-green-600">
+                          {order.printingOptions.pageColors.colorPages.length} pages
+                        </span>
+                      </div>
+                      <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
+                        [{order.printingOptions.pageColors.colorPages.join(', ')}]
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
+                        <span className="text-gray-700">B&W Pages:</span>
+                        <span className="font-medium text-gray-600">
+                          {order.printingOptions.pageColors.bwPages.length} pages
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
+                        [{order.printingOptions.pageColors.bwPages.join(', ')}]
+                      </div>
                     </div>
-                    <div className="text-xs text-green-600 ml-4">
-                      Pages: [{order.printingOptions.pageColors.colorPages.join(', ')}]
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">B&W Pages:</span>
-                      <span className="font-medium text-gray-600">
-                        {order.printingOptions.pageColors.bwPages.length} pages
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-600 ml-4">
-                      Pages: [{order.printingOptions.pageColors.bwPages.join(', ')}]
-                    </div>
-                  </>
+                  </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Sided:</span>

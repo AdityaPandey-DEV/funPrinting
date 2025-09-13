@@ -251,25 +251,13 @@ function AdminDashboardContent() {
 
 
         {/* Quick Navigation */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <AdminCard
             icon="📋"
             title="Orders"
             description="Manage print orders"
             href="/admin/orders"
             count={orders.length}
-          />
-          <AdminCard
-            icon="🖨️"
-            title="Printing"
-            description="Monitor print jobs and queue"
-            href="/admin/printing"
-          />
-          <AdminCard
-            icon="⚙️"
-            title="Printer Setup"
-            description="Configure printing devices"
-            href="/admin/printing/setup"
           />
           <AdminCard
             icon="📄"
@@ -426,10 +414,24 @@ function AdminDashboardContent() {
                           </div>
                         )}
                         {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
-                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            <div className="font-medium">🎨 Mixed Color Printing</div>
-                            <div>Color: {order.printingOptions.pageColors.colorPages.length} pages [{order.printingOptions.pageColors.colorPages.join(', ')}]</div>
-                            <div>B&W: {order.printingOptions.pageColors.bwPages.length} pages [{order.printingOptions.pageColors.bwPages.join(', ')}]</div>
+                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
+                            <div className="font-medium mb-1">🎨 Mixed Color Printing</div>
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                                <span>Color: {order.printingOptions.pageColors.colorPages.length} pages</span>
+                              </div>
+                              <div className="text-xs text-green-700 ml-3">
+                                [{order.printingOptions.pageColors.colorPages.join(', ')}]
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
+                                <span>B&W: {order.printingOptions.pageColors.bwPages.length} pages</span>
+                              </div>
+                              <div className="text-xs text-gray-600 ml-3">
+                                [{order.printingOptions.pageColors.bwPages.join(', ')}]
+                              </div>
+                            </div>
                           </div>
                         )}
                       </div>
