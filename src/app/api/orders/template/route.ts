@@ -101,10 +101,19 @@ export async function POST(request: NextRequest) {
       const colorPages = printingOptions.pageColors.colorPages.length;
       const bwPages = printingOptions.pageColors.bwPages.length;
       
+      // If not all pages are specified, treat unspecified pages as B&W
+      const unspecifiedPages = pageCount - (colorPages + bwPages);
+      const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
+      
       const colorCost = basePrice * colorPages * pricing.multipliers.color;
-      const bwCost = basePrice * bwPages;
+      const bwCost = basePrice * totalBwPages;
       
       amount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
+      
+      console.log(`🔍 Template order - Mixed color pricing:`);
+      console.log(`  - Color pages: ${colorPages} (₹${colorCost})`);
+      console.log(`  - B&W pages: ${totalBwPages} (₹${bwCost})`);
+      console.log(`  - Unspecified pages treated as B&W: ${unspecifiedPages}`);
     } else {
       // Standard pricing for all color or all B&W
       const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;

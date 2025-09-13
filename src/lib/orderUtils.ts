@@ -158,11 +158,18 @@ export const validateOrderData = (orderData: OrderData): OrderValidationResult =
       const { colorPages, bwPages } = orderData.printingOptions.pageColors;
       const totalSpecifiedPages = colorPages.length + bwPages.length;
       
-      if (totalSpecifiedPages !== orderData.printingOptions.pageCount) {
+      // More lenient validation - allow partial specification but warn
+      if (totalSpecifiedPages === 0) {
         errors.push({
           field: 'printingOptions.pageColors',
-          message: 'Total color and B&W pages must equal page count',
-          code: 'INVALID_PAGE_COLOR_COUNT'
+          message: 'At least one page must be specified as color or B&W',
+          code: 'NO_PAGES_SPECIFIED'
+        });
+      } else if (orderData.printingOptions.pageCount && totalSpecifiedPages > orderData.printingOptions.pageCount) {
+        errors.push({
+          field: 'printingOptions.pageColors',
+          message: `Too many pages specified (${totalSpecifiedPages}) for document with ${orderData.printingOptions.pageCount} pages`,
+          code: 'TOO_MANY_PAGES_SPECIFIED'
         });
       }
 
@@ -175,6 +182,19 @@ export const validateOrderData = (orderData: OrderData): OrderValidationResult =
           message: 'Pages cannot be specified as both color and B&W',
           code: 'DUPLICATE_PAGE_COLORS'
         });
+      }
+      
+      // Check for invalid page numbers
+      if (orderData.printingOptions.pageCount) {
+        const pageCount = orderData.printingOptions.pageCount;
+        const invalidPages = allPages.filter(page => page < 1 || page > pageCount);
+        if (invalidPages.length > 0) {
+          errors.push({
+            field: 'printingOptions.pageColors',
+            message: `Invalid page numbers: ${invalidPages.join(', ')}. Pages must be between 1 and ${pageCount}`,
+            code: 'INVALID_PAGE_NUMBERS'
+          });
+        }
       }
     }
   }

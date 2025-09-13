@@ -288,8 +288,12 @@ export default function OrderPage() {
               const colorPages = printingOptions.pageColors.colorPages.length;
               const bwPages = printingOptions.pageColors.bwPages.length;
               
+              // If not all pages are specified, treat unspecified pages as B&W
+              const unspecifiedPages = pageCount - (colorPages + bwPages);
+              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
+              
               const colorCost = basePrice * colorPages * pricing.multipliers.color;
-              const bwCost = basePrice * bwPages;
+              const bwCost = basePrice * totalBwPages;
               
               total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1) * printingOptions.copies;
             } else {
@@ -341,8 +345,12 @@ export default function OrderPage() {
               const colorPages = printingOptions.pageColors.colorPages.length;
               const bwPages = printingOptions.pageColors.bwPages.length;
               
+              // If not all pages are specified, treat unspecified pages as B&W
+              const unspecifiedPages = pageCount - (colorPages + bwPages);
+              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
+              
               const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-              const bwCost = basePrice * bwPages;
+              const bwCost = basePrice * totalBwPages;
               
               total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
             } else {
@@ -393,8 +401,12 @@ export default function OrderPage() {
             const colorPages = printingOptions.pageColors.colorPages.length;
             const bwPages = printingOptions.pageColors.bwPages.length;
             
+            // If not all pages are specified, treat unspecified pages as B&W
+            const unspecifiedPages = pageCount - (colorPages + bwPages);
+            const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
+            
             const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-            const bwCost = basePrice * bwPages;
+            const bwCost = basePrice * totalBwPages;
             
             total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
           } else {
@@ -458,9 +470,32 @@ export default function OrderPage() {
     }
 
     // Validate mixed color page selection
-    if (printingOptions.color === 'mixed' && (!printingOptions.pageColors || printingOptions.pageColors.colorPages.length === 0)) {
-      alert('Please select which pages should be printed in color');
-      return;
+    if (printingOptions.color === 'mixed') {
+      if (!printingOptions.pageColors) {
+        alert('Please select which pages should be printed in color');
+        return;
+      }
+      
+      const { colorPages, bwPages } = printingOptions.pageColors;
+      const totalSpecifiedPages = colorPages.length + bwPages.length;
+      
+      if (totalSpecifiedPages === 0) {
+        alert('Please select which pages should be printed in color');
+        return;
+      }
+      
+      if (totalSpecifiedPages !== pageCount) {
+        alert(`Please specify colors for all ${pageCount} pages. Currently specified: ${totalSpecifiedPages} pages`);
+        return;
+      }
+      
+      // Check for duplicate pages
+      const allPages = [...colorPages, ...bwPages];
+      const uniquePages = [...new Set(allPages)];
+      if (allPages.length !== uniquePages.length) {
+        alert('Pages cannot be specified as both color and B&W. Please check your selection.');
+        return;
+      }
     }
 
     // Validate expected date
