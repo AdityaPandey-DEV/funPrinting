@@ -259,8 +259,7 @@ function AdminDashboardContent() {
             href="/admin/orders"
             count={orders.length}
           />
-          <AdminCard
-            icon="📄"
+          <AdminCard            icon="📄"
             title="PDF Templates"
             description="Create and manage PDF templates"
             href="/admin/templates"
@@ -414,24 +413,8 @@ function AdminDashboardContent() {
                           </div>
                         )}
                         {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
-                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded border border-green-200">
-                            <div className="font-medium mb-1">🎨 Mixed Color Printing</div>
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1">
-                                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                                <span>Color: {order.printingOptions.pageColors.colorPages.length} pages</span>
-                              </div>
-                              <div className="text-xs text-green-700 ml-3">
-                                [{order.printingOptions.pageColors.colorPages.join(', ')}]
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <span className="w-2 h-2 bg-gray-500 rounded-full"></span>
-                                <span>B&W: {order.printingOptions.pageColors.bwPages.length} pages</span>
-                              </div>
-                              <div className="text-xs text-gray-600 ml-3">
-                                [{order.printingOptions.pageColors.bwPages.join(', ')}]
-                              </div>
-                            </div>
+                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                            🎨 {order.printingOptions.pageColors.colorPages.length} color, {order.printingOptions.pageColors.bwPages.length} B&W
                           </div>
                         )}
                       </div>

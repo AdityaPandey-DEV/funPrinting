@@ -131,25 +131,8 @@ export async function POST(request: NextRequest) {
           await printJob.save();
           console.log(`✅ Print job created: ${printJob.orderNumber}`);
 
-          // Trigger auto-printing asynchronously (don't wait for response)
-          setImmediate(async () => {
-            try {
-              const autoPrintResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/printing/auto-print`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: updateResult._id.toString() })
-              });
-              
-              if (autoPrintResponse.ok) {
-                console.log('🔄 Auto-print triggered successfully');
-              } else {
-                console.error('❌ Auto-print failed:', autoPrintResponse.status);
-              }
-            } catch (autoPrintError) {
-              console.error('Error triggering auto-print:', autoPrintError);
-              // Don't fail the order if auto-print fails
-            }
-          });
+          // Note: Auto-printing functionality has been removed
+          console.log(`✅ Order ${updateResult.orderId} ready for manual processing`);
         }
       } catch (printJobError) {
         console.error('Error creating print job:', printJobError);
