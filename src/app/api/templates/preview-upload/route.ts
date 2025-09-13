@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fillDocxTemplate } from '@/lib/docxProcessor';
-import { convertDocxToPdf } from '@/lib/cloudmersive';
 import { uploadToCloudinary } from '@/lib/cloudinary';
 
 export async function POST(request: NextRequest) {

@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const timestamp = Date.now();
     
     // Store OTP with timestamp (expires in 10 minutes)
     otpStore.set(email, otp);

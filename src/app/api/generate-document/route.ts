@@ -4,7 +4,6 @@ import DynamicTemplate from '@/models/DynamicTemplate';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType } from 'docx';
 import { v4 as uuidv4 } from 'uuid';
 // mammoth removed - using Microsoft Word directly
-import { pdfApiClient } from '@/lib/pdfApiClient';
 
 /**
  * Generate personalized document from template

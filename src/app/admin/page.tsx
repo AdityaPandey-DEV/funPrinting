@@ -346,9 +346,6 @@ function AdminDashboardContent() {
                     Student Info
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Printing Options
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Delivery Location
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -393,30 +390,6 @@ function AdminDashboardContent() {
                         <div className="text-sm text-gray-500">
                           {order.customerInfo?.phone || order.studentInfo?.phone || 'N/A'}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900 space-y-1">
-                        <div className="font-medium">{order.printingOptions.pageSize}</div>
-                        <div>
-                          {order.printingOptions.color === 'color' ? '🟢 Color' : 
-                           order.printingOptions.color === 'bw' ? '⚫ B/W' : 
-                           '🎨 Mixed'}
-                        </div>
-                        <div>{order.printingOptions.sided === 'double' ? '📄 Double' : '📃 Single'}</div>
-                        <div>{order.printingOptions.copies} copies</div>
-                        {order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && order.printingOptions.serviceOption && (
-                          <div className="text-xs text-blue-600 font-medium bg-blue-50 px-2 py-1 rounded">
-                            {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
-                             order.printingOptions.serviceOption === 'file' ? '🗂️ File Handling' :
-                             '✅ Service Fee'}
-                          </div>
-                        )}
-                        {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
-                          <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                            🎨 {order.printingOptions.pageColors.colorPages.length} color, {order.printingOptions.pageColors.bwPages.length} B&W
-                          </div>
-                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4">

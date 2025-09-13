@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
 import { convertPdfToDocx } from '@/lib/cloudmersive';
 import { convertPdfToDocx as libreOfficePdfToDocx, isLibreOfficeAvailable } from '@/lib/libreoffice';
-// mammoth removed - using Microsoft Word directly
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +14,6 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     
     const hasCloudmersiveKey = process.env.CLOUDMERSIVE_API_KEY;
-    const hasLibreOffice = await isLibreOfficeAvailable();
 
     let conversionResult;
     
@@ -118,7 +113,7 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
         console.log('⚠️ PDF text extraction response indicates failure');
         pdfText = pdfTextResponse; // Fallback to raw response
       }
-    } catch (parseError) {
+    } catch {
       console.log('⚠️ Could not parse PDF text as JSON, using raw response');
       pdfText = pdfTextResponse; // Fallback to raw response
     }
@@ -222,7 +217,7 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
 }
 
 // LibreOffice conversion (kept for DOCX to PDF, but not used for PDF to DOCX)
-async function libreOfficeConversion(pdfBuffer: Buffer) {
+async function libreOfficeConversion(_pdfBuffer: Buffer) {
   // This function is no longer used for PDF to DOCX conversion
   // but is kept for completeness if needed for DOCX to PDF or other purposes.
   // It would need to be updated if PDF to DOCX capability is added to LibreOffice.

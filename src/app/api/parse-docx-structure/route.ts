@@ -19,11 +19,10 @@ export async function POST(request: NextRequest) {
     let text = '';
     let metadata = {};
     let images = [];
-    let document = null;
 
     try {
       // Try to use @thasmorato/docx-parser first
-      document = await parseDocx(buffer);
+      await parseDocx(buffer);
       text = await extractText(buffer);
       metadata = await getMetadata(buffer) || {};
       const imagesGenerator = await extractImages(buffer);

@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import AdminInfo from '@/models/AdminInfo';
 
 // POST - Initialize admin with default data
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     await connectDB();
     
