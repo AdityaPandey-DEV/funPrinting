@@ -10,6 +10,11 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'openid email profile https://www.googleapis.com/auth/user.phonenumbers.read',
+        },
+      },
     }),
     CredentialsProvider({
       name: 'credentials',
@@ -57,10 +62,35 @@ export const authOptions: NextAuthOptions = {
     })
   ],
   callbacks: {
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === 'google') {
         try {
           await connectDB();
+          
+          // Fetch phone number from Google People API
+          let phoneNumber = null;
+          if (account.access_token) {
+            try {
+              const peopleResponse = await fetch(
+                `https://people.googleapis.com/v1/people/me?personFields=phoneNumbers`,
+                {
+                  headers: {
+                    Authorization: `Bearer ${account.access_token}`,
+                  },
+                }
+              );
+              
+              if (peopleResponse.ok) {
+                const peopleData = await peopleResponse.json();
+                if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
+                  phoneNumber = peopleData.phoneNumbers[0].value;
+                }
+              }
+            } catch (phoneError) {
+              console.log('Could not fetch phone number:', phoneError);
+              // Continue without phone number - not critical
+            }
+          }
           
           // Check if user exists
           const existingUser = await User.findOne({ 
@@ -71,11 +101,17 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (existingUser) {
-            // Update last login
-            await User.findByIdAndUpdate(existingUser._id, { 
+            // Update last login and phone number if available
+            const updateData: any = { 
               lastLogin: new Date(),
               profilePicture: user.image 
-            });
+            };
+            
+            if (phoneNumber && !existingUser.phone) {
+              updateData.phone = phoneNumber;
+            }
+            
+            await User.findByIdAndUpdate(existingUser._id, updateData);
             return true;
           }
 
@@ -83,6 +119,7 @@ export const authOptions: NextAuthOptions = {
           await User.create({
             name: user.name || '',
             email: user.email || '',
+            phone: phoneNumber || '',
             provider: 'google',
             providerId: account.providerAccountId,
             emailVerified: true,
@@ -98,7 +135,7 @@ export const authOptions: NextAuthOptions = {
       }
       return true;
     },
-    async jwt({ token, user, account }) {
+    async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
       }

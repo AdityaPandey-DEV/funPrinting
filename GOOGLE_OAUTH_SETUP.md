@@ -10,11 +10,12 @@ This guide will help you set up Google OAuth authentication for your PrintServic
 4. Enter a project name (e.g., "PrintService Auth")
 5. Click "Create"
 
-## Step 2: Enable Google+ API
+## Step 2: Enable Required APIs
 
 1. In the Google Cloud Console, go to "APIs & Services" > "Library"
-2. Search for "Google+ API" or "Google Identity"
-3. Click on "Google+ API" and then "Enable"
+2. Enable the following APIs:
+   - **Google+ API** or **Google Identity**: Search for "Google+ API" or "Google Identity" and enable it
+   - **People API**: Search for "People API" and enable it (required for phone number access)
 
 ## Step 3: Create OAuth 2.0 Credentials
 
@@ -27,6 +28,10 @@ This guide will help you set up Google OAuth authentication for your PrintServic
      - User support email: Your email
      - Developer contact information: Your email
    - Add your domain to authorized domains
+   - In the "Scopes" section, add the following scopes:
+     - `../auth/userinfo.email` (View your email address)
+     - `../auth/userinfo.profile` (View your basic profile info)
+     - `../auth/user.phonenumbers.read` (View your phone numbers)
    - Save and continue through the steps
 
 4. For the OAuth client:
@@ -108,13 +113,24 @@ For production deployment:
 
 - [ ] Google Cloud project created
 - [ ] Google+ API enabled
+- [ ] People API enabled
 - [ ] OAuth 2.0 credentials created
+- [ ] OAuth consent screen configured with phone number scope
 - [ ] Environment variables set
 - [ ] NextAuth secret generated
 - [ ] Sign-in page accessible
 - [ ] Google sign-in button works
-- [ ] User data saved to database
+- [ ] User data saved to database (including phone number if available)
 - [ ] Session persists after page refresh
+
+## Phone Number Access Notes
+
+**Important**: Google's phone number access has specific requirements:
+
+1. **Verification Required**: Your app must be verified by Google to access phone numbers
+2. **User Consent**: Users must explicitly grant permission for phone number access
+3. **Limited Availability**: Not all users have phone numbers associated with their Google accounts
+4. **Fallback Handling**: The app gracefully handles cases where phone numbers are not available
 
 ## Security Notes
 
@@ -123,6 +139,7 @@ For production deployment:
 - Regularly rotate your OAuth credentials
 - Monitor your Google Cloud Console for unusual activity
 - Consider implementing additional security measures like rate limiting
+- Handle phone number data according to privacy regulations (GDPR, CCPA, etc.)
 
 ## Support
 
