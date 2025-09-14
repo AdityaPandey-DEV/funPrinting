@@ -12,7 +12,7 @@ export const authOptions: NextAuthOptions = {
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       authorization: {
         params: {
-          scope: 'openid email profile https://www.googleapis.com/auth/user.phonenumbers.read',
+          scope: 'openid email profile',
         },
       },
     }),
@@ -72,30 +72,33 @@ export const authOptions: NextAuthOptions = {
         try {
           await connectDB();
           
-          // Fetch phone number from Google People API
-          let phoneNumber = null;
-          if (account.access_token) {
-            try {
-              const peopleResponse = await fetch(
-                `https://people.googleapis.com/v1/people/me?personFields=phoneNumbers`,
-                {
-                  headers: {
-                    Authorization: `Bearer ${account.access_token}`,
-                  },
-                }
-              );
-              
-              if (peopleResponse.ok) {
-                const peopleData = await peopleResponse.json();
-                if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
-                  phoneNumber = peopleData.phoneNumbers[0].value;
-                }
-              }
-            } catch (phoneError) {
-              console.log('Could not fetch phone number:', phoneError);
-              // Continue without phone number - not critical
-            }
-          }
+          // Note: Phone number access requires Google app verification
+          // For now, we'll skip phone number fetching to avoid OAuth issues
+          const phoneNumber = null;
+          
+          // TODO: Re-enable phone number access after Google app verification
+          // if (account.access_token) {
+          //   try {
+          //     const peopleResponse = await fetch(
+          //       `https://people.googleapis.com/v1/people/me?personFields=phoneNumbers`,
+          //       {
+          //         headers: {
+          //           Authorization: `Bearer ${account.access_token}`,
+          //         },
+          //       }
+          //     );
+          //     
+          //     if (peopleResponse.ok) {
+          //       const peopleData = await peopleResponse.json();
+          //       if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
+          //         phoneNumber = peopleData.phoneNumbers[0].value;
+          //       }
+          //     }
+          //   } catch (phoneError) {
+          //     console.log('Could not fetch phone number:', phoneError);
+          //     // Continue without phone number - not critical
+          //   }
+          // }
           
           // Check if user exists
           const existingUser = await User.findOne({ 

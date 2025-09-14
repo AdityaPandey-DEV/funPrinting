@@ -31,7 +31,7 @@ This guide will help you set up Google OAuth authentication for your PrintServic
    - In the "Scopes" section, add the following scopes:
      - `../auth/userinfo.email` (View your email address)
      - `../auth/userinfo.profile` (View your basic profile info)
-     - `../auth/user.phonenumbers.read` (View your phone numbers)
+     - Note: Phone number scope removed to avoid verification issues
    - Save and continue through the steps
 
 4. For the OAuth client:
@@ -115,12 +115,12 @@ For production deployment:
 - [ ] Google+ API enabled
 - [ ] People API enabled
 - [ ] OAuth 2.0 credentials created
-- [ ] OAuth consent screen configured with phone number scope
+- [ ] OAuth consent screen configured with basic scopes (email, profile)
 - [ ] Environment variables set
 - [ ] NextAuth secret generated
 - [ ] Sign-in page accessible
 - [ ] Google sign-in button works
-- [ ] User data saved to database (including phone number if available)
+- [ ] User data saved to database (phone numbers will be collected via forms)
 - [ ] Session persists after page refresh
 
 ## Phone Number Access Notes
