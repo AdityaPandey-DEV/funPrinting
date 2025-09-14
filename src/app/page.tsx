@@ -59,13 +59,44 @@ export default function Home() {
     
     switch (priceKey) {
       case 'bw':
-        return `₹${pricing.basePrices.A4}/page`;
+        const originalBwPrice = pricing.basePrices.A4 * 2; // Original price (double current)
+        const discountedBwPrice = pricing.basePrices.A4; // Current price (50% off)
+        return (
+          <div className="flex flex-col items-center">
+            <span className="text-lg text-gray-400 line-through">₹{originalBwPrice}/page</span>
+            <span className="text-2xl font-bold text-green-600">₹{discountedBwPrice}/page</span>
+            <span className="text-xs text-green-600 font-medium">50% OFF!</span>
+          </div>
+        );
       case 'color':
-        return `₹${pricing.basePrices.A4 * pricing.multipliers.color}/page`;
+        const originalColorPrice = (pricing.basePrices.A4 * pricing.multipliers.color) * 2; // Original price (double current)
+        const discountedColorPrice = pricing.basePrices.A4 * pricing.multipliers.color; // Current price (50% off)
+        return (
+          <div className="flex flex-col items-center">
+            <span className="text-lg text-gray-400 line-through">₹{originalColorPrice}/page</span>
+            <span className="text-2xl font-bold text-green-600">₹{discountedColorPrice}/page</span>
+            <span className="text-xs text-green-600 font-medium">50% OFF!</span>
+          </div>
+        );
       case 'binding':
-        return `₹${pricing.additionalServices.binding}`;
+        const originalBindingPrice = pricing.additionalServices.binding * 2; // Original price (double current)
+        const discountedBindingPrice = pricing.additionalServices.binding; // Current price (50% off)
+        return (
+          <div className="flex flex-col items-center">
+            <span className="text-lg text-gray-400 line-through">₹{originalBindingPrice}</span>
+            <span className="text-2xl font-bold text-green-600">₹{discountedBindingPrice}</span>
+            <span className="text-xs text-green-600 font-medium">50% OFF!</span>
+          </div>
+        );
       case 'resumeTemplate':
-        return 'Free';
+        const originalTemplatePrice = 100; // Original price
+        return (
+          <div className="flex flex-col items-center">
+            <span className="text-lg text-gray-400 line-through">₹{originalTemplatePrice}</span>
+            <span className="text-2xl font-bold text-green-600">Free</span>
+            <span className="text-xs text-green-600 font-medium">100% OFF!</span>
+          </div>
+        );
       default:
         return 'N/A';
     }
@@ -109,14 +140,17 @@ export default function Home() {
             {services.map((service, index) => (
               <div
                 key={index}
-                className="bg-white rounded-lg shadow-lg p-6 text-center hover:shadow-xl transition-shadow border border-gray-200"
+                className="bg-white rounded-lg shadow-lg p-6 text-center hover:shadow-xl transition-shadow border border-green-300 relative overflow-hidden"
               >
+                <div className="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 transform rotate-45 translate-x-6 -translate-y-1">
+                  OFFER
+                </div>
                 <div className="text-4xl mb-4">{service.icon}</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   {service.title}
                 </h3>
                 <p className="text-gray-600 mb-4">{service.description}</p>
-                <p className="text-2xl font-bold text-gray-800">{getServicePrice(service.priceKey)}</p>
+                <div className="text-2xl font-bold text-gray-800">{getServicePrice(service.priceKey)}</div>
               </div>
             ))}
           </div>
