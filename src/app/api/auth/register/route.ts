@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { emailVerificationStore, sendVerificationEmail } from '@/lib/email-verification';
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,6 +62,21 @@ export async function POST(request: NextRequest) {
       emailVerified: false,
     });
 
+    // Generate verification token
+    const verificationToken = emailVerificationStore.generateToken(email.toLowerCase().trim());
+    
+    // Send verification email
+    const emailSent = await sendVerificationEmail(
+      email.toLowerCase().trim(),
+      name.trim(),
+      verificationToken
+    );
+
+    if (!emailSent) {
+      console.error('Failed to send verification email to:', email);
+      // Don't fail registration if email sending fails, but log it
+    }
+
     // Return user data (without password)
     const userData = {
       id: user._id,
@@ -74,8 +90,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'User registered successfully',
+      message: emailSent 
+        ? 'User registered successfully. Please check your email to verify your account.'
+        : 'User registered successfully, but verification email could not be sent. Please contact support.',
       user: userData,
+      emailSent,
     });
 
   } catch (error) {

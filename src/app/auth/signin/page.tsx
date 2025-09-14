@@ -10,6 +10,8 @@ export default function SignInPage() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showResend, setShowResend] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const router = useRouter();
 
   const handleEmailSignIn = async (e: React.FormEvent) => {
@@ -25,7 +27,12 @@ export default function SignInPage() {
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        if (result.error === 'EMAIL_NOT_VERIFIED') {
+          setError('Please verify your email address before signing in. Check your inbox for a verification email.');
+          setShowResend(true);
+        } else {
+          setError('Invalid email or password');
+        }
       } else {
         // Get the updated session
         const session = await getSession();
@@ -54,6 +61,39 @@ export default function SignInPage() {
     }
   };
 
+  const handleResendVerification = async () => {
+    if (!email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setIsResending(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setError('Verification email sent successfully! Please check your inbox.');
+      } else {
+        setError(data.error || 'Failed to resend verification email');
+      }
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -73,6 +113,21 @@ export default function SignInPage() {
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
               {error}
+            </div>
+          )}
+
+          {showResend && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-sm text-blue-700 mb-3">
+                Need to resend the verification email?
+              </p>
+              <button
+                onClick={handleResendVerification}
+                disabled={isResending}
+                className="w-full py-2 px-4 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResending ? 'Sending...' : 'Resend Verification Email'}
+              </button>
             </div>
           )}
 

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function SignUpPage() {
@@ -16,7 +15,8 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const router = useRouter();
+  const [showResend, setShowResend] = useState(false);
+  const [isResending, setIsResending] = useState(false);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -62,7 +62,13 @@ export default function SignUpPage() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('Account created successfully! You can now sign in.');
+        if (data.emailSent) {
+          setSuccess('Account created successfully! Please check your email to verify your account before signing in.');
+          setShowResend(true);
+        } else {
+          setSuccess('Account created successfully! However, the verification email could not be sent. Please contact support.');
+          setShowResend(true);
+        }
         // Clear form
         setFormData({
           name: '',
@@ -71,10 +77,7 @@ export default function SignUpPage() {
           confirmPassword: '',
           phone: '',
         });
-        // Redirect to sign in after 2 seconds
-        setTimeout(() => {
-          router.push('/auth/signin');
-        }, 2000);
+        // Don't redirect automatically - let user read the message
       } else {
         setError(data.error || 'Failed to create account');
       }
@@ -96,6 +99,39 @@ export default function SignUpPage() {
       console.error('Google sign in error:', error);
       setError('Failed to sign in with Google');
       setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!formData.email) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    setIsResending(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Verification email sent successfully! Please check your inbox.');
+      } else {
+        setError(data.error || 'Failed to resend verification email');
+      }
+    } catch (error) {
+      console.error('Resend verification error:', error);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -124,6 +160,21 @@ export default function SignUpPage() {
           {success && (
             <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
               {success}
+            </div>
+          )}
+
+          {showResend && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="text-sm text-blue-700 mb-3">
+                Didn&apos;t receive the verification email? Check your spam folder or resend it.
+              </p>
+              <button
+                onClick={handleResendVerification}
+                disabled={isResending}
+                className="w-full py-2 px-4 border border-blue-300 rounded-md shadow-sm text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isResending ? 'Sending...' : 'Resend Verification Email'}
+              </button>
             </div>
           )}
 

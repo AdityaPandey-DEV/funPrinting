@@ -45,6 +45,11 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Check if email is verified
+          if (!user.emailVerified) {
+            throw new Error('EMAIL_NOT_VERIFIED');
+          }
+
           // Update last login
           await User.findByIdAndUpdate(user._id, { lastLogin: new Date() });
 
