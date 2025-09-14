@@ -142,7 +142,7 @@ export default function Home() {
                 key={index}
                 className="bg-white rounded-lg shadow-lg p-6 text-center hover:shadow-xl transition-shadow border border-gray-800 relative overflow-hidden"
               >
-                <div className="absolute top-0 right-0 bg-green-500 text-white text-xs font-bold px-3 py-1 transform rotate-45 translate-x-6 -translate-y-1">
+                <div className="absolute top-0 right-0 bg-black text-white text-xs font-bold px-3 py-1 transform rotate-45 translate-x-6 -translate-y-1">
                   OFFER
                 </div>
                 <div className="text-4xl mb-4">{service.icon}</div>
