@@ -33,7 +33,7 @@ export default function AdminTemplatesPage() {
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                  Resume Templates
+                  Templates
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
                   <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>

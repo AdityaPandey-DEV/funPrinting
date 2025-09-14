@@ -51,7 +51,7 @@ function AdminPricingPageContent() {
     },
     additionalServices: {
       binding: 20,
-      resumeTemplate: 50,
+      resumeTemplate: 0,
     },
   });
 

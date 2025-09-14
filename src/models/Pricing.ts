@@ -49,7 +49,7 @@ const pricingSchema = new mongoose.Schema<IPricing>({
   },
   additionalServices: {
     binding: { type: Number, required: true, default: 20 },
-    resumeTemplate: { type: Number, required: true, default: 50 },
+    resumeTemplate: { type: Number, required: true, default: 0 },
   },
   updatedBy: { type: String, required: true },
 }, {

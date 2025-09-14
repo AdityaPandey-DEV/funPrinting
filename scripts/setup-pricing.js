@@ -23,7 +23,7 @@ const pricingSchema = new mongoose.Schema({
   },
   additionalServices: {
     binding: { type: Number, required: true, default: 20 },
-    resumeTemplate: { type: Number, required: true, default: 50 },
+    resumeTemplate: { type: Number, required: true, default: 0 },
   },
   updatedBy: { type: String, required: true },
 }, {
@@ -78,7 +78,7 @@ async function setupPricing() {
       },
       additionalServices: {
         binding: 20,
-        resumeTemplate: 50,
+        resumeTemplate: 0,
       },
       updatedBy: 'system',
     });

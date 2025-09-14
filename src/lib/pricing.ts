@@ -50,7 +50,7 @@ export async function getPricing(): Promise<PricingData> {
         },
         additionalServices: {
           binding: 20,
-          resumeTemplate: 50,
+          resumeTemplate: 0,
         },
         updatedBy: 'system',
       });
@@ -80,7 +80,7 @@ export async function getPricing(): Promise<PricingData> {
       },
       additionalServices: {
         binding: 20,
-        resumeTemplate: 50,
+        resumeTemplate: 0,
       },
     };
   }

@@ -24,8 +24,8 @@ const services = [
     priceKey: 'binding',
   },
   {
-    title: 'Resume Templates',
-    description: 'Professional resume templates',
+    title: 'Templates',
+    description: 'Professional document templates',
     icon: '📄',
     priceKey: 'resumeTemplate',
   },
@@ -65,7 +65,7 @@ export default function Home() {
       case 'binding':
         return `₹${pricing.additionalServices.binding}`;
       case 'resumeTemplate':
-        return `₹${pricing.additionalServices.resumeTemplate}`;
+        return 'Free';
       default:
         return 'N/A';
     }
