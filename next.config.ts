@@ -3,6 +3,20 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // External packages for server components
   serverExternalPackages: ['mongoose'],
+  
+  // Turbopack configuration
+  experimental: {
+    turbo: {
+      rules: {
+        '*.mjs': {
+          loaders: ['raw-loader'],
+          as: '*.js',
+        },
+      },
+    },
+  },
+  
+  // Webpack configuration (fallback for non-Turbopack builds)
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Handle PDF.js worker files
@@ -15,6 +29,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
+  
   // Handle static files
   async headers() {
     return [

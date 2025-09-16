@@ -142,6 +142,7 @@ export default function OrderPage() {
   const [pageCount, setPageCount] = useState(1);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfLoaded, setPdfLoaded] = useState(false);
+  const [isCountingPages, setIsCountingPages] = useState(false);
   
   // Step 2: Details, delivery, and payment
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
@@ -779,30 +780,94 @@ export default function OrderPage() {
                         if (file) {
                           setSelectedFile(file);
                           setPdfLoaded(false);
+                          setIsCountingPages(true);
                           
                           // Create preview URL
                           const url = URL.createObjectURL(file);
                           setPdfUrl(url);
                           
-                          // Detect page count properly using pdf-lib
+                          // Detect page count properly using multiple methods
                           if (file.type === 'application/pdf') {
-                            // Read the PDF and get actual page count
-                            const arrayBuffer = await file.arrayBuffer();
+                            // Read the PDF and get actual page count using PDF.js (more reliable)
                             try {
-                              const { PDFDocument } = await import('pdf-lib');
-                              const pdfDoc = await PDFDocument.load(arrayBuffer);
-                              const actualPageCount = pdfDoc.getPageCount();
-                              console.log(`📄 Actual PDF page count: ${actualPageCount}`);
+                              // Use PDF.js for more accurate page counting
+                              const pdfjsLib = await import('pdfjs-dist');
+                              pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+                              
+                              // Create a blob URL for PDF.js to load
+                              const blob = new Blob([file], { type: 'application/pdf' });
+                              const blobUrl = URL.createObjectURL(blob);
+                              
+                              const loadingTask = pdfjsLib.getDocument(blobUrl);
+                              const pdf = await loadingTask.promise;
+                              const actualPageCount = pdf.numPages;
+                              console.log(`📄 PDF.js page count: ${actualPageCount}`);
                               setPageCount(actualPageCount);
+                              setIsCountingPages(false);
+                              
+                              // Clean up the blob URL
+                              URL.revokeObjectURL(blobUrl);
                             } catch (error) {
-                              console.error('Error reading PDF page count:', error);
-                              // Fallback to estimation if pdf-lib fails
-                              const estimatedPages = Math.max(1, Math.floor(file.size / 50000));
-                              console.log(`📄 Fallback estimated page count: ${estimatedPages}`);
-                              setPageCount(estimatedPages);
+                              console.error('Error reading PDF page count with PDF.js:', error);
+                              // Fallback to pdf-lib
+                              try {
+                                const arrayBuffer = await file.arrayBuffer();
+                                const { PDFDocument } = await import('pdf-lib');
+                                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                                const actualPageCount = pdfDoc.getPageCount();
+                                console.log(`📄 PDF-lib page count: ${actualPageCount}`);
+                                setPageCount(actualPageCount);
+                                setIsCountingPages(false);
+                              } catch (pdfLibError) {
+                                console.error('Error reading PDF page count with pdf-lib:', pdfLibError);
+                                // Final fallback to estimation
+                                const estimatedPages = Math.max(1, Math.floor(file.size / 50000));
+                                console.log(`📄 Fallback estimated page count: ${estimatedPages}`);
+                                setPageCount(estimatedPages);
+                                setIsCountingPages(false);
+                              }
+                            }
+                          } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                                     file.type === 'application/msword') {
+                            // Handle Word documents - estimate page count based on content
+                            try {
+                              const arrayBuffer = await file.arrayBuffer();
+                              const buffer = Buffer.from(arrayBuffer);
+                              const base64Buffer = buffer.toString('base64');
+                              
+                              // Call the Word document parsing API to get accurate page count
+                              const response = await fetch('/api/parse-docx-structure', {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({ docxBuffer: base64Buffer }),
+                              });
+                              
+                              if (response.ok) {
+                                const data = await response.json();
+                                if (data.success && data.totalPages) {
+                                  console.log(`📄 Word document estimated pages: ${data.totalPages}`);
+                                  setPageCount(data.totalPages);
+                                } else {
+                                  console.log('📄 Word document parsing failed, using fallback');
+                                  setPageCount(1);
+                                }
+                                setIsCountingPages(false);
+                              } else {
+                                console.log('📄 Word document API failed, using fallback');
+                                setPageCount(1);
+                                setIsCountingPages(false);
+                              }
+                            } catch (error) {
+                              console.error('Error parsing Word document:', error);
+                              setPageCount(1);
+                              setIsCountingPages(false);
                             }
                           } else {
+                            // For other file types (images, etc.), assume 1 page
                             setPageCount(1);
+                            setIsCountingPages(false);
                           }
                         }
                       }}
@@ -1131,7 +1196,16 @@ export default function OrderPage() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Pages:</span>
-                    <span className="font-medium text-gray-800">{pageCount}</span>
+                    <span className="font-medium text-gray-800">
+                      {isCountingPages ? (
+                        <span className="flex items-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                          Counting...
+                        </span>
+                      ) : (
+                        pageCount
+                      )}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Size:</span>
@@ -1472,7 +1546,16 @@ export default function OrderPage() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Pages:</span>
-                          <span className="font-medium text-gray-800">{pageCount}</span>
+                          <span className="font-medium text-gray-800">
+                            {isCountingPages ? (
+                              <span className="flex items-center">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                                Counting...
+                              </span>
+                            ) : (
+                              pageCount
+                            )}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Size:</span>
