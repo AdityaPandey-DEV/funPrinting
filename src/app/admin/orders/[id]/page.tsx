@@ -74,7 +74,7 @@ interface Order {
     };
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
-  orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
+  orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
   expectedDate?: string | Date;
   createdAt: string;
@@ -232,6 +232,7 @@ export default function OrderDetailPage() {
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-black disabled:opacity-50"
               >
                 <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
                 <option value="printing">Printing</option>
                 <option value="dispatched">Dispatched</option>
                 <option value="delivered">Delivered</option>
@@ -639,6 +640,14 @@ export default function OrderDetailPage() {
                     Call Customer
                   </a>
                 )}
+                
+                <button
+                  onClick={() => updateOrderStatus('processing')}
+                  disabled={order.orderStatus === 'processing' || isUpdating}
+                  className="w-full bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUpdating ? 'Updating...' : 'Mark as Processing'}
+                </button>
                 
                 <button
                   onClick={() => updateOrderStatus('printing')}

@@ -63,7 +63,7 @@ export async function PATCH(
     console.log(`📋 Current order status: ${currentOrder.status}, orderStatus: ${currentOrder.orderStatus}`);
 
     // Validate orderStatus values (different from status field)
-    const validOrderStatuses = ['pending', 'printing', 'dispatched', 'delivered'];
+    const validOrderStatuses = ['pending', 'processing', 'printing', 'dispatched', 'delivered'];
     if (!validOrderStatuses.includes(orderStatus)) {
       return NextResponse.json(
         { 
@@ -77,6 +77,7 @@ export async function PATCH(
     // Map orderStatus to corresponding status field value
     const statusMapping: Record<string, string> = {
       'pending': 'processing',
+      'processing': 'processing',
       'printing': 'printing', 
       'dispatched': 'dispatched',
       'delivered': 'delivered'

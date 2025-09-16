@@ -450,6 +450,7 @@ function AdminDashboardContent() {
                           className="block w-full text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors"
                         >
                           <option value="pending">Pending</option>
+                          <option value="processing">Processing</option>
                           <option value="printing">Printing</option>
                           <option value="dispatched">Dispatched</option>
                           <option value="delivered">Delivered</option>
