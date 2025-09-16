@@ -138,6 +138,8 @@ function AdminDashboardContent() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      console.log(`🔄 Updating order ${orderId} status to: ${newStatus}`);
+      
       const response = await fetch(`/api/admin/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
@@ -147,6 +149,7 @@ function AdminDashboardContent() {
       });
 
       const data = await response.json();
+      console.log('📋 API Response:', data);
 
       if (data.success) {
         setOrders(prevOrders =>
@@ -156,13 +159,14 @@ function AdminDashboardContent() {
               : order
           )
         );
-        alert('Order status updated successfully');
+        alert(`✅ Order status updated successfully to: ${newStatus}`);
       } else {
-        alert('Failed to update order status');
+        console.error('❌ API Error:', data.error);
+        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error updating order status:', error);
-      alert('An error occurred while updating order status');
+      console.error('❌ Network Error updating order status:', error);
+      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
     }
   };
 

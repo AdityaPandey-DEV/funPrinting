@@ -40,7 +40,10 @@ export async function PATCH(
     const body = await request.json();
     const { orderStatus } = body;
     
+    console.log(`🔄 Admin updating order ${id} status to: ${orderStatus}`);
+    
     if (!orderStatus) {
+      console.log('❌ No orderStatus provided in request body');
       return NextResponse.json(
         { success: false, error: 'Order status is required' },
         { status: 400 }
@@ -50,18 +53,56 @@ export async function PATCH(
     // Get current order to validate state transition
     const currentOrder = await Order.findById(id);
     if (!currentOrder) {
+      console.log(`❌ Order ${id} not found`);
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
       );
     }
-
-    // Validate state transition
-    const currentStatus = currentOrder.status as OrderStatus || 'pending_payment';
-    const newStatus = orderStatus as OrderStatus;
     
-    const transition = validateOrderStateTransition(currentStatus, newStatus);
-    if (!transition.allowed) {
+    console.log(`📋 Current order status: ${currentOrder.status}, orderStatus: ${currentOrder.orderStatus}`);
+
+    // Validate orderStatus values (different from status field)
+    const validOrderStatuses = ['pending', 'printing', 'dispatched', 'delivered'];
+    if (!validOrderStatuses.includes(orderStatus)) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Invalid orderStatus: ${orderStatus}. Valid values are: ${validOrderStatuses.join(', ')}` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Map orderStatus to corresponding status field value
+    const statusMapping: Record<string, string> = {
+      'pending': 'processing',
+      'printing': 'printing', 
+      'dispatched': 'dispatched',
+      'delivered': 'delivered'
+    };
+    
+    const newStatus = statusMapping[orderStatus] || 'processing';
+    
+    console.log(`🔄 Mapping orderStatus '${orderStatus}' to status '${newStatus}'`);
+    
+    // Validate state transition for the status field
+    const currentStatus = currentOrder.status as OrderStatus || 'pending_payment';
+    const transition = validateOrderStateTransition(currentStatus, newStatus as OrderStatus);
+    
+    // Allow admin to override certain transitions for flexibility
+    const adminOverrideTransitions = [
+      'pending_payment -> processing',  // Allow admin to move from payment to processing
+      'paid -> processing',             // Allow admin to move from paid to processing
+      'processing -> printing',         // Allow admin to move from processing to printing
+      'printing -> dispatched',         // Allow admin to move from printing to dispatched
+      'dispatched -> delivered'         // Allow admin to move from dispatched to delivered
+    ];
+    
+    const transitionKey = `${currentStatus} -> ${newStatus}`;
+    const isAdminOverride = adminOverrideTransitions.includes(transitionKey);
+    
+    if (!transition.allowed && !isAdminOverride) {
       logOrderEvent('invalid_state_transition', currentOrder.orderId, {
         from: currentStatus,
         to: newStatus,
@@ -75,6 +116,10 @@ export async function PATCH(
         },
         { status: 400 }
       );
+    }
+    
+    if (isAdminOverride) {
+      console.log(`🔓 Admin override allowed for transition: ${transitionKey}`);
     }
 
     // Update order status
@@ -91,8 +136,11 @@ export async function PATCH(
     logOrderEvent('status_updated', order.orderId, {
       from: currentStatus,
       to: newStatus,
+      orderStatus: orderStatus,
       updatedBy: 'admin'
     });
+
+    console.log(`✅ Order ${order.orderId} status updated successfully: ${currentStatus} -> ${newStatus} (orderStatus: ${orderStatus})`);
 
     return NextResponse.json({
       success: true,

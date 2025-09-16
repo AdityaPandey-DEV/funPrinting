@@ -132,6 +132,8 @@ export default function OrderDetailPage() {
     
     setIsUpdating(true);
     try {
+      console.log(`🔄 Updating order ${order._id} status to: ${newStatus}`);
+      
       const response = await fetch(`/api/admin/orders/${order._id}`, {
         method: 'PATCH',
         headers: {
@@ -141,16 +143,18 @@ export default function OrderDetailPage() {
       });
 
       const data = await response.json();
+      console.log('📋 API Response:', data);
       
       if (data.success) {
         setOrder({ ...order, orderStatus: newStatus as any });
-        alert('Order status updated successfully!');
+        alert(`✅ Order status updated successfully to: ${newStatus}`);
       } else {
-        alert('Failed to update order status');
+        console.error('❌ API Error:', data.error);
+        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Error updating order status:', error);
-      alert('Failed to update order status');
+      console.error('❌ Network Error updating order status:', error);
+      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
     } finally {
       setIsUpdating(false);
     }
