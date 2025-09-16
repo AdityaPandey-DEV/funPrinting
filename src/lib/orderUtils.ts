@@ -68,7 +68,7 @@ export interface OrderData {
 const ORDER_STATE_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   draft: ['pending_payment', 'cancelled'],
   pending_payment: ['paid', 'cancelled'],
-  paid: ['processing', 'cancelled', 'refunded'],
+  paid: ['processing', 'printing', 'cancelled', 'refunded'], // Allow direct transition to printing
   processing: ['printing', 'cancelled', 'refunded'],
   printing: ['dispatched', 'cancelled', 'refunded'],
   dispatched: ['delivered', 'cancelled', 'refunded'],
@@ -284,9 +284,36 @@ export const validateOrderData = (orderData: OrderData): OrderValidationResult =
   };
 };
 
-export const validateOrderStateTransition = (from: OrderStatus, to: OrderStatus): OrderStateTransition => {
+export const validateOrderStateTransition = (from: OrderStatus, to: OrderStatus, isAdminOverride: boolean = false): OrderStateTransition => {
   const allowedTransitions = ORDER_STATE_TRANSITIONS[from] || [];
-  const isAllowed = allowedTransitions.includes(to);
+  let isAllowed = allowedTransitions.includes(to);
+
+  // Allow admin overrides for common business transitions
+  if (!isAllowed && isAdminOverride) {
+    const adminAllowedTransitions = [
+      // Allow admins to move orders forward in the workflow
+      ['paid', 'printing'],
+      ['paid', 'dispatched'],
+      ['paid', 'delivered'],
+      ['processing', 'dispatched'],
+      ['processing', 'delivered'],
+      ['printing', 'delivered'],
+      // Allow admins to move orders backward for corrections
+      ['printing', 'processing'],
+      ['dispatched', 'printing'],
+      ['delivered', 'dispatched'],
+      ['delivered', 'printing'],
+      ['delivered', 'processing']
+    ];
+    
+    const isAdminAllowed = adminAllowedTransitions.some(([fromStatus, toStatus]) => 
+      fromStatus === from && toStatus === to
+    );
+    
+    if (isAdminAllowed) {
+      isAllowed = true;
+    }
+  }
 
   return {
     from,

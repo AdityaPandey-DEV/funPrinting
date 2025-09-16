@@ -86,23 +86,11 @@ export async function PATCH(
     
     console.log(`🔄 Mapping orderStatus '${orderStatus}' to status '${newStatus}'`);
     
-    // Validate state transition for the status field
+    // Validate state transition for the status field with admin override
     const currentStatus = currentOrder.status as OrderStatus || 'pending_payment';
-    const transition = validateOrderStateTransition(currentStatus, newStatus as OrderStatus);
+    const transition = validateOrderStateTransition(currentStatus, newStatus as OrderStatus, true); // Admin override enabled
     
-    // Allow admin to override certain transitions for flexibility
-    const adminOverrideTransitions = [
-      'pending_payment -> processing',  // Allow admin to move from payment to processing
-      'paid -> processing',             // Allow admin to move from paid to processing
-      'processing -> printing',         // Allow admin to move from processing to printing
-      'printing -> dispatched',         // Allow admin to move from printing to dispatched
-      'dispatched -> delivered'         // Allow admin to move from dispatched to delivered
-    ];
-    
-    const transitionKey = `${currentStatus} -> ${newStatus}`;
-    const isAdminOverride = adminOverrideTransitions.includes(transitionKey);
-    
-    if (!transition.allowed && !isAdminOverride) {
+    if (!transition.allowed) {
       logOrderEvent('invalid_state_transition', currentOrder.orderId, {
         from: currentStatus,
         to: newStatus,
@@ -118,9 +106,7 @@ export async function PATCH(
       );
     }
     
-    if (isAdminOverride) {
-      console.log(`🔓 Admin override allowed for transition: ${transitionKey}`);
-    }
+    console.log(`🔓 Admin override enabled for transition: ${currentStatus} -> ${newStatus}`);
 
     // Update order status
     const order = await Order.findByIdAndUpdate(
