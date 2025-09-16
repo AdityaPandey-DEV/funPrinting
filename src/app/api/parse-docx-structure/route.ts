@@ -58,60 +58,89 @@ export async function POST(request: NextRequest) {
     // Get ACTUAL page count by converting DOCX to PDF and counting pages
     let actualPageCount = 1;
     
+    // Check if we're in a serverless environment (Vercel, Netlify, etc.)
+    const isServerless = process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    
     try {
       console.log('🔄 Converting DOCX to PDF to get accurate page count...');
       
-      // Convert DOCX to PDF using LibreOffice headless mode
-      const { exec } = await import('child_process');
-      const { promisify } = await import('util');
-      const execAsync = promisify(exec);
-      const fs = await import('fs');
-      const path = await import('path');
-      const os = await import('os');
-      
-      // Create temporary files
-      const tempDir = os.tmpdir();
-      const inputFile = path.join(tempDir, `input_${Date.now()}.docx`);
-      const outputDir = path.join(tempDir, `output_${Date.now()}`);
-      
-      // Write DOCX buffer to temporary file
-      fs.writeFileSync(inputFile, buffer);
-      
-      // Create output directory
-      fs.mkdirSync(outputDir, { recursive: true });
-      
-      // Convert DOCX to PDF using LibreOffice headless
-      const libreOfficeCmd = `libreoffice --headless --convert-to pdf --outdir "${outputDir}" "${inputFile}"`;
-      console.log('🔄 Running LibreOffice conversion...');
-      
-      await execAsync(libreOfficeCmd);
-      
-      // Find the generated PDF file
-      const pdfFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.pdf'));
-      if (pdfFiles.length === 0) {
-        throw new Error('No PDF file generated');
-      }
-      
-      const pdfFile = path.join(outputDir, pdfFiles[0]);
-      const pdfBuffer = fs.readFileSync(pdfFile);
-      
-      // Get page count from PDF using pdf-lib
-      const { PDFDocument } = await import('pdf-lib');
-      const pdfDoc = await PDFDocument.load(pdfBuffer);
-      actualPageCount = pdfDoc.getPageCount();
-      
-      console.log(`✅ Actual page count from DOCX: ${actualPageCount} pages`);
-      
-      // Clean up temporary files
-      try {
-        fs.unlinkSync(inputFile);
-        fs.rmSync(outputDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.warn('⚠️ Failed to clean up temporary files:', cleanupError);
+      if (isServerless) {
+        console.log('🌐 Serverless environment detected, using Cloudmersive API...');
+        console.log('📊 DOCX buffer size:', buffer.length, 'bytes');
+        
+        // Check if Cloudmersive API key is available
+        if (!process.env.CLOUDMERSIVE_API_KEY) {
+          throw new Error('CLOUDMERSIVE_API_KEY not configured in serverless environment');
+        }
+        
+        // Use Cloudmersive API as primary method in serverless environments
+        const { convertDocxToPdf } = await import('@/lib/cloudmersive');
+        const pdfBuffer = await convertDocxToPdf(buffer);
+        
+        console.log('📄 PDF buffer size:', pdfBuffer.length, 'bytes');
+        
+        // Get page count from PDF using pdf-lib
+        const { PDFDocument } = await import('pdf-lib');
+        const pdfDoc = await PDFDocument.load(pdfBuffer);
+        actualPageCount = pdfDoc.getPageCount();
+        
+        console.log(`✅ Actual page count from DOCX (Cloudmersive): ${actualPageCount} pages`);
+        
+      } else {
+        console.log('🖥️ Local environment detected, trying LibreOffice first...');
+        
+        // Try LibreOffice first in local environments
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        const fs = await import('fs');
+        const path = await import('path');
+        const os = await import('os');
+        
+        // Create temporary files
+        const tempDir = os.tmpdir();
+        const inputFile = path.join(tempDir, `input_${Date.now()}.docx`);
+        const outputDir = path.join(tempDir, `output_${Date.now()}`);
+        
+        // Write DOCX buffer to temporary file
+        fs.writeFileSync(inputFile, buffer);
+        
+        // Create output directory
+        fs.mkdirSync(outputDir, { recursive: true });
+        
+        // Convert DOCX to PDF using LibreOffice headless
+        const libreOfficeCmd = `libreoffice --headless --convert-to pdf --outdir "${outputDir}" "${inputFile}"`;
+        console.log('🔄 Running LibreOffice conversion...');
+        
+        await execAsync(libreOfficeCmd);
+        
+        // Find the generated PDF file
+        const pdfFiles = fs.readdirSync(outputDir).filter(file => file.endsWith('.pdf'));
+        if (pdfFiles.length === 0) {
+          throw new Error('No PDF file generated');
+        }
+        
+        const pdfFile = path.join(outputDir, pdfFiles[0]);
+        const pdfBuffer = fs.readFileSync(pdfFile);
+        
+        // Get page count from PDF using pdf-lib
+        const { PDFDocument } = await import('pdf-lib');
+        const pdfDoc = await PDFDocument.load(pdfBuffer);
+        actualPageCount = pdfDoc.getPageCount();
+        
+        console.log(`✅ Actual page count from DOCX (LibreOffice): ${actualPageCount} pages`);
+        
+        // Clean up temporary files
+        try {
+          fs.unlinkSync(inputFile);
+          fs.rmSync(outputDir, { recursive: true, force: true });
+        } catch (cleanupError) {
+          console.warn('⚠️ Failed to clean up temporary files:', cleanupError);
+        }
       }
       
     } catch (conversionError) {
-      console.error('❌ Failed to convert DOCX to PDF with LibreOffice:', conversionError);
+      console.error('❌ Failed to convert DOCX to PDF:', conversionError);
       console.log('🔄 Trying Cloudmersive API as fallback...');
       
       try {
@@ -124,7 +153,7 @@ export async function POST(request: NextRequest) {
         const pdfDoc = await PDFDocument.load(pdfBuffer);
         actualPageCount = pdfDoc.getPageCount();
         
-        console.log(`✅ Actual page count from DOCX (Cloudmersive): ${actualPageCount} pages`);
+        console.log(`✅ Actual page count from DOCX (Cloudmersive fallback): ${actualPageCount} pages`);
         
       } catch (cloudmersiveError) {
         console.error('❌ Failed to convert DOCX to PDF with Cloudmersive:', cloudmersiveError);
