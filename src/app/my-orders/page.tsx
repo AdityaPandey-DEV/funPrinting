@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
-import { validatePendingOrderPayment, createPaymentOptions, handlePaymentSuccess, handlePaymentFailure, logPaymentEvent } from '@/lib/paymentUtils';
+import { validatePendingOrderPayment, createPaymentOptions, handlePaymentSuccess, handlePaymentFailure, logPaymentEvent, checkPendingPaymentVerification } from '@/lib/paymentUtils';
 
 interface Order {
   _id: string;
@@ -64,6 +64,14 @@ export default function MyOrdersPage() {
   useEffect(() => {
     if (isAuthenticated && user?.email) {
       loadOrders();
+      
+      // Check for pending payment verification (iPhone Safari recovery)
+      checkPendingPaymentVerification().then((result) => {
+        if (result && result.success) {
+          console.log('🔄 Payment verification recovered, refreshing orders...');
+          loadOrders(); // Refresh orders to show updated status
+        }
+      });
     }
   }, [isAuthenticated, user?.email]);
 
@@ -333,79 +341,22 @@ export default function MyOrdersPage() {
           </button>
         </div>
 
-        {/* Pending Orders Section */}
+        {/* Pending Payment Notification */}
         {!isLoading && orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length > 0 && (
           <div className="mb-8">
-            <h2 className="text-2xl font-bold text-orange-600 mb-4">⚠️ Pending Payment</h2>
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-              <p className="text-orange-800">
-                You have {orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length} order(s) waiting for payment. 
-                Complete payment within 24 hours or your order will be automatically cancelled.
-              </p>
-            </div>
-            <div className="space-y-4">
-              {orders
-                .filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment')
-                .map((order) => (
-                  <div key={order._id} className="bg-orange-50 border-2 border-orange-200 rounded-lg p-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-orange-900">
-                          Order #{order.orderId} - Payment Required
-                        </h3>
-                        <p className="text-sm text-orange-700">
-                          Placed on {formatDate(order.createdAt)} • Amount: ₹{order.amount}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
-                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-200 text-orange-800">
-                          Payment Pending
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                      <div>
-                        <span className="text-sm font-medium text-orange-700">Order Type:</span>
-                        <p className="text-sm text-orange-900">
-                          {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-orange-700">Page Size:</span>
-                        <p className="text-sm text-orange-900">{order.printingOptions.pageSize}</p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-orange-700">Color:</span>
-                        <p className="text-sm text-orange-900">
-                          {order.printingOptions.color === 'color' ? 'Color' : 
-                           order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
-                        </p>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-orange-700">Copies:</span>
-                        <p className="text-sm text-orange-900">{order.printingOptions.copies}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                      <button
-                        onClick={() => handlePayment(order)}
-                        disabled={processingPayment === order._id || !isRazorpayLoaded}
-                        className="bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {processingPayment === order._id ? 'Processing...' : '💳 Complete Payment'}
-                      </button>
-                      <button
-                        onClick={() => handleDeleteOrder(order)}
-                        disabled={deletingOrder === order._id}
-                        className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {deletingOrder === order._id ? 'Cancelling...' : '❌ Cancel Order'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <p className="text-sm text-orange-700">
+                    <span className="font-medium">Payment Required:</span> You have {orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length} order(s) waiting for payment. Complete payment within 24 hours or your order will be automatically cancelled.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -420,56 +371,99 @@ export default function MyOrdersPage() {
         
         {!isLoading && orders.length > 0 && (
           <div className="space-y-6">
-            {orders.map((order) => (
-              <div key={order._id} className="bg-white rounded-lg shadow-lg p-6">
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Order #{order.orderId}
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Placed on {formatDate(order.createdAt)}
-                    </p>
+            {orders.map((order) => {
+              const isPendingPayment = order.paymentStatus === 'pending' && order.status === 'pending_payment';
+              return (
+                <div key={order._id} className={`rounded-lg shadow-lg p-6 ${
+                  isPendingPayment 
+                    ? 'bg-orange-50 border-2 border-orange-200' 
+                    : 'bg-white'
+                }`}>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
+                    <div>
+                      <h3 className={`text-lg font-semibold ${
+                        isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                      }`}>
+                        Order #{order.orderId}
+                        {isPendingPayment && (
+                          <span className="ml-2 text-orange-600 font-normal text-sm">
+                            - Payment Required
+                          </span>
+                        )}
+                      </h3>
+                      <p className={`text-sm ${
+                        isPendingPayment ? 'text-orange-700' : 'text-gray-600'
+                      }`}>
+                        Placed on {formatDate(order.createdAt)}
+                        {isPendingPayment && (
+                          <span className="ml-2 font-medium">• Amount: ₹{order.amount}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        isPendingPayment ? 'bg-orange-200 text-orange-800' : getStatusColor(order.orderStatus)
+                      }`}>
+                        {isPendingPayment ? 'Payment Pending' : order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
+                      </span>
+                      {!isPendingPayment && (
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
+                          Payment {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.orderStatus)}`}>
-                      {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(order.paymentStatus)}`}>
-                      Payment {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
-                    </span>
-                  </div>
-                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Order Type:</span>
-                    <p className="text-sm text-gray-900">
+                    <span className={`text-sm font-medium ${
+                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                    }`}>Order Type:</span>
+                    <p className={`text-sm ${
+                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                    }`}>
                       {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Page Size:</span>
-                    <p className="text-sm text-gray-900">{order.printingOptions.pageSize}</p>
+                    <span className={`text-sm font-medium ${
+                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                    }`}>Page Size:</span>
+                    <p className={`text-sm ${
+                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                    }`}>{order.printingOptions.pageSize}</p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Color:</span>
-                    <p className="text-sm text-gray-900">
-                      {order.printingOptions.color === 'color' ? 'Color' : 'Black & White'}
+                    <span className={`text-sm font-medium ${
+                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                    }`}>Color:</span>
+                    <p className={`text-sm ${
+                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                    }`}>
+                      {order.printingOptions.color === 'color' ? 'Color' : 
+                       order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Copies:</span>
-                    <p className="text-sm text-gray-900">{order.printingOptions.copies}</p>
+                    <span className={`text-sm font-medium ${
+                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                    }`}>Copies:</span>
+                    <p className={`text-sm ${
+                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                    }`}>{order.printingOptions.copies}</p>
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
+                <div className={`border-t pt-4 ${
+                  isPendingPayment ? 'border-orange-200' : 'border-gray-200'
+                }`}>
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                      <span className="text-sm font-medium text-gray-700">Amount:</span>
-                      <span className="text-lg font-semibold text-gray-900 ml-2">₹{order.amount}</span>
-                    </div>
+                    {!isPendingPayment && (
+                      <div>
+                        <span className="text-sm font-medium text-gray-700">Amount:</span>
+                        <span className="text-lg font-semibold text-gray-900 ml-2">₹{order.amount}</span>
+                      </div>
+                    )}
                     
                     <div className="flex flex-wrap gap-2">
                       {/* Pending Payment Actions */}
@@ -554,7 +548,8 @@ export default function MyOrdersPage() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
         

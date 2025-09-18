@@ -165,21 +165,68 @@ export const handlePaymentSuccess = async (paymentResponse: any, orderId: string
   try {
     logPaymentEvent('payment_success', { orderId, paymentId: paymentResponse.razorpay_payment_id }, 'info');
     
-    // Verify payment
-    const verifyResponse = await fetch('/api/payment/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        razorpay_order_id: paymentResponse.razorpay_order_id,
-        razorpay_payment_id: paymentResponse.razorpay_payment_id,
-        razorpay_signature: paymentResponse.razorpay_signature,
-      }),
-    });
+    // Store payment data in localStorage as backup for iPhone Safari
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('pending_payment_verification', JSON.stringify({
+          orderId,
+          paymentResponse,
+          timestamp: Date.now()
+        }));
+      } catch (storageError) {
+        console.warn('Failed to store payment data in localStorage:', storageError);
+      }
+    }
+    
+    // Verify payment with retry logic for iPhone Safari
+    let verifyResponse;
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    while (retryCount < maxRetries) {
+      try {
+        verifyResponse = await fetch('/api/payment/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            razorpay_order_id: paymentResponse.razorpay_order_id,
+            razorpay_payment_id: paymentResponse.razorpay_payment_id,
+            razorpay_signature: paymentResponse.razorpay_signature,
+          }),
+        });
+        
+        if (verifyResponse.ok) {
+          break; // Success, exit retry loop
+        }
+      } catch (fetchError) {
+        console.warn(`Payment verification attempt ${retryCount + 1} failed:`, fetchError);
+        retryCount++;
+        
+        if (retryCount < maxRetries) {
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        }
+      }
+    }
+    
+    if (!verifyResponse || !verifyResponse.ok) {
+      throw new Error('Payment verification failed after retries');
+    }
 
     const verifyData = await verifyResponse.json();
     
     if (verifyData.success) {
       logPaymentEvent('payment_verified', { orderId, paymentId: paymentResponse.razorpay_payment_id }, 'info');
+      
+      // Clear stored payment data on success
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('pending_payment_verification');
+        } catch (storageError) {
+          console.warn('Failed to clear payment data from localStorage:', storageError);
+        }
+      }
+      
       return { success: true, data: verifyData };
     } else {
       logPaymentEvent('payment_verification_failed', { orderId, error: verifyData.error }, 'error');
@@ -194,4 +241,38 @@ export const handlePaymentSuccess = async (paymentResponse: any, orderId: string
 export const handlePaymentFailure = (error: any, orderId: string) => {
   logPaymentEvent('payment_failed', { orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
   return { success: false, error: 'Payment failed. Please try again.' };
+};
+
+// Recovery mechanism for iPhone Safari payment issues
+export const checkPendingPaymentVerification = async () => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const storedData = localStorage.getItem('pending_payment_verification');
+    if (!storedData) return null;
+    
+    const { orderId, paymentResponse, timestamp } = JSON.parse(storedData);
+    
+    // Check if data is not too old (5 minutes)
+    if (Date.now() - timestamp > 5 * 60 * 1000) {
+      localStorage.removeItem('pending_payment_verification');
+      return null;
+    }
+    
+    console.log('🔄 Found pending payment verification, attempting recovery...');
+    
+    // Attempt to verify the payment
+    const result = await handlePaymentSuccess(paymentResponse, orderId);
+    
+    if (result.success) {
+      console.log('✅ Payment verification recovered successfully');
+      return result;
+    } else {
+      console.log('❌ Payment verification recovery failed');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error checking pending payment verification:', error);
+    return null;
+  }
 };

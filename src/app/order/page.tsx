@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { checkPendingPaymentVerification } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 
 interface PrintingOptions {
@@ -166,6 +167,16 @@ export default function OrderPage() {
       }));
     }
   }, [user]);
+
+  // Check for pending payment verification on page load (iPhone Safari recovery)
+  useEffect(() => {
+    checkPendingPaymentVerification().then((result) => {
+      if (result && result.success) {
+        console.log('🔄 Payment verification recovered, redirecting to my orders...');
+        router.push('/my-orders');
+      }
+    });
+  }, [router]);
   
   
   // General state
