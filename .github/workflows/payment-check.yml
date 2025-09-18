@@ -16,7 +16,7 @@ jobs:
           echo "🔄 Checking Razorpay payments at $(date)"
           
           # Replace YOUR_VERCEL_DOMAIN with your actual Vercel domain
-          RESPONSE=$(curl -s -X POST "https://YOUR_VERCEL_DOMAIN.vercel.app/api/manual-check-payments" \
+          RESPONSE=$(curl -s -X POST "https://fun-printing.vercel.app/api/manual-check-payments" \
             -H "Content-Type: application/json" \
             -w "HTTPSTATUS:%{http_code}")
           
