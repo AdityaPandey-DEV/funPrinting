@@ -153,12 +153,39 @@ export const createPaymentOptions = (order: any, razorpayKey: string): any => {
     theme: {
       color: '#000000',
     },
+    // iPhone Safari specific optimizations
     modal: {
       ondismiss: function() {
         console.log('Payment modal dismissed');
       }
+    },
+    // Mobile-specific options for better iPhone Safari compatibility
+    notes: {
+      order_id: order.orderId,
+      customer_email: order.customerInfo?.email || '',
+    },
+    // Ensure proper mobile handling
+    readonly: {
+      email: true,
+      contact: true,
+    },
+    // Add retry mechanism for mobile
+    retry: {
+      enabled: true,
+      max_count: 3,
     }
   };
+};
+
+// Detect iPhone Safari for special handling
+export const isIphoneSafari = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  
+  const userAgent = window.navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+  const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+  
+  return isIOS && isSafari;
 };
 
 export const handlePaymentSuccess = async (paymentResponse: any, orderId: string) => {
@@ -171,23 +198,39 @@ export const handlePaymentSuccess = async (paymentResponse: any, orderId: string
         localStorage.setItem('pending_payment_verification', JSON.stringify({
           orderId,
           paymentResponse,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          isIphoneSafari: isIphoneSafari()
         }));
+        
+        // Additional iPhone Safari specific logging
+        if (isIphoneSafari()) {
+          console.log('🍎 iPhone Safari detected - using enhanced payment recovery');
+        }
       } catch (storageError) {
         console.warn('Failed to store payment data in localStorage:', storageError);
       }
     }
     
-    // Verify payment with retry logic for iPhone Safari
+    // Verify payment with enhanced retry logic for iPhone Safari
     let verifyResponse;
     let retryCount = 0;
-    const maxRetries = 3;
+    const isIphone = isIphoneSafari();
+    const maxRetries = isIphone ? 5 : 3; // More retries for iPhone Safari
     
     while (retryCount < maxRetries) {
       try {
+        console.log(`🔄 Payment verification attempt ${retryCount + 1}/${maxRetries}${isIphone ? ' (iPhone Safari)' : ''}`);
+        
         verifyResponse = await fetch('/api/payment/verify', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            // Add iPhone Safari specific headers
+            ...(isIphone && {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            })
+          },
           body: JSON.stringify({
             razorpay_order_id: paymentResponse.razorpay_order_id,
             razorpay_payment_id: paymentResponse.razorpay_payment_id,
@@ -196,15 +239,23 @@ export const handlePaymentSuccess = async (paymentResponse: any, orderId: string
         });
         
         if (verifyResponse.ok) {
+          console.log('✅ Payment verification successful');
           break; // Success, exit retry loop
+        } else {
+          console.warn(`❌ Payment verification failed with status: ${verifyResponse.status}`);
         }
       } catch (fetchError) {
-        console.warn(`Payment verification attempt ${retryCount + 1} failed:`, fetchError);
+        console.warn(`❌ Payment verification attempt ${retryCount + 1} failed:`, fetchError);
         retryCount++;
         
         if (retryCount < maxRetries) {
-          // Wait before retry (exponential backoff)
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+          // Enhanced backoff for iPhone Safari
+          const delay = isIphone ? 
+            Math.pow(2, retryCount) * 2000 : // Longer delays for iPhone
+            Math.pow(2, retryCount) * 1000;  // Standard delays
+          
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
@@ -251,15 +302,22 @@ export const checkPendingPaymentVerification = async () => {
     const storedData = localStorage.getItem('pending_payment_verification');
     if (!storedData) return null;
     
-    const { orderId, paymentResponse, timestamp } = JSON.parse(storedData);
+    const { orderId, paymentResponse, timestamp, isIphoneSafari: wasIphoneSafari } = JSON.parse(storedData);
     
-    // Check if data is not too old (5 minutes)
-    if (Date.now() - timestamp > 5 * 60 * 1000) {
+    // Check if data is not too old (extended time for iPhone Safari)
+    const maxAge = wasIphoneSafari ? 10 * 60 * 1000 : 5 * 60 * 1000; // 10 minutes for iPhone, 5 for others
+    if (Date.now() - timestamp > maxAge) {
       localStorage.removeItem('pending_payment_verification');
       return null;
     }
     
-    console.log('🔄 Found pending payment verification, attempting recovery...');
+    console.log(`🔄 Found pending payment verification${wasIphoneSafari ? ' (iPhone Safari)' : ''}, attempting recovery...`);
+    
+    // For iPhone Safari, add a small delay before attempting recovery
+    if (wasIphoneSafari) {
+      console.log('🍎 iPhone Safari recovery - adding delay for stability...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
     
     // Attempt to verify the payment
     const result = await handlePaymentSuccess(paymentResponse, orderId);

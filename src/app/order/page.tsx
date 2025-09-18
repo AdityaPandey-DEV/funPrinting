@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
-import { checkPendingPaymentVerification } from '@/lib/paymentUtils';
+import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 
 interface PrintingOptions {
@@ -629,33 +629,22 @@ export default function OrderPage() {
             try {
               console.log('💳 Payment response received:', response);
               
-              // Verify payment and create order on backend
-              const verifyResponse = await fetch('/api/payment/verify', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature,
-                }),
-              });
-
-              const verifyData = await verifyResponse.json();
-              console.log('🔍 Payment verification response:', verifyData);
-
-              if (verifyData.success) {
-                alert(`🎉 Payment successful! Your order #${verifyData.order.orderId} has been placed.`);
+              // Use the new payment success handler with iPhone Safari recovery
+              const result = await handlePaymentSuccess(response, data.orderId);
+              
+              if (result.success) {
+                console.log('✅ Payment verified successfully:', result.data);
+                alert(`🎉 Payment successful! Your order #${result.data.order.orderId} has been placed.`);
                 // Redirect to my orders page
                 window.location.href = '/my-orders';
               } else {
-                console.error('Payment verification failed:', verifyData.error);
-                alert(`❌ Payment verification failed: ${verifyData.error || 'Unknown error'}`);
+                console.error('❌ Payment verification failed:', result.error);
+                alert(`❌ Payment verification failed: ${result.error || 'Unknown error'}`);
               }
             } catch (error) {
-              console.error('Error verifying payment:', error);
-              alert('❌ Payment verification failed. Please contact support.');
+              console.error('❌ Error in payment handler:', error);
+              const failureResult = handlePaymentFailure(error, data.orderId);
+              alert(`❌ Payment failed: ${failureResult.error}`);
             }
           },
           modal: {
