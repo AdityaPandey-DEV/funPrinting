@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -42,13 +42,7 @@ export default function EditDynamicTemplate() {
   const params = useParams();
   const templateId = params.id as string;
 
-  useEffect(() => {
-    if (templateId) {
-      fetchTemplate();
-    }
-  }, [templateId]);
-
-  const fetchTemplate = async () => {
+  const fetchTemplate = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch(`/api/admin/templates/dynamic/${templateId}`);
@@ -75,7 +69,13 @@ export default function EditDynamicTemplate() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [templateId]);
+
+  useEffect(() => {
+    if (templateId) {
+      fetchTemplate();
+    }
+  }, [templateId, fetchTemplate]);
 
   const handleInputChange = (field: string, value: string | string[]) => {
     setFormData(prev => ({

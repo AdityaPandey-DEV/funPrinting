@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
@@ -88,26 +89,7 @@ export default function OrderDetailPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [pdfLoaded, setPdfLoaded] = useState(false);
 
-  useEffect(() => {
-    if (params.id) {
-      fetchOrder(params.id as string);
-      setPdfLoaded(false); // Reset PDF loaded state when order changes
-    }
-  }, [params.id]);
-
-  // Add timeout to prevent stuck loading state
-  useEffect(() => {
-    if (order && order.fileURL && !pdfLoaded) {
-      const timeout = setTimeout(() => {
-        console.log('PDF loading timeout, showing iframe anyway');
-        setPdfLoaded(true);
-      }, 5000); // 5 second timeout
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [order, order?.fileURL, pdfLoaded]);
-
-  const fetchOrder = async (orderId: string) => {
+  const fetchOrder = useCallback(async (orderId: string) => {
     try {
       const response = await fetch(`/api/admin/orders/${orderId}`);
       const data = await response.json();
@@ -125,7 +107,26 @@ export default function OrderDetailPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (params.id) {
+      fetchOrder(params.id as string);
+      setPdfLoaded(false); // Reset PDF loaded state when order changes
+    }
+  }, [params.id, fetchOrder]);
+
+  // Add timeout to prevent stuck loading state
+  useEffect(() => {
+    if (order && order.fileURL && !pdfLoaded) {
+      const timeout = setTimeout(() => {
+        console.log('PDF loading timeout, showing iframe anyway');
+        setPdfLoaded(true);
+      }, 5000); // 5 second timeout
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [order, order?.fileURL, pdfLoaded]);
 
   const updateOrderStatus = async (newStatus: string) => {
     if (!order) return;
@@ -518,9 +519,11 @@ export default function OrderDetailPage() {
                         if (isImage) {
                           // Image files - show directly
                           return (
-                            <img
+                            <Image
                               src={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
                               alt="Document preview"
+                              width={800}
+                              height={384}
                               className="w-full h-96 object-contain"
                               onLoad={() => setPdfLoaded(true)}
                               style={{ display: pdfLoaded ? 'block' : 'none' }}

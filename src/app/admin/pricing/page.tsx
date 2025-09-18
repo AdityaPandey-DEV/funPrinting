@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
@@ -79,11 +79,7 @@ function AdminPricingPageContent() {
     return pricingData;
   };
 
-  useEffect(() => {
-    fetchPricing();
-  }, []);
-
-  const fetchPricing = async () => {
+  const fetchPricing = useCallback(async () => {
     setIsLoading(true);
     try {
       const response = await fetch('/api/admin/pricing');
@@ -102,7 +98,11 @@ function AdminPricingPageContent() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPricing();
+  }, [fetchPricing]);
 
   const handleInputChange = (section: string, field: string, value: number) => {
     setPricing(prev => ({
