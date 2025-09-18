@@ -78,6 +78,8 @@ export async function PUT(request: NextRequest) {
       pricing.additionalServices = {
         binding: newPricing.additionalServices.binding,
         resumeTemplate: newPricing.additionalServices.resumeTemplate,
+        minServiceFee: newPricing.additionalServices.minServiceFee,
+        minServiceFeePageLimit: newPricing.additionalServices.minServiceFeePageLimit,
       };
       pricing.updatedBy = updatedBy;
       pricing.updatedAt = new Date();
