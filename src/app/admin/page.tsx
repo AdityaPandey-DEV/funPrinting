@@ -203,24 +203,19 @@ function AdminDashboardContent() {
       {/* Admin Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
+          <div className="flex justify-between items-center py-3 sm:py-4">
+            <div className="flex items-center min-w-0 flex-1">
               <div className="flex-shrink-0">
-                <h1 className="text-2xl font-bold text-gray-900">PrintService Admin</h1>
+                <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 truncate">PrintService Admin</h1>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
               <div className="flex items-center space-x-2">
-                <img 
-                  className="h-8 w-8 rounded-full" 
-                  src={session?.user?.image || '/default-avatar.png'} 
-                  alt={session?.user?.name || 'Admin'}
-                />
-                <span className="text-sm text-gray-700">{session?.user?.name}</span>
+                <span className="text-xs sm:text-sm text-gray-700 hidden sm:block truncate max-w-32">{session?.user?.name}</span>
               </div>
               <button
                 onClick={() => signOut({ callbackUrl: '/' })}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                className="bg-gray-600 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg hover:bg-gray-700 transition-colors text-xs sm:text-sm whitespace-nowrap"
               >
                 Sign Out
               </button>
@@ -230,7 +225,7 @@ function AdminDashboardContent() {
       </div>
 
       {/* Admin Content */}
-      <div className="py-12">
+      <div className="py-6 sm:py-8 lg:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <AdminNavigation
             title="Admin Dashboard"
@@ -240,9 +235,14 @@ function AdminDashboardContent() {
                 <button
                   onClick={fetchOrders}
                   disabled={isLoading}
-                  className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-black text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
                 >
-                  {isLoading ? 'Checking Payments & Refreshing...' : 'Refresh Orders & Check Payments'}
+                  <span className="hidden sm:inline">
+                    {isLoading ? 'Checking Payments & Refreshing...' : 'Refresh Orders & Check Payments'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isLoading ? 'Refreshing...' : 'Refresh'}
+                  </span>
                 </button>
               </>
             }
