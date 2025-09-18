@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -81,7 +82,7 @@ interface Order {
   createdAt: string;
 }
 
-export default function OrderDetailPage() {
+function OrderDetailPageContent() {
   const params = useParams();
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
@@ -693,5 +694,16 @@ export default function OrderDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function OrderDetailPage() {
+  return (
+    <AdminGoogleAuth 
+      title="Order Details"
+      subtitle="Sign in with Google to view and manage order details"
+    >
+      <OrderDetailPageContent />
+    </AdminGoogleAuth>
   );
 }

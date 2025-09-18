@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
 interface UploadResult {
   name: string;
@@ -22,7 +23,7 @@ interface Placeholder {
   placeholder?: string;
 }
 
-export default function AdminUploadPage() {
+function AdminUploadPageContent() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -378,5 +379,16 @@ export default function AdminUploadPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminUploadPage() {
+  return (
+    <AdminGoogleAuth 
+      title="Upload Template"
+      subtitle="Sign in with Google to upload and manage PDF templates"
+    >
+      <AdminUploadPageContent />
+    </AdminGoogleAuth>
   );
 }

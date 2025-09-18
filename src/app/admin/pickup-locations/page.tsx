@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
 interface PickupLocation {
   _id: string;
@@ -30,7 +31,7 @@ interface LocationFormData {
   operatingHours: string;
 }
 
-export default function PickupLocationsPage() {
+function PickupLocationsPageContent() {
   const router = useRouter();
   const [locations, setLocations] = useState<PickupLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -727,5 +728,16 @@ export default function PickupLocationsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PickupLocationsPage() {
+  return (
+    <AdminGoogleAuth 
+      title="Pickup Locations"
+      subtitle="Sign in with Google to manage pickup locations for orders"
+    >
+      <PickupLocationsPageContent />
+    </AdminGoogleAuth>
   );
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { getCategoryIcon, getCategoryColor } from '@/lib/adminUtils';
 
 interface Template {
@@ -24,7 +25,7 @@ interface Template {
   updatedAt: string;
 }
 
-export default function ManageDynamicTemplates() {
+function ManageDynamicTemplatesContent() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -359,5 +360,16 @@ export default function ManageDynamicTemplates() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ManageDynamicTemplates() {
+  return (
+    <AdminGoogleAuth 
+      title="Dynamic Templates"
+      subtitle="Sign in with Google to manage dynamic Word templates"
+    >
+      <ManageDynamicTemplatesContent />
+    </AdminGoogleAuth>
   );
 }

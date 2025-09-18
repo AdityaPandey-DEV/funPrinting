@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
 interface Template {
   _id: string;
@@ -21,7 +22,7 @@ interface Template {
   updatedAt: string;
 }
 
-export default function EditDynamicTemplate() {
+function EditDynamicTemplateContent() {
   const [template, setTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -385,5 +386,16 @@ export default function EditDynamicTemplate() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function EditDynamicTemplate() {
+  return (
+    <AdminGoogleAuth 
+      title="Edit Dynamic Template"
+      subtitle="Sign in with Google to edit dynamic Word templates"
+    >
+      <EditDynamicTemplateContent />
+    </AdminGoogleAuth>
   );
 }

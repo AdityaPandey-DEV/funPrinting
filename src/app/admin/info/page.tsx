@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
 interface AdminInfo {
   _id?: string;
@@ -500,11 +500,11 @@ function AdminInfoPageContent() {
 
 export default function AdminInfoPage() {
   return (
-    <AdminRouteProtection 
+    <AdminGoogleAuth 
       title="Admin Information"
-      subtitle="Manage business information and settings"
+      subtitle="Sign in with Google to manage business information and settings"
     >
       <AdminInfoPageContent />
-    </AdminRouteProtection>
+    </AdminGoogleAuth>
   );
 }

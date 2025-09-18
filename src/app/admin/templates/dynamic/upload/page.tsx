@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
 function DynamicTemplateUploadContent() {
   const [file, setFile] = useState<File | null>(null);
@@ -417,8 +417,11 @@ function DynamicTemplateUploadContent() {
 
 export default function DynamicTemplateUploadPage() {
   return (
-    <AdminRouteProtection>
+    <AdminGoogleAuth 
+      title="Upload Dynamic Template"
+      subtitle="Sign in with Google to upload dynamic Word templates with placeholders"
+    >
       <DynamicTemplateUploadContent />
-    </AdminRouteProtection>
+    </AdminGoogleAuth>
   );
 }

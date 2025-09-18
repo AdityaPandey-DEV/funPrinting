@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
-import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { formInputClasses, buttonClasses } from '@/lib/adminUtils';
 
 interface PricingData {
@@ -383,11 +383,11 @@ function AdminPricingPageContent() {
 
 export default function AdminPricingPage() {
   return (
-    <AdminRouteProtection 
+    <AdminGoogleAuth 
       title="Admin Pricing"
-      subtitle="Manage service pricing and rates"
+      subtitle="Sign in with Google to manage service pricing and rates"
     >
       <AdminPricingPageContent />
-    </AdminRouteProtection>
+    </AdminGoogleAuth>
   );
 }

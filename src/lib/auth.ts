@@ -68,37 +68,22 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
+      // 🔒 RESTRICT ACCESS: Only allow specific admin email
+      const allowedAdminEmail = 'adityapandey.dev.in@gmail.com';
+      
       if (account?.provider === 'google') {
+        // Check if the email is the allowed admin email
+        if (user.email !== allowedAdminEmail) {
+          console.log(`🚫 Access denied for email: ${user.email}. Only ${allowedAdminEmail} is allowed.`);
+          return false;
+        }
+        
         try {
           await connectDB();
           
           // Note: Phone number access requires Google app verification
           // For now, we'll skip phone number fetching to avoid OAuth issues
           const phoneNumber = null;
-          
-          // TODO: Re-enable phone number access after Google app verification
-          // if (account.access_token) {
-          //   try {
-          //     const peopleResponse = await fetch(
-          //       `https://people.googleapis.com/v1/people/me?personFields=phoneNumbers`,
-          //       {
-          //         headers: {
-          //           Authorization: `Bearer ${account.access_token}`,
-          //         },
-          //       }
-          //     );
-          //     
-          //     if (peopleResponse.ok) {
-          //       const peopleData = await peopleResponse.json();
-          //       if (peopleData.phoneNumbers && peopleData.phoneNumbers.length > 0) {
-          //         phoneNumber = peopleData.phoneNumbers[0].value;
-          //       }
-          //     }
-          //   } catch (phoneError) {
-          //     console.log('Could not fetch phone number:', phoneError);
-          //     // Continue without phone number - not critical
-          //   }
-          // }
           
           // Check if user exists
           const existingUser = await User.findOne({ 
@@ -120,10 +105,11 @@ export const authOptions: NextAuthOptions = {
             }
             
             await User.findByIdAndUpdate(existingUser._id, updateData);
+            console.log(`✅ Admin login successful for: ${user.email}`);
             return true;
           }
 
-          // Create new user
+          // Create new admin user
           await User.create({
             name: user.name || '',
             email: user.email || '',
@@ -133,14 +119,23 @@ export const authOptions: NextAuthOptions = {
             emailVerified: true,
             profilePicture: user.image,
             lastLogin: new Date(),
+            role: 'admin', // Mark as admin
           });
 
+          console.log(`✅ New admin user created: ${user.email}`);
           return true;
         } catch (error) {
           console.error('Google sign-in error:', error);
           return false;
         }
       }
+      
+      // For credentials provider, also restrict to admin email
+      if (account?.provider === 'credentials' && user.email !== allowedAdminEmail) {
+        console.log(`🚫 Access denied for email: ${user.email}. Only ${allowedAdminEmail} is allowed.`);
+        return false;
+      }
+      
       return true;
     },
     async jwt({ token, user }) {

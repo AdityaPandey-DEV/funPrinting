@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
-export default function AdminTemplatesPage() {
+function AdminTemplatesPageContent() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -234,5 +235,16 @@ export default function AdminTemplatesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AdminTemplatesPage() {
+  return (
+    <AdminGoogleAuth 
+      title="Template Management"
+      subtitle="Sign in with Google to create and manage dynamic Word templates"
+    >
+      <AdminTemplatesPageContent />
+    </AdminGoogleAuth>
   );
 }

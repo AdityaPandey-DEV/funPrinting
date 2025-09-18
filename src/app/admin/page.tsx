@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
-import AdminRouteProtection from '@/components/admin/AdminRouteProtection';
+import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -522,11 +522,11 @@ function AdminDashboardContent() {
 
 export default function AdminDashboard() {
   return (
-    <AdminRouteProtection 
+    <AdminGoogleAuth 
       title="Admin Dashboard"
-      subtitle="Manage all printing orders and track their status"
+      subtitle="Sign in with Google to manage all printing orders and track their status"
     >
       <AdminDashboardContent />
-    </AdminRouteProtection>
+    </AdminGoogleAuth>
   );
 }
