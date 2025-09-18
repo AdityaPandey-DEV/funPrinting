@@ -110,6 +110,27 @@ function AdminDashboardContent() {
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
+      // 🔄 FIRST: Check Razorpay for successful payments
+      console.log('🔄 Admin: Checking Razorpay payments before refreshing orders...');
+      try {
+        const paymentCheckResponse = await fetch('/api/manual-check-payments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (paymentCheckResponse.ok) {
+          const paymentCheckData = await paymentCheckResponse.json();
+          console.log('✅ Admin: Payment check completed:', paymentCheckData.message);
+        } else {
+          console.warn('⚠️ Admin: Payment check failed, but continuing with order refresh');
+        }
+      } catch (paymentError) {
+        console.warn('⚠️ Admin: Payment check error, but continuing with order refresh:', paymentError);
+      }
+
+      // 📋 THEN: Fetch updated orders
       const response = await fetch(`/api/admin/orders?t=${Date.now()}`);
       const data = await response.json();
 
@@ -188,7 +209,7 @@ function AdminDashboardContent() {
                 disabled={isLoading}
                 className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? 'Refreshing...' : 'Refresh Orders'}
+                {isLoading ? 'Checking Payments & Refreshing...' : 'Refresh Orders & Check Payments'}
               </button>
               <button
                 onClick={() => {
