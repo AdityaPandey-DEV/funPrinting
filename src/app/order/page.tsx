@@ -317,13 +317,13 @@ export default function OrderPage() {
             }
             
             // Add compulsory service option cost (only for multi-page jobs)
-            if (pageCount > 1) {
+            if (pageCount > pricing.additionalServices.minServiceFeePageLimit) {
               if (printingOptions.serviceOption === 'binding') {
                 total += pricing.additionalServices.binding;
               } else if (printingOptions.serviceOption === 'file') {
                 total += 10; // Plastic file fee (keep pages inside file)
               } else if (printingOptions.serviceOption === 'service') {
-                total += 5; // Minimal service fee
+                total += pricing.additionalServices.minServiceFee; // Configurable minimal service fee
               }
             }
             
@@ -380,7 +380,7 @@ export default function OrderPage() {
               } else if (printingOptions.serviceOption === 'file') {
                 total += 10;
               } else if (printingOptions.serviceOption === 'service') {
-                total += 5;
+                total += 5; // Default minimal service fee
               }
             }
             
@@ -475,9 +475,9 @@ export default function OrderPage() {
       return;
     }
 
-    // Validate service option for multi-page orders
-    if (pageCount > 1 && !printingOptions.serviceOption) {
-      alert('Please select a service option (Binding, Plastic file, or Service fee) for multi-page orders');
+    // Validate service option for orders exceeding minimum service fee page limit
+    if (pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && !printingOptions.serviceOption) {
+      alert('Please select a service option (Binding, Plastic file, or Service fee) for orders with more than ' + (pricingData?.additionalServices?.minServiceFeePageLimit || 1) + ' page(s)');
       return;
     }
 
@@ -1122,8 +1122,8 @@ export default function OrderPage() {
                   </div>
                 </div>
 
-                {/* Service Option (only if multi-page) */}
-                {pageCount > 1 && (
+                {/* Service Option (only if page count exceeds minimum service fee limit) */}
+                {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && (
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Service Option (one is required)
@@ -1165,7 +1165,7 @@ export default function OrderPage() {
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
                         <span className="ml-3 text-sm font-medium text-gray-700">
-                          ✅ Minimal service fee (₹5)
+                          ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
                         </span>
                       </label>
                     </div>
@@ -1268,10 +1268,10 @@ export default function OrderPage() {
                       <span className="font-medium text-gray-800">₹10</span>
                     </div>
                   )}
-                  {pageCount > 1 && printingOptions.serviceOption === 'service' && (
+                  {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service fee:</span>
-                      <span className="font-medium text-gray-800">₹5</span>
+                      <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
                     </div>
                   )}
                   <div className="border-t pt-3 mt-4">
@@ -1719,10 +1719,10 @@ export default function OrderPage() {
                           <span className="font-medium text-gray-800">₹10</span>
                         </div>
                       )}
-                      {pageCount > 1 && printingOptions.serviceOption === 'service' && (
+                      {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
                         <div className="flex justify-between">
                           <span className="text-gray-600">Service fee:</span>
-                          <span className="font-medium text-gray-800">₹5</span>
+                          <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
                         </div>
                       )}
                       {deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge && (

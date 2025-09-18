@@ -23,6 +23,8 @@ export interface IPricing {
   additionalServices: {
     binding: number;
     resumeTemplate: number;
+    minServiceFee: number;
+    minServiceFeePageLimit: number;
   };
   updatedBy: string;
   updatedAt: Date;
@@ -50,6 +52,8 @@ const pricingSchema = new mongoose.Schema<IPricing>({
   additionalServices: {
     binding: { type: Number, required: true, default: 20 },
     resumeTemplate: { type: Number, required: true, default: 0 },
+    minServiceFee: { type: Number, required: true, default: 5 },
+    minServiceFeePageLimit: { type: Number, required: true, default: 1 },
   },
   updatedBy: { type: String, required: true },
 }, {

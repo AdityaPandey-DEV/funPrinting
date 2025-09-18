@@ -29,6 +29,8 @@ interface PricingData {
   additionalServices: {
     binding: number;
     resumeTemplate: number;
+    minServiceFee: number;
+    minServiceFeePageLimit: number;
   };
 }
 
@@ -52,6 +54,8 @@ function AdminPricingPageContent() {
     additionalServices: {
       binding: 20,
       resumeTemplate: 0,
+      minServiceFee: 5,
+      minServiceFeePageLimit: 1,
     },
   });
 
@@ -324,6 +328,38 @@ function AdminPricingPageContent() {
                     value={pricing.additionalServices.resumeTemplate}
                     onChange={(e) => handleInputChange('additionalServices', 'resumeTemplate', parseFloat(e.target.value) || 0)}
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Minimum Service Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className={formInputClasses.white}
+                    value={pricing.additionalServices.minServiceFee}
+                    onChange={(e) => handleInputChange('additionalServices', 'minServiceFee', parseFloat(e.target.value) || 0)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Applied when page count exceeds the limit below
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Min Service Fee Page Limit
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="1"
+                    className={formInputClasses.white}
+                    value={pricing.additionalServices.minServiceFeePageLimit}
+                    onChange={(e) => handleInputChange('additionalServices', 'minServiceFeePageLimit', parseInt(e.target.value) || 1)}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Minimum service fee applies when pages &gt; this limit
+                  </p>
                 </div>
               </div>
             </div>
