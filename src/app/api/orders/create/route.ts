@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { validateOrderData, sanitizeOrderData, handleOrderError, logOrderEvent } from '@/lib/orderUtils';
+import { sendNewOrderNotification } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -333,6 +334,28 @@ export async function POST(request: NextRequest) {
       pageCount,
       customerEmail: sanitizedOrderData.customerInfo.email
     });
+
+    // Send new order notification to admin
+    try {
+      await sendNewOrderNotification({
+        orderId: order.orderId,
+        customerName: sanitizedOrderData.customerInfo.name,
+        customerEmail: sanitizedOrderData.customerInfo.email,
+        customerPhone: sanitizedOrderData.customerInfo.phone,
+        orderType: sanitizedOrderData.orderType,
+        amount,
+        pageCount,
+        printingOptions: sanitizedOrderData.printingOptions,
+        deliveryOption: sanitizedOrderData.deliveryOption,
+        createdAt: order.createdAt,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        fileName: sanitizedOrderData.originalFileName
+      });
+    } catch (notificationError) {
+      console.error('❌ Failed to send new order notification:', notificationError);
+      // Don't fail the order creation if notification fails
+    }
 
     return NextResponse.json({
       success: true,

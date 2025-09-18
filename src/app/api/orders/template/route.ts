@@ -8,6 +8,7 @@ import { uploadToCloudinary } from '@/lib/cloudinary';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
 import { v4 as uuidv4 } from 'uuid';
+import { sendNewOrderNotification } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -184,6 +185,28 @@ export async function POST(request: NextRequest) {
         console.error('❌ Validation errors:', saveError.message);
       }
       throw saveError;
+    }
+
+    // Send new order notification to admin
+    try {
+      await sendNewOrderNotification({
+        orderId: order.orderId,
+        customerName: customerInfo.name,
+        customerEmail: customerInfo.email,
+        customerPhone: customerInfo.phone,
+        orderType: 'template',
+        amount,
+        pageCount,
+        printingOptions,
+        deliveryOption,
+        createdAt: order.createdAt,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        templateName: template.name
+      });
+    } catch (notificationError) {
+      console.error('❌ Failed to send new template order notification:', notificationError);
+      // Don't fail the order creation if notification fails
     }
 
     return NextResponse.json({

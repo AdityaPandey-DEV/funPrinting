@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import PrintJob from '@/models/PrintJob';
+import { sendPaymentNotification } from '@/lib/notificationService';
 
 // In-memory store to track processed webhook events (prevents duplicate processing)
 const processedEvents = new Map<string, number>();
@@ -194,6 +195,29 @@ async function handlePaymentCaptured(payment: any) {
 
     console.log(`✅ Order ${order.orderId} marked as paid`);
 
+    // Send payment completion notification to admin
+    try {
+      await sendPaymentNotification({
+        orderId: updateResult.orderId,
+        customerName: updateResult.customerInfo.name,
+        customerEmail: updateResult.customerInfo.email,
+        customerPhone: updateResult.customerInfo.phone,
+        orderType: updateResult.orderType,
+        amount: updateResult.amount,
+        pageCount: updateResult.printingOptions.pageCount,
+        printingOptions: updateResult.printingOptions,
+        deliveryOption: updateResult.deliveryOption,
+        createdAt: updateResult.createdAt,
+        paymentStatus: updateResult.paymentStatus,
+        orderStatus: updateResult.orderStatus,
+        templateName: updateResult.templateName,
+        fileName: updateResult.originalFileName
+      }, 'completed');
+    } catch (notificationError) {
+      console.error('❌ Failed to send payment completion notification:', notificationError);
+      // Don't fail the payment processing if notification fails
+    }
+
     // Create print job if this is a file order
     if (order.orderType === 'file' && order.fileURL) {
       try {
@@ -262,6 +286,29 @@ async function handlePaymentFailed(payment: any) {
     
     await order.save();
     console.log(`❌ Order ${order.orderId} marked as failed`);
+
+    // Send payment failure notification to admin
+    try {
+      await sendPaymentNotification({
+        orderId: order.orderId,
+        customerName: order.customerInfo.name,
+        customerEmail: order.customerInfo.email,
+        customerPhone: order.customerInfo.phone,
+        orderType: order.orderType,
+        amount: order.amount,
+        pageCount: order.printingOptions.pageCount,
+        printingOptions: order.printingOptions,
+        deliveryOption: order.deliveryOption,
+        createdAt: order.createdAt,
+        paymentStatus: order.paymentStatus,
+        orderStatus: order.orderStatus,
+        templateName: order.templateName,
+        fileName: order.originalFileName
+      }, 'failed');
+    } catch (notificationError) {
+      console.error('❌ Failed to send payment failure notification:', notificationError);
+      // Don't fail the payment processing if notification fails
+    }
 
   } catch (error) {
     console.error('❌ Error handling payment failed:', error);

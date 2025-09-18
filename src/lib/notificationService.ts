@@ -1,0 +1,260 @@
+import nodemailer from 'nodemailer';
+
+// Configure email transporter using existing environment variables
+const transporter = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+  port: parseInt(process.env.EMAIL_PORT || '587'),
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.EMAIL_HOST_USER || 'adityapandey.dev.in@gmail.com',
+    pass: process.env.EMAIL_HOST_PASSWORD || 'hagbaiwzqltgfflz',
+  },
+  tls: {
+    rejectUnauthorized: false
+  }
+});
+
+export interface OrderNotificationData {
+  orderId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  orderType: 'file' | 'template';
+  amount: number;
+  pageCount: number;
+  printingOptions: {
+    pageSize: string;
+    color: string;
+    copies: number;
+  };
+  deliveryOption: {
+    type: string;
+    address?: string;
+    pickupLocation?: string;
+  };
+  createdAt: Date;
+  paymentStatus: string;
+  orderStatus: string;
+  templateName?: string;
+  fileName?: string;
+}
+
+export async function sendNewOrderNotification(orderData: OrderNotificationData): Promise<boolean> {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || 'adityapandey.dev.in@gmail.com';
+    
+    // Format order details for email
+    const orderDetails = formatOrderDetails(orderData);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@printservice.com',
+      to: adminEmail,
+      subject: `🆕 New Order Received - #${orderData.orderId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">🆕 New Order Received</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Order #${orderData.orderId}</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin: 0 0 20px 0; border-bottom: 2px solid #007bff; padding-bottom: 10px;">📋 Order Information</h2>
+              ${orderDetails}
+            </div>
+            
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin: 0 0 20px 0; border-bottom: 2px solid #28a745; padding-bottom: 10px;">👤 Customer Details</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                  <strong style="color: #555;">Name:</strong><br>
+                  <span style="color: #333;">${orderData.customerName}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Email:</strong><br>
+                  <a href="mailto:${orderData.customerEmail}" style="color: #007bff; text-decoration: none;">${orderData.customerEmail}</a>
+                </div>
+                <div>
+                  <strong style="color: #555;">Phone:</strong><br>
+                  <a href="tel:${orderData.customerPhone}" style="color: #007bff; text-decoration: none;">${orderData.customerPhone}</a>
+                </div>
+                <div>
+                  <strong style="color: #555;">Order Date:</strong><br>
+                  <span style="color: #333;">${orderData.createdAt.toLocaleString('en-IN', { 
+                    timeZone: 'Asia/Kolkata',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+              <h2 style="color: #333; margin: 0 0 20px 0; border-bottom: 2px solid #ffc107; padding-bottom: 10px;">💰 Payment & Status</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                  <strong style="color: #555;">Amount:</strong><br>
+                  <span style="color: #28a745; font-size: 18px; font-weight: bold;">₹${orderData.amount}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Payment Status:</strong><br>
+                  <span style="background: ${getStatusColor(orderData.paymentStatus)}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                    ${orderData.paymentStatus.toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Order Status:</strong><br>
+                  <span style="background: ${getStatusColor(orderData.orderStatus)}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                    ${orderData.orderStatus.toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Pages:</strong><br>
+                  <span style="color: #333; font-weight: bold;">${orderData.pageCount} pages</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin/orders/${orderData.orderId}" 
+                 style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                📊 View Order Details
+              </a>
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin" 
+                 style="display: inline-block; background: #28a745; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                🏠 Admin Dashboard
+              </a>
+            </div>
+          </div>
+          
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding: 20px; border-top: 1px solid #eee;">
+            <p>This is an automated notification from Print Service Admin System.</p>
+            <p>© 2024 Print Service. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ New order notification sent to admin: ${adminEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending new order notification:', error);
+    return false;
+  }
+}
+
+function formatOrderDetails(orderData: OrderNotificationData): string {
+  const deliveryInfo = orderData.deliveryOption.type === 'pickup' 
+    ? `Pickup Location: ${orderData.deliveryOption.pickupLocation || 'Not specified'}`
+    : `Delivery Address: ${orderData.deliveryOption.address || 'Not specified'}`;
+
+  const orderTypeInfo = orderData.orderType === 'template' 
+    ? `Template: ${orderData.templateName || 'Unknown Template'}`
+    : `File: ${orderData.fileName || 'Uploaded File'}`;
+
+  return `
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+      <div>
+        <strong style="color: #555;">Order Type:</strong><br>
+        <span style="color: #333; text-transform: capitalize;">${orderData.orderType}</span>
+      </div>
+      <div>
+        <strong style="color: #555;">${orderData.orderType === 'template' ? 'Template' : 'File'}:</strong><br>
+        <span style="color: #333;">${orderData.orderType === 'template' ? (orderData.templateName || 'Unknown') : (orderData.fileName || 'Uploaded File')}</span>
+      </div>
+      <div>
+        <strong style="color: #555;">Page Size:</strong><br>
+        <span style="color: #333;">${orderData.printingOptions.pageSize}</span>
+      </div>
+      <div>
+        <strong style="color: #555;">Color:</strong><br>
+        <span style="color: #333; text-transform: capitalize;">${orderData.printingOptions.color === 'bw' ? 'Black & White' : orderData.printingOptions.color}</span>
+      </div>
+      <div>
+        <strong style="color: #555;">Copies:</strong><br>
+        <span style="color: #333;">${orderData.printingOptions.copies}</span>
+      </div>
+      <div>
+        <strong style="color: #555;">Delivery:</strong><br>
+        <span style="color: #333; text-transform: capitalize;">${orderData.deliveryOption.type}</span>
+      </div>
+    </div>
+    <div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+      <strong style="color: #555;">Delivery Details:</strong><br>
+      <span style="color: #333;">${deliveryInfo}</span>
+    </div>
+  `;
+}
+
+function getStatusColor(status: string): string {
+  switch (status.toLowerCase()) {
+    case 'completed':
+    case 'paid':
+      return '#28a745';
+    case 'pending':
+    case 'pending_payment':
+      return '#ffc107';
+    case 'failed':
+    case 'cancelled':
+      return '#dc3545';
+    case 'processing':
+    case 'printing':
+      return '#17a2b8';
+    default:
+      return '#6c757d';
+  }
+}
+
+export async function sendPaymentNotification(orderData: OrderNotificationData, paymentStatus: 'completed' | 'failed'): Promise<boolean> {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || 'adityapandey.dev.in@gmail.com';
+    
+    const statusEmoji = paymentStatus === 'completed' ? '✅' : '❌';
+    const statusColor = paymentStatus === 'completed' ? '#28a745' : '#dc3545';
+    const statusText = paymentStatus === 'completed' ? 'Payment Completed' : 'Payment Failed';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@printservice.com',
+      to: adminEmail,
+      subject: `${statusEmoji} Payment ${statusText} - Order #${orderData.orderId}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: ${statusColor}; color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px;">${statusEmoji} Payment ${statusText}</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Order #${orderData.orderId}</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+              <h2 style="color: #333; margin: 0 0 20px 0;">Order Summary</h2>
+              <p><strong>Customer:</strong> ${orderData.customerName}</p>
+              <p><strong>Amount:</strong> ₹${orderData.amount}</p>
+              <p><strong>Status:</strong> <span style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 12px;">${statusText.toUpperCase()}</span></p>
+            </div>
+            
+            <div style="text-align: center;">
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin/orders/${orderData.orderId}" 
+                 style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold;">
+                View Order Details
+              </a>
+            </div>
+          </div>
+        </div>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Payment ${paymentStatus} notification sent to admin: ${adminEmail}`);
+    return true;
+  } catch (error) {
+    console.error(`❌ Error sending payment ${paymentStatus} notification:`, error);
+    return false;
+  }
+}
