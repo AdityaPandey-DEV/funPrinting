@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession, signOut } from 'next-auth/react';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
@@ -78,6 +79,7 @@ interface Order {
 }
 
 function AdminDashboardContent() {
+  const { data: session } = useSession();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -197,33 +199,54 @@ function AdminDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 py-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <AdminNavigation
-          title="Admin Dashboard"
-          subtitle="Manage all printing orders and track their status"
-          actions={
-            <>
+    <div className="min-h-screen bg-gray-100">
+      {/* Admin Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <h1 className="text-2xl font-bold text-gray-900">PrintService Admin</h1>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <img 
+                  className="h-8 w-8 rounded-full" 
+                  src={session?.user?.image || '/default-avatar.png'} 
+                  alt={session?.user?.name || 'Admin'}
+                />
+                <span className="text-sm text-gray-700">{session?.user?.name}</span>
+              </div>
               <button
-                onClick={fetchOrders}
-                disabled={isLoading}
-                className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => signOut({ callbackUrl: '/' })}
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm"
               >
-                {isLoading ? 'Checking Payments & Refreshing...' : 'Refresh Orders & Check Payments'}
+                Sign Out
               </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('adminAuthenticated');
-                  localStorage.removeItem('adminLoginTime');
-                  window.location.href = '/';
-                }}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                Logout
-              </button>
-            </>
-          }
-        />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Content */}
+      <div className="py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <AdminNavigation
+            title="Admin Dashboard"
+            subtitle="Manage all printing orders and track their status"
+            actions={
+              <>
+                <button
+                  onClick={fetchOrders}
+                  disabled={isLoading}
+                  className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? 'Checking Payments & Refreshing...' : 'Refresh Orders & Check Payments'}
+                </button>
+              </>
+            }
+          />
 
         {/* Order Status Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -514,6 +537,7 @@ function AdminDashboardContent() {
               <div className="text-gray-500 text-lg">No orders found.</div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>

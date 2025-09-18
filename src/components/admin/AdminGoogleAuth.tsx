@@ -126,39 +126,9 @@ export default function AdminGoogleAuth({
     );
   }
 
-  // Show admin content with logout option
+  // Show admin content (navbar and footer are handled by ConditionalLayout)
   return (
     <div className="min-h-screen">
-      {/* Admin Header with Logout */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <h1 className="text-xl font-semibold text-gray-900">Admin Dashboard</h1>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <img 
-                  className="h-8 w-8 rounded-full" 
-                  src={session.user?.image || '/default-avatar.png'} 
-                  alt={session.user?.name || 'Admin'}
-                />
-                <span className="text-sm text-gray-700">{session.user?.name}</span>
-              </div>
-              <button
-                onClick={handleSignOut}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm"
-              >
-                Sign Out
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Admin Content */}
       {children}
     </div>
   );
