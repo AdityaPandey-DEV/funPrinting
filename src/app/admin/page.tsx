@@ -486,12 +486,13 @@ function AdminDashboardContent() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm font-medium">
-                      <div className="space-y-2 min-w-[200px]">
+                      <div className="space-y-2 min-w-[200px]" onClick={(e) => e.stopPropagation()}>
                         {/* Status Update Dropdown */}
                         <select
                           value={order.orderStatus}
                           onChange={(e) => updateOrderStatus(order._id, e.target.value)}
                           className="block w-full text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-black focus:border-black transition-colors"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <option value="pending">Pending</option>
                           <option value="processing">Processing</option>
@@ -508,6 +509,7 @@ function AdminDashboardContent() {
                             rel="noopener noreferrer"
                             className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
                             title={`Download ${order.originalFileName || 'File'}`}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
                           </a>
@@ -520,6 +522,7 @@ function AdminDashboardContent() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block w-full bg-gray-800 text-white text-center px-3 py-1 rounded text-xs hover:bg-black transition-colors"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             View PDF
                           </a>
