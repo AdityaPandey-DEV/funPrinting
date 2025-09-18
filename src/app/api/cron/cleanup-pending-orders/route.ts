@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import { checkPendingOrdersFromRazorpay } from '@/lib/razorpayFallback';
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,6 +28,15 @@ export async function GET(request: NextRequest) {
     });
 
     console.log(`🕐 Cron job: Found ${pendingOrders.length} pending orders to cleanup`);
+
+    // 🔄 FIRST: Check Razorpay for successful payments before cleanup
+    console.log('🔄 Checking Razorpay for successful payments...');
+    try {
+      await checkPendingOrdersFromRazorpay();
+      console.log('✅ Razorpay payment check completed');
+    } catch (error) {
+      console.error('❌ Error checking Razorpay payments:', error);
+    }
 
     let cleanedCount = 0;
     for (const order of pendingOrders) {

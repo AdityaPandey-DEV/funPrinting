@@ -17,10 +17,6 @@
     {
       "path": "/api/cron/cleanup-pending-orders",
       "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/check-pending-payments",
-      "schedule": "*/10 * * * *"
     }
   ]
 }
