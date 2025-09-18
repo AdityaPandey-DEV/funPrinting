@@ -5,13 +5,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['mongoose'],
   
   // Turbopack configuration
-  experimental: {
-    turbo: {
-      rules: {
-        '*.mjs': {
-          loaders: ['raw-loader'],
-          as: '*.js',
-        },
+  turbopack: {
+    rules: {
+      '*.mjs': {
+        loaders: ['raw-loader'],
+        as: '*.js',
       },
     },
   },
