@@ -43,6 +43,13 @@ export async function sendNewOrderNotification(orderData: OrderNotificationData)
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'adityapandey.dev.in@gmail.com';
     
+    // Debug logging
+    console.log('📧 Sending new order notification...');
+    console.log('📧 Admin email:', adminEmail);
+    console.log('📧 Email host:', process.env.EMAIL_HOST);
+    console.log('📧 Email user:', process.env.EMAIL_HOST_USER);
+    console.log('📧 Email password configured:', !!process.env.EMAIL_HOST_PASSWORD);
+    
     // Format order details for email
     const orderDetails = formatOrderDetails(orderData);
     
@@ -140,11 +147,19 @@ export async function sendNewOrderNotification(orderData: OrderNotificationData)
       `,
     };
 
-    await transporter.sendMail(mailOptions);
+    console.log('📧 Attempting to send email...');
+    const result = await transporter.sendMail(mailOptions);
+    console.log('📧 Email sent successfully:', result.messageId);
     console.log(`✅ New order notification sent to admin: ${adminEmail}`);
     return true;
   } catch (error) {
     console.error('❌ Error sending new order notification:', error);
+    console.error('❌ Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      code: (error as any)?.code,
+      response: (error as any)?.response
+    });
     return false;
   }
 }
@@ -208,6 +223,19 @@ function getStatusColor(status: string): string {
       return '#17a2b8';
     default:
       return '#6c757d';
+  }
+}
+
+// Test email transporter connection
+export async function testEmailConnection(): Promise<boolean> {
+  try {
+    console.log('🧪 Testing email transporter connection...');
+    await transporter.verify();
+    console.log('✅ Email transporter connection successful');
+    return true;
+  } catch (error) {
+    console.error('❌ Email transporter connection failed:', error);
+    return false;
   }
 }
 
