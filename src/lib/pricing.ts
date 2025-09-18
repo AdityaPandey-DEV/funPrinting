@@ -23,6 +23,8 @@ export interface PricingData {
   additionalServices: {
     binding: number;
     resumeTemplate: number;
+    minServiceFee: number;
+    minServiceFeePageLimit: number;
   };
 }
 
@@ -51,6 +53,8 @@ export async function getPricing(): Promise<PricingData> {
         additionalServices: {
           binding: 20,
           resumeTemplate: 0,
+          minServiceFee: 5,
+          minServiceFeePageLimit: 1,
         },
         updatedBy: 'system',
       });
@@ -81,6 +85,8 @@ export async function getPricing(): Promise<PricingData> {
       additionalServices: {
         binding: 20,
         resumeTemplate: 0,
+        minServiceFee: 5,
+        minServiceFeePageLimit: 1,
       },
     };
   }

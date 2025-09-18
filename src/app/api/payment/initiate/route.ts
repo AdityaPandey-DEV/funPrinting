@@ -93,14 +93,14 @@ export async function POST(request: NextRequest) {
       calculatedAmount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
     }
     
-    // Add compulsory service option cost (only for multi-page jobs)
-    if (pageCount > 1) {
+    // Add compulsory service option cost (only when page count exceeds minimum service fee limit)
+    if (pageCount > pricing.additionalServices.minServiceFeePageLimit) {
       if (printingOptions.serviceOption === 'binding') {
         calculatedAmount += pricing.additionalServices.binding;
       } else if (printingOptions.serviceOption === 'file') {
         calculatedAmount += 10; // File handling fee
       } else if (printingOptions.serviceOption === 'service') {
-        calculatedAmount += 5; // Minimal service fee
+        calculatedAmount += pricing.additionalServices.minServiceFee; // Configurable minimal service fee
       }
     }
     

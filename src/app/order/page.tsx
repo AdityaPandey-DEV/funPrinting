@@ -373,14 +373,14 @@ export default function OrderPage() {
               total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
             }
             
-            // Add compulsory service option cost (fallback amounts, only if multi-page)
+            // Add compulsory service option cost (fallback amounts, only if page count exceeds limit)
             if (pageCount > 1) {
               if (printingOptions.serviceOption === 'binding') {
                 total += 20; // Default binding cost
               } else if (printingOptions.serviceOption === 'file') {
                 total += 10;
               } else if (printingOptions.serviceOption === 'service') {
-                total += 5; // Default minimal service fee
+                total += 5; // Default minimal service fee (fallback)
               }
             }
             
