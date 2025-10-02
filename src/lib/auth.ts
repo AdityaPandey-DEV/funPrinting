@@ -68,16 +68,7 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async signIn({ user, account }) {
-      // 🔒 RESTRICT ACCESS: Only allow specific admin email
-      const allowedAdminEmail = 'adityapandey.dev.in@gmail.com';
-      
       if (account?.provider === 'google') {
-        // Check if the email is the allowed admin email
-        if (user.email !== allowedAdminEmail) {
-          console.log(`🚫 Access denied for email: ${user.email}. Only ${allowedAdminEmail} is allowed.`);
-          return false;
-        }
-        
         try {
           await connectDB();
           
@@ -94,7 +85,7 @@ export const authOptions: NextAuthOptions = {
           });
 
           if (existingUser) {
-            // Update last login and phone number if available
+            // Update last login and profile picture
             const updateData: any = { 
               lastLogin: new Date(),
               profilePicture: user.image 
@@ -105,12 +96,12 @@ export const authOptions: NextAuthOptions = {
             }
             
             await User.findByIdAndUpdate(existingUser._id, updateData);
-            console.log(`✅ Admin login successful for: ${user.email}`);
+            console.log(`✅ User login successful for: ${user.email}`);
             return true;
           }
 
-          // Create new admin user
-          await User.create({
+          // Create new user (regular user by default)
+          const newUser = await User.create({
             name: user.name || '',
             email: user.email || '',
             phone: phoneNumber || '',
@@ -119,21 +110,15 @@ export const authOptions: NextAuthOptions = {
             emailVerified: true,
             profilePicture: user.image,
             lastLogin: new Date(),
-            role: 'admin', // Mark as admin
+            role: 'user', // Regular user by default
           });
 
-          console.log(`✅ New admin user created: ${user.email}`);
+          console.log(`✅ New user created: ${user.email}`);
           return true;
         } catch (error) {
           console.error('Google sign-in error:', error);
           return false;
         }
-      }
-      
-      // For credentials provider, also restrict to admin email
-      if (account?.provider === 'credentials' && user.email !== allowedAdminEmail) {
-        console.log(`🚫 Access denied for email: ${user.email}. Only ${allowedAdminEmail} is allowed.`);
-        return false;
       }
       
       return true;

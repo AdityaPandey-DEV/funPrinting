@@ -2,7 +2,7 @@
 
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface AdminGoogleAuthProps {
   children: React.ReactNode;
@@ -17,23 +17,47 @@ export default function AdminGoogleAuth({
 }: AdminGoogleAuthProps) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
 
-  // Check if user is authenticated and is the allowed admin
-  const isAuthenticated = session?.user?.email === 'adityapandey.dev.in@gmail.com';
+  // Check if user is authenticated and has admin role
+  const isAuthenticated = session?.user && isAdmin === true;
 
+  // Check admin role when user is authenticated
   useEffect(() => {
     if (status === 'loading') return; // Still loading
-
-    if (!isAuthenticated && status === 'unauthenticated') {
-      // User is not authenticated, show login form
-      return;
+    
+    if (session?.user?.email && isAdmin === null && !isCheckingAdmin) {
+      setIsCheckingAdmin(true);
+      checkAdminRole(session.user.email);
     }
+  }, [session, status, isAdmin, isCheckingAdmin]);
 
-    if (isAuthenticated) {
-      // User is authenticated and is the admin, show admin content
-      console.log('✅ Admin authenticated:', session.user?.email);
+  const checkAdminRole = async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/check-admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+      
+      const data = await response.json();
+      setIsAdmin(data.isAdmin || false);
+      
+      if (data.isAdmin) {
+        console.log('✅ Admin authenticated:', email);
+      } else {
+        console.log('❌ User is not an admin:', email);
+      }
+    } catch (error) {
+      console.error('Error checking admin role:', error);
+      setIsAdmin(false);
+    } finally {
+      setIsCheckingAdmin(false);
     }
-  }, [session, status, isAuthenticated]);
+  };
 
   const handleGoogleSignIn = () => {
     signIn('google', { 
@@ -50,12 +74,14 @@ export default function AdminGoogleAuth({
   };
 
   // Show loading state
-  if (status === 'loading') {
+  if (status === 'loading' || isCheckingAdmin) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
+          <p className="text-gray-600">
+            {status === 'loading' ? 'Checking authentication...' : 'Verifying admin access...'}
+          </p>
         </div>
       </div>
     );
@@ -91,7 +117,12 @@ export default function AdminGoogleAuth({
                   </h3>
                   <div className="mt-2 text-sm text-yellow-700">
                     <p>Only authorized administrators can access this area.</p>
-                    <p className="mt-1">Authorized email: <strong>adityapandey.dev.in@gmail.com</strong></p>
+                    {session?.user?.email && isAdmin === false && (
+                      <p className="mt-1">Your account (<strong>{session.user.email}</strong>) does not have admin privileges.</p>
+                    )}
+                    {!session?.user?.email && (
+                      <p className="mt-1">Please sign in with an authorized admin account.</p>
+                    )}
                   </div>
                 </div>
               </div>
