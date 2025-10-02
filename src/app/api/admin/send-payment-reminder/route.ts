@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (customerError) {
         console.error(`❌ Failed to send customer reminder for order ${orderId}:`, customerError);
-        results.push(`Customer reminder error: ${customerError.message}`);
+        results.push(`Customer reminder error: ${customerError instanceof Error ? customerError.message : 'Unknown error'}`);
       }
     }
 
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         }
       } catch (adminError) {
         console.error(`❌ Failed to send admin reminder for order ${orderId}:`, adminError);
-        results.push(`Admin reminder error: ${adminError.message}`);
+        results.push(`Admin reminder error: ${adminError instanceof Error ? adminError.message : 'Unknown error'}`);
       }
     }
 
