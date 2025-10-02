@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { validateOrderData, sanitizeOrderData, handleOrderError, logOrderEvent } from '@/lib/orderUtils';
-import { sendNewOrderNotification } from '@/lib/notificationService';
+import { sendNewOrderNotification, sendCustomerOrderConfirmation } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -335,26 +335,37 @@ export async function POST(request: NextRequest) {
       customerEmail: sanitizedOrderData.customerInfo.email
     });
 
-    // Send new order notification to admin
+    // Send notifications (both admin and customer)
+    const notificationData = {
+      orderId: order.orderId,
+      customerName: sanitizedOrderData.customerInfo.name,
+      customerEmail: sanitizedOrderData.customerInfo.email,
+      customerPhone: sanitizedOrderData.customerInfo.phone,
+      orderType: sanitizedOrderData.orderType,
+      amount,
+      pageCount,
+      printingOptions: sanitizedOrderData.printingOptions,
+      deliveryOption: sanitizedOrderData.deliveryOption,
+      createdAt: order.createdAt,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      fileName: sanitizedOrderData.originalFileName
+    };
+
+    // Send admin notification
     try {
-      await sendNewOrderNotification({
-        orderId: order.orderId,
-        customerName: sanitizedOrderData.customerInfo.name,
-        customerEmail: sanitizedOrderData.customerInfo.email,
-        customerPhone: sanitizedOrderData.customerInfo.phone,
-        orderType: sanitizedOrderData.orderType,
-        amount,
-        pageCount,
-        printingOptions: sanitizedOrderData.printingOptions,
-        deliveryOption: sanitizedOrderData.deliveryOption,
-        createdAt: order.createdAt,
-        paymentStatus: order.paymentStatus,
-        orderStatus: order.orderStatus,
-        fileName: sanitizedOrderData.originalFileName
-      });
+      await sendNewOrderNotification(notificationData);
     } catch (notificationError) {
-      console.error('❌ Failed to send new order notification:', notificationError);
+      console.error('❌ Failed to send admin notification:', notificationError);
       // Don't fail the order creation if notification fails
+    }
+
+    // Send customer confirmation email
+    try {
+      await sendCustomerOrderConfirmation(notificationData);
+    } catch (customerNotificationError) {
+      console.error('❌ Failed to send customer confirmation:', customerNotificationError);
+      // Don't fail the order creation if customer notification fails
     }
 
     return NextResponse.json({

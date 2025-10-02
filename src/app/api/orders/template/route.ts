@@ -8,7 +8,7 @@ import { uploadToCloudinary } from '@/lib/cloudinary';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
 import { v4 as uuidv4 } from 'uuid';
-import { sendNewOrderNotification } from '@/lib/notificationService';
+import { sendNewOrderNotification, sendCustomerOrderConfirmation } from '@/lib/notificationService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -187,26 +187,37 @@ export async function POST(request: NextRequest) {
       throw saveError;
     }
 
-    // Send new order notification to admin
+    // Send notifications (both admin and customer)
+    const notificationData = {
+      orderId: order.orderId,
+      customerName: customerInfo.name,
+      customerEmail: customerInfo.email,
+      customerPhone: customerInfo.phone,
+      orderType: 'template' as const,
+      amount,
+      pageCount,
+      printingOptions,
+      deliveryOption,
+      createdAt: order.createdAt,
+      paymentStatus: order.paymentStatus,
+      orderStatus: order.orderStatus,
+      templateName: template.name
+    };
+
+    // Send admin notification
     try {
-      await sendNewOrderNotification({
-        orderId: order.orderId,
-        customerName: customerInfo.name,
-        customerEmail: customerInfo.email,
-        customerPhone: customerInfo.phone,
-        orderType: 'template',
-        amount,
-        pageCount,
-        printingOptions,
-        deliveryOption,
-        createdAt: order.createdAt,
-        paymentStatus: order.paymentStatus,
-        orderStatus: order.orderStatus,
-        templateName: template.name
-      });
+      await sendNewOrderNotification(notificationData);
     } catch (notificationError) {
-      console.error('❌ Failed to send new template order notification:', notificationError);
+      console.error('❌ Failed to send admin notification:', notificationError);
       // Don't fail the order creation if notification fails
+    }
+
+    // Send customer confirmation email
+    try {
+      await sendCustomerOrderConfirmation(notificationData);
+    } catch (customerNotificationError) {
+      console.error('❌ Failed to send customer confirmation:', customerNotificationError);
+      // Don't fail the order creation if customer notification fails
     }
 
     return NextResponse.json({
