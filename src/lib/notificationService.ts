@@ -357,6 +357,199 @@ export async function sendCustomerOrderConfirmation(orderData: OrderNotification
   }
 }
 
+export async function sendPaymentReminderToCustomer(orderData: OrderNotificationData): Promise<boolean> {
+  try {
+    console.log('📧 Sending payment reminder to customer...');
+    console.log('📧 Customer email:', orderData.customerEmail);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@printservice.com',
+      to: orderData.customerEmail,
+      subject: `⏰ Payment Reminder - Order #${orderData.orderId} | PrintService`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">⏰ Payment Reminder</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Complete your payment to confirm your order</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Payment Required</h3>
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                Your order is waiting for payment! Please complete payment within 24 hours or your order will be automatically cancelled.
+              </p>
+            </div>
+            
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+              <h2 style="color: #333; margin: 0 0 20px 0;">Order Summary</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div>
+                  <strong style="color: #555;">Order ID:</strong><br>
+                  <span style="color: #333; font-weight: bold; font-size: 18px;">#${orderData.orderId}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Amount Due:</strong><br>
+                  <span style="color: #ff6b35; font-weight: bold; font-size: 18px;">₹${orderData.amount}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Order Type:</strong><br>
+                  <span style="color: #333;">${orderData.orderType === 'file' ? 'File Upload' : 'Template Generated'}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Pages:</strong><br>
+                  <span style="color: #333; font-weight: bold;">${orderData.pageCount} pages</span>
+                </div>
+              </div>
+              
+              <div style="border-top: 1px solid #eee; padding-top: 15px;">
+                <h3 style="color: #333; margin: 0 0 15px 0;">Printing Details</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                  <div>
+                    <strong style="color: #555;">Size:</strong><br>
+                    <span style="color: #333;">${orderData.printingOptions.pageSize}</span>
+                  </div>
+                  <div>
+                    <strong style="color: #555;">Color:</strong><br>
+                    <span style="color: #333;">${orderData.printingOptions.color === 'color' ? 'Color' : orderData.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}</span>
+                  </div>
+                  <div>
+                    <strong style="color: #555;">Copies:</strong><br>
+                    <span style="color: #333;">${orderData.printingOptions.copies}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/my-orders" 
+                 style="display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                💳 Complete Payment Now
+              </a>
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/contact" 
+                 style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                📞 Need Help?
+              </a>
+            </div>
+          </div>
+          
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding: 20px; border-top: 1px solid #eee;">
+            <p>Don't miss out! Complete your payment to get your documents printed and delivered.</p>
+            <p>© 2024 PrintService. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    console.log('📧 Attempting to send payment reminder to customer...');
+    const result = await transporter.sendMail(mailOptions);
+    console.log('📧 Payment reminder sent successfully:', result.messageId);
+    console.log(`✅ Payment reminder sent to customer: ${orderData.customerEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send payment reminder to customer:', error);
+    return false;
+  }
+}
+
+export async function sendPaymentReminderToAdmin(orderData: OrderNotificationData): Promise<boolean> {
+  try {
+    const adminEmail = process.env.ADMIN_EMAIL || 'adityapandey.dev.in@gmail.com';
+    
+    console.log('📧 Sending payment reminder to admin...');
+    console.log('📧 Admin email:', adminEmail);
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@printservice.com',
+      to: adminEmail,
+      subject: `⏰ Payment Reminder - Order #${orderData.orderId} Still Pending`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #ffc107 0%, #ff8f00 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+            <h1 style="margin: 0; font-size: 28px;">⏰ Payment Reminder</h1>
+            <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Order still pending payment</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px;">
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+              <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Pending Payment Alert</h3>
+              <p style="color: #856404; margin: 0; font-size: 14px;">
+                This order has been pending payment for some time. Customer may need assistance or a reminder.
+              </p>
+            </div>
+            
+            <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px;">
+              <h2 style="color: #333; margin: 0 0 20px 0;">Order Details</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+                <div>
+                  <strong style="color: #555;">Order ID:</strong><br>
+                  <span style="color: #333; font-weight: bold; font-size: 18px;">#${orderData.orderId}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Amount:</strong><br>
+                  <span style="color: #ffc107; font-weight: bold; font-size: 18px;">₹${orderData.amount}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Customer:</strong><br>
+                  <span style="color: #333;">${orderData.customerName}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Email:</strong><br>
+                  <span style="color: #333;">${orderData.customerEmail}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Phone:</strong><br>
+                  <span style="color: #333;">${orderData.customerPhone}</span>
+                </div>
+                <div>
+                  <strong style="color: #555;">Pages:</strong><br>
+                  <span style="color: #333; font-weight: bold;">${orderData.pageCount} pages</span>
+                </div>
+              </div>
+              
+              <div style="border-top: 1px solid #eee; padding-top: 15px;">
+                <h3 style="color: #333; margin: 0 0 15px 0;">Order Summary</h3>
+                <p><strong>Type:</strong> ${orderData.orderType === 'file' ? 'File Upload' : 'Template Generated'}</p>
+                <p><strong>Printing:</strong> ${orderData.printingOptions.pageSize}, ${orderData.printingOptions.color === 'color' ? 'Color' : orderData.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}, ${orderData.printingOptions.copies} copies</p>
+                <p><strong>Delivery:</strong> ${orderData.deliveryOption.type === 'pickup' ? 'Pickup' : 'Home Delivery'}</p>
+              </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 30px;">
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin/orders/${orderData.orderId}" 
+                 style="display: inline-block; background: #ffc107; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                📊 View Order Details
+              </a>
+              <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/admin" 
+                 style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px; margin: 0 10px;">
+                🏠 Admin Dashboard
+              </a>
+            </div>
+          </div>
+          
+          <div style="text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding: 20px; border-top: 1px solid #eee;">
+            <p>Consider reaching out to the customer if payment is not completed soon.</p>
+            <p>© 2024 PrintService. All rights reserved.</p>
+          </div>
+        </div>
+      `,
+    };
+
+    console.log('📧 Attempting to send payment reminder to admin...');
+    const result = await transporter.sendMail(mailOptions);
+    console.log('📧 Admin payment reminder sent successfully:', result.messageId);
+    console.log(`✅ Payment reminder sent to admin: ${adminEmail}`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send payment reminder to admin:', error);
+    return false;
+  }
+}
+
 export async function sendPaymentNotification(orderData: OrderNotificationData, paymentStatus: 'completed' | 'failed'): Promise<boolean> {
   try {
     const adminEmail = process.env.ADMIN_EMAIL || 'adityapandey.dev.in@gmail.com';
