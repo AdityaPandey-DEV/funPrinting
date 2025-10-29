@@ -94,7 +94,7 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 ### 3. 📝 Project Summary
 **File:** [`PROJECT_SUMMARY.md`](./PROJECT_SUMMARY.md)
-- **Size:** 445 lines
+- **Size:** 492 lines
 - **For:** Quick reference (sabhi members)
 - **Contains:**
   - Complete project overview
@@ -309,15 +309,17 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 | File | Status | Size | For |
 |------|--------|------|-----|
-| TEAM_ROLES_DOCUMENTATION.md | ✅ Complete | 813 lines | All |
-| ADITYA_BACKEND_GUIDE.md | ✅ Complete | 942 lines | Aditya |
-| VIVEK_DATABASE_GUIDE.md | ✅ Complete | 585 lines | Vivek |
-| KARTIK_FRONTEND_GUIDE.md | ✅ Complete | 463 lines | Kartik |
+| TEAM_ROLES_DOCUMENTATION.md | ✅ Complete | 831 lines | All |
+| ADITYA_BACKEND_GUIDE.md | ✅ Complete | 1,100+ lines | Aditya |
+| VIVEK_DATABASE_GUIDE.md | ✅ Complete | 650+ lines | Vivek |
+| KARTIK_FRONTEND_GUIDE.md | ✅ Complete | 800+ lines | Kartik |
 | GAURANG_DEVOPS_QA_GUIDE.md | ✅ Complete | 531 lines | Gaurang |
-| PROJECT_SUMMARY.md | ✅ Complete | 445 lines | All |
-| DATABASE_DOCUMENTATION.md | ✅ Existing | 2102 lines | All |
+| PROJECT_SUMMARY.md | ✅ Complete | 492 lines | All |
+| ER_DIAGRAM.md | ✅ **NEW** | 823 lines | Vivek & All |
+| CONCEPTS_EXPLAINED.md | ✅ **NEW** | 700+ lines | All |
+| DATABASE_DOCUMENTATION.md | ✅ Existing | 2,102 lines | All |
 
-**Total Documentation:** 5,881 lines of comprehensive guidance!
+**Total Documentation:** 8,000+ lines of comprehensive guidance! 🎉
 
 ---
 
