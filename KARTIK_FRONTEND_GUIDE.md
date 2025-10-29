@@ -45,9 +45,59 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 export default function OrderPage() {
-  // State management
+  
+  // ═══════════════════════════════════════════════════════════
+  // REACT HOOKS SECTION - State Management
+  // ═══════════════════════════════════════════════════════════
+  
+  // Hook 1: useState for File Management
   const [file, setFile] = useState<File | null>(null);
+  
+  /* useState DETAILED EXPLANATION:
+   * 
+   * useState ek React Hook hai jo component mein state manage karta hai
+   * 
+   * Syntax: const [stateVariable, setStateFunction] = useState(initialValue);
+   * 
+   * - stateVariable: Current value hold karta hai
+   * - setStateFunction: Value update karne ke liye function
+   * - initialValue: Starting value (here: null)
+   * 
+   * Example:
+   * const [file, setFile] = useState<File | null>(null);
+   * 
+   * file: Currently selected file (initially null)
+   * setFile: Function to update file
+   * <File | null>: TypeScript type (File object ya null)
+   * 
+   * Kaise use karte hain:
+   * setFile(newFile);  // file ki value update ho jayegi
+   * console.log(file); // Updated value milega
+   * 
+   * Important: State update hone par component re-render hota hai!
+   */
+  
+  // Hook 2: useState for Loading State
   const [loading, setLoading] = useState(false);
+  
+  /* Loading State Explanation:
+   * 
+   * loading: Boolean value (true/false)
+   * Purpose: User ko batana ki koi operation progress mein hai
+   * 
+   * Jab API call start ho:
+   * setLoading(true);  // Button disabled ho jata hai, spinner dikhta hai
+   * 
+   * Jab API call complete ho:
+   * setLoading(false); // Button enable, spinner hide
+   * 
+   * UI mein use:
+   * <button disabled={loading}>
+   *   {loading ? 'Processing...' : 'Submit'}
+   * </button>
+   */
+  
+  // Hook 3: useState for Options (Complex Object)
   const [options, setOptions] = useState({
     copies: 1,
     color: false,
@@ -55,54 +105,337 @@ export default function OrderPage() {
     pickupLocation: '',
   });
   
+  /* Complex Object State Explanation:
+   * 
+   * Ye ek object state hai jisme multiple properties hain:
+   * - copies: number (kitne copies print karni hain)
+   * - color: boolean (color printing ya black & white)
+   * - sides: string union type (single ya double sided)
+   * - pickupLocation: string (kahan se pickup karna hai)
+   * 
+   * Object State Update Kaise Karte Hain:
+   * 
+   * Method 1: Spread Operator (Recommended)
+   * setOptions({
+   *   ...options,        // Purane values copy karo
+   *   copies: 5          // Sirf copies update karo
+   * });
+   * 
+   * Method 2: Direct object (Har value specify karo)
+   * setOptions({
+   *   copies: 5,
+   *   color: true,
+   *   sides: 'double',
+   *   pickupLocation: 'Library'
+   * });
+   * 
+   * Spread Operator (...) Explanation:
+   * const obj = { a: 1, b: 2 };
+   * const newObj = { ...obj, c: 3 };
+   * // newObj = { a: 1, b: 2, c: 3 }
+   * 
+   * const updated = { ...obj, a: 10 };
+   * // updated = { a: 10, b: 2 }
+   */
+  
+  // Hook 4: useRouter for Navigation
   const router = useRouter();
+  
+  /* useRouter Explanation:
+   * 
+   * Next.js ka router hook hai navigation ke liye
+   * 
+   * Common Methods:
+   * 1. router.push('/path')     - Navigate to new page
+   * 2. router.back()            - Go back (browser back button)
+   * 3. router.replace('/path')  - Replace current page (no history)
+   * 4. router.refresh()         - Reload current page
+   * 
+   * Example:
+   * router.push('/payment/123'); // Payment page pe jao
+   */
 
-  // File upload handler
+  // ═══════════════════════════════════════════════════════════
+  // EVENT HANDLERS SECTION
+  // ═══════════════════════════════════════════════════════════
+  
+  // Handler 1: File Upload Handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    
+    /* Function Parameters Explanation:
+     * 
+     * e: React.ChangeEvent<HTMLInputElement>
+     * 
+     * - e: Event object (jab bhi input change hota hai ye trigger hota hai)
+     * - React.ChangeEvent: React ka change event type
+     * - <HTMLInputElement>: Specific input element type
+     * 
+     * Event Object (e) mein kya hota hai:
+     * - e.target: Jis element pe event hua (input field)
+     * - e.target.value: Input ki current value
+     * - e.target.files: Selected files (for file input)
+     * - e.preventDefault(): Default behavior stop karo
+     */
+    
+    // Optional Chaining se first file extract karo
     const selectedFile = e.target.files?.[0];
+    
+    /* Optional Chaining (?.) Detailed Explanation:
+     * 
+     * e.target.files?.[] kya hai?
+     * 
+     * Normal way (without ?):
+     * const file = e.target.files[0];
+     * Problem: Agar files null hai to error ayega
+     * 
+     * Safe way (with ?):
+     * const file = e.target.files?.[0];
+     * Agar files null/undefined hai to selectedFile = undefined
+     * 
+     * Array Access with Optional Chaining:
+     * - files?.[0] = Pehla file (if exists)
+     * - files?.[0] same as files && files[0]
+     */
+    
     if (selectedFile) {
-      // Validation
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      // File Selection Validation
+      
+      // Step 1: File Size Validation
+      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+      
+      /* Size Calculation Explanation:
+       * 1 KB = 1024 bytes
+       * 1 MB = 1024 KB = 1024 * 1024 bytes
+       * 10 MB = 10 * 1024 * 1024 bytes = 10,485,760 bytes
+       */
+      
       if (selectedFile.size > maxSize) {
+        // File size check
         alert('File size should be less than 10MB');
-        return;
+        return; // Function exit - file set nahi karenge
       }
       
+      /* File Object Properties:
+       * selectedFile.name       - File name (e.g., "document.pdf")
+       * selectedFile.size       - File size in bytes
+       * selectedFile.type       - MIME type (e.g., "application/pdf")
+       * selectedFile.lastModified - Timestamp
+       */
+      
+      // Step 2: Set File in State
       setFile(selectedFile);
+      // State update → Component re-render → UI update
     }
   };
 
-  // Form submit handler
+  // Handler 2: Form Submit Handler
   const handleSubmit = async (e: React.FormEvent) => {
+    
+    /* async Function Explanation:
+     * 
+     * async keyword function ko asynchronous banata hai
+     * 
+     * Normal function:
+     * function submit() { return "done"; }
+     * 
+     * Async function:
+     * async function submit() { return "done"; }
+     * // Actually returns: Promise { "done" }
+     * 
+     * Async functions automatically Promise return karte hain
+     * Andar await use kar sakte hain
+     */
+    
+    // Prevent Default Form Submission
     e.preventDefault();
     
+    /* preventDefault() Explanation:
+     * 
+     * By default, form submit hone par page reload hota hai
+     * 
+     * Without preventDefault():
+     * <form onSubmit={handleSubmit}>
+     *   Page reload ho jayega → Data loss
+     * 
+     * With preventDefault():
+     * e.preventDefault();
+     * Page reload nahi hoga → JavaScript handle karega
+     * 
+     * Other Events where preventDefault() useful:
+     * - Link clicks: e.preventDefault() → Link follow nahi hoga
+     * - Context menu: e.preventDefault() → Right-click menu nahi khulega
+     */
+    
+    // Validation Step 1: Check File
     if (!file) {
       alert('Please select a file');
-      return;
+      return; // Early return - aage ka code execute nahi hoga
     }
     
+    /* Early Return Pattern:
+     * 
+     * Ye pattern code ko clean rakhta hai
+     * 
+     * Bad way (nested if):
+     * if (file) {
+     *   if (pickupLocation) {
+     *     if (copies > 0) {
+     *       // Main logic deeply nested
+     *     }
+     *   }
+     * }
+     * 
+     * Good way (early return):
+     * if (!file) return;
+     * if (!pickupLocation) return;
+     * if (copies <= 0) return;
+     * // Main logic - not nested
+     */
+    
+    // Validation Step 2: Check Pickup Location
     if (!options.pickupLocation) {
       alert('Please select pickup location');
       return;
     }
     
+    // Start Loading State
     setLoading(true);
     
+    /* Loading State Flow:
+     * 
+     * 1. User clicks Submit
+     * 2. setLoading(true) → Button disabled, spinner shows
+     * 3. API calls execute
+     * 4. setLoading(false) → Button enabled again
+     * 
+     * This prevents:
+     * - Multiple submissions
+     * - User confusion
+     * - Duplicate API calls
+     */
+    
+    // Try-Catch for Error Handling
     try {
-      // Step 1: Upload file
-      const formData = new FormData();
-      formData.append('file', file);
+      /* Try-Catch Block Explanation:
+       * 
+       * try {
+       *   // Risky code jisme error aa sakta hai
+       * } catch (error) {
+       *   // Error handling code
+       * } finally {
+       *   // Always runs (optional)
+       * }
+       * 
+       * Example:
+       * try {
+       *   const data = JSON.parse(invalidJSON);
+       * } catch (error) {
+       *   console.log("Invalid JSON");
+       * }
+       */
+      // ═══ STEP 1: Upload File to Server ═══
       
+      // Create FormData object
+      const formData = new FormData();
+      
+      /* FormData Explanation:
+       * 
+       * FormData ek special object hai jo files aur data send karne ke liye use hota hai
+       * 
+       * Why FormData?
+       * - Files ko directly JSON mein nahi bhej sakte
+       * - multipart/form-data encoding chahiye
+       * - Browser automatically correct headers set karta hai
+       * 
+       * Methods:
+       * formData.append(key, value) - Add data
+       * formData.get(key)          - Get data
+       * formData.delete(key)       - Remove data
+       * 
+       * Example:
+       * const fd = new FormData();
+       * fd.append('file', fileObject);
+       * fd.append('name', 'John');
+       * fd.append('age', '25');
+       */
+      
+      formData.append('file', file);
+      // 'file' = key name (server pe isi name se access hoga)
+      // file = actual File object from state
+      
+      // API Call using fetch()
       const uploadResponse = await fetch('/api/upload-file', {
         method: 'POST',
         body: formData,
       });
       
+      /* fetch() Detailed Explanation:
+       * 
+       * fetch() browser ka built-in function hai HTTP requests ke liye
+       * 
+       * Basic Syntax:
+       * fetch(url, options)
+       * 
+       * Parameters:
+       * 1. url: '/api/upload-file' (endpoint)
+       * 2. options: {
+       *      method: 'GET' | 'POST' | 'PUT' | 'DELETE'
+       *      headers: { 'Content-Type': 'application/json' }
+       *      body: JSON.stringify(data) or FormData
+       *    }
+       * 
+       * await keyword:
+       * - fetch() Promise return karta hai
+       * - await Promise resolve hone tak wait karta hai
+       * - Result mein Response object milta hai
+       * 
+       * Response Object Properties:
+       * - response.ok: Boolean (200-299 status = true)
+       * - response.status: Number (200, 404, 500, etc.)
+       * - response.json(): Parse response as JSON
+       * - response.text(): Get response as text
+       */
+      
+      // Check if upload was successful
       if (!uploadResponse.ok) {
+        // ok = false means status not in 200-299 range
         throw new Error('File upload failed');
+        
+        /* throw new Error() Explanation:
+         * 
+         * Error object create karke throw karta hai
+         * Immediately catch block mein chala jata hai
+         * 
+         * Flow:
+         * try {
+         *   throw new Error('Something wrong');
+         *   console.log('This will not execute');
+         * } catch (error) {
+         *   console.log(error.message); // "Something wrong"
+         * }
+         */
       }
       
+      // Parse JSON response
       const uploadData = await uploadResponse.json();
+      
+      /* .json() Method Explanation:
+       * 
+       * Response body ko JSON format mein parse karta hai
+       * Ye bhi Promise return karta hai, isliye await use karte hain
+       * 
+       * Server Response:
+       * {
+       *   "success": true,
+       *   "data": {
+       *     "url": "https://cloudinary.com/abc123.pdf",
+       *     "publicId": "abc123"
+       *   }
+       * }
+       * 
+       * uploadData.data.url = File URL
+       * uploadData.data.publicId = Cloudinary ID
+       */
       
       // Step 2: Create order
       const orderResponse = await fetch('/api/orders', {

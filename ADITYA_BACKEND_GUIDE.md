@@ -32,54 +32,256 @@ API Endpoints Overview:
 └──────────────────────────────────────────────────────────┘
 ```
 
-#### Database File: `src/lib/mongodb.ts`
-**What it does:** MongoDB ke saath connection establish karta hai
+#### API Example: Order Creation Endpoint
+
+**File:** `src/app/api/orders/route.ts`
+**What it does:** User ka order create karta hai
 
 ```typescript
-// src/lib/mongodb.ts
+// src/app/api/orders/route.ts
 
-import mongoose from 'mongoose';
+// Step 1: Import statements - Required libraries aur modules
+import { NextRequest, NextResponse } from 'next/server';
+// NextRequest: Incoming HTTP request ko represent karta hai
+// NextResponse: HTTP response return karne ke liye
 
-// Environment variable se MongoDB URI lena
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/print-service';
+import connectDB from '@/lib/mongodb';
+// MongoDB connection function (Vivek ne banaya hai)
 
-// Connection caching for serverless (Important for Next.js)
-let cached = global.mongoose;
+import Order from '@/models/Order';
+// Order model import (Vivek ka database model)
 
-if (!cached) {
-  cached = global.mongoose = { conn: null, promise: null };
-}
+import { getServerSession } from 'next-auth';
+// User authentication check karne ke liye
 
-async function connectDB() {
-  // Agar already connected hai to return karo
-  if (cached.conn) {
-    return cached.conn;
-  }
-
-  // Agar promise pending hai to wait karo
-  if (!cached.promise) {
-    const opts = {
-      bufferCommands: false, // Disable buffering for serverless
-    };
-
-    // MongoDB se connect karo
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
-      console.log('✅ MongoDB Connected');
-      return mongoose;
-    });
-  }
-
+// Step 2: POST Handler Function
+// HTTP POST request handle karta hai
+// async = asynchronous function (operations wait kar sakte hain)
+export async function POST(req: NextRequest) {
+  
+  // Step 3: Try-Catch Block
+  // Error handling ke liye - agar kuch galat ho to catch block run hoga
   try {
-    cached.conn = await cached.promise;
-  } catch (e) {
-    cached.promise = null;
-    throw e;
-  }
+    
+    // Step 4: Authentication Check
+    const session = await getServerSession();
+    // await = wait karo jab tak session data nahi mil jata
+    // getServerSession() user ki login info fetch karta hai
+    
+    if (!session || !session.user) {
+      // Agar user logged in nahi hai
+      return NextResponse.json(
+        { error: 'Unauthorized - Please login first' },
+        { status: 401 } // 401 = Unauthorized HTTP status code
+      );
+    }
 
-  return cached.conn;
+    // Step 5: Database Connection
+    await connectDB();
+    // MongoDB se connect karo (Vivek's function)
+    // await isliye kyunki connection time lagta hai
+
+    // Step 6: Request Body Parse
+    const body = await req.json();
+    // Request body ko JSON format mein convert karo
+    // body mein order details hongi (items, location, etc.)
+    
+    // Destructuring = object se specific values extract karna
+    const { items, pickupLocation, totalAmount } = body;
+    // Example: body = { items: [...], pickupLocation: "Library", totalAmount: 150 }
+    // Ab items, pickupLocation, totalAmount alag variables hain
+
+    // Step 7: Input Validation
+    // User ne sahi data bheja hai ya nahi check karo
+    if (!items || items.length === 0) {
+      // items nahi hai ya empty array hai
+      return NextResponse.json(
+        { error: 'No items in order' },
+        { status: 400 } // 400 = Bad Request
+      );
+    }
+
+    if (!pickupLocation) {
+      return NextResponse.json(
+        { error: 'Pickup location is required' },
+        { status: 400 }
+      );
+    }
+
+    // Step 8: Generate Unique Order Number
+    const orderNumber = `ORD${Date.now()}`;
+    // Date.now() = current timestamp in milliseconds
+    // Example: ORD1698765432123
+    // Har order ka unique number hoga
+
+    // Step 9: Create Order in Database
+    const order = await Order.create({
+      // Order.create() Mongoose method hai (Vivek's model)
+      // Naya document create karta hai database mein
+      
+      userId: session.user.id, // Logged in user ki ID
+      orderNumber: orderNumber, // Unique order number
+      items: items, // Array of items to print
+      totalAmount: totalAmount, // Total price
+      pickupLocation: pickupLocation,
+      status: 'PENDING', // Initial status
+      paymentStatus: 'PENDING', // Payment abhi pending hai
+    });
+    // await isliye kyunki database operation time lagta hai
+    // order variable mein created document milega with _id
+
+    // Step 10: Success Response
+    return NextResponse.json({
+      // JSON response client ko bhejenge
+      success: true,
+      message: 'Order created successfully',
+      data: {
+        orderId: order._id, // MongoDB generated ID
+        orderNumber: order.orderNumber,
+        totalAmount: order.totalAmount,
+      },
+    }, { status: 201 }); // 201 = Created (success)
+
+  } catch (error: any) {
+    // Catch Block: Agar koi error aaye
+    
+    // Step 11: Error Logging
+    console.error('Order creation error:', error);
+    // Console mein error print karo debugging ke liye
+    
+    // Step 12: Error Response
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to create order',
+      message: error.message, // Actual error message
+    }, { status: 500 }); // 500 = Internal Server Error
+  }
 }
 
-export default connectDB;
+// Step 13: GET Handler Function
+// User ki sari orders fetch karne ke liye
+export async function GET(req: NextRequest) {
+  try {
+    // Authentication check
+    const session = await getServerSession();
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    // Database connect
+    await connectDB();
+
+    // URL se query parameters extract karo
+    const { searchParams } = new URL(req.url);
+    // searchParams se pagination parameters milenge
+    
+    // parseInt = string ko number mein convert karta hai
+    const page = parseInt(searchParams.get('page') || '1');
+    // searchParams.get('page') = URL se 'page' parameter nikalo
+    // || '1' = agar page nahi mila to default '1' use karo
+    
+    const limit = parseInt(searchParams.get('limit') || '10');
+    // Ek page pe kitne orders dikhane hain
+    
+    const skip = (page - 1) * limit;
+    // Skip calculation for pagination
+    // Page 1: skip = 0, Page 2: skip = 10, etc.
+
+    // Database query with pagination
+    const orders = await Order.find({ userId: session.user.id })
+      // find() = MongoDB query (Vivek's model)
+      // { userId: session.user.id } = filter condition
+      // Sirf logged in user ke orders fetch karo
+      
+      .sort({ createdAt: -1 }) 
+      // sort() = orders ko sort karo
+      // createdAt: -1 = newest first (descending order)
+      // createdAt: 1 hota to oldest first (ascending)
+      
+      .skip(skip)
+      // skip() = kitne documents skip karne hain
+      // Page 2 ke liye first 10 skip karenge
+      
+      .limit(limit)
+      // limit() = maximum kitne documents return karne hain
+      
+      .lean();
+      // lean() = plain JavaScript objects return karo
+      // Mongoose documents nahi (performance ke liye better)
+
+    // Total count for pagination info
+    const total = await Order.countDocuments({ userId: session.user.id });
+    // countDocuments() = total documents count karo
+    // Pagination ke liye zaruri (total pages calculate karne ke liye)
+
+    // Success response with pagination
+    return NextResponse.json({
+      success: true,
+      data: orders, // Array of orders
+      pagination: {
+        page: page, // Current page
+        limit: limit, // Items per page
+        total: total, // Total orders
+        pages: Math.ceil(total / limit), // Total pages
+        // Math.ceil() = round up to nearest integer
+        // Example: 23 orders, 10 per page = 3 pages
+      },
+    });
+
+  } catch (error: any) {
+    console.error('Fetch orders error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch orders' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**Key Concepts Explained:**
+
+**1. async/await:**
+```typescript
+async function myFunction() {
+  const result = await someAsyncOperation();
+  // await = wait karo jab tak operation complete na ho
+  // async functions always return a Promise
+}
+```
+
+**2. Destructuring:**
+```typescript
+// Object destructuring
+const { name, age } = { name: 'John', age: 25 };
+// Same as: const name = obj.name; const age = obj.age;
+
+// Array destructuring  
+const [first, second] = [1, 2, 3];
+// first = 1, second = 2
+```
+
+**3. Optional Chaining (?.)**
+```typescript
+const user = session?.user;
+// Agar session null/undefined hai to error nahi ayega
+// user = undefined hoga
+// Without ?: session.user would throw error if session is null
+```
+
+**4. Nullish Coalescing (||)**
+```typescript
+const page = searchParams.get('page') || '1';
+// Agar left side falsy hai (null, undefined, '', 0) to right side use karo
+```
+
+**5. Template Literals:**
+```typescript
+const orderNumber = `ORD${Date.now()}`;
+// Backticks `` use karte hain
+// ${} ke andar JavaScript expressions likh sakte hain
 ```
 
 **Viva Question:**

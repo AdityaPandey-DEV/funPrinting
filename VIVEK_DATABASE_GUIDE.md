@@ -13,24 +13,59 @@ Kyunki ye ek **DBMS (Database Management System) project** hai, tum project ka m
 
 ### 1. Database Architecture & Design (40% time) - PRIMARY FOCUS (DBMS PROJECT)
 
-#### API Architecture Overview
+#### Database Architecture Overview
 
 ```
-CLIENT REQUEST
+APPLICATION LAYER (Aditya's APIs)
       ↓
-┌─────────────────────────────────────┐
-│   YOUR API ENDPOINTS                │
-│   (Next.js API Routes)              │
-├─────────────────────────────────────┤
-│ 1. Input Validation                 │
-│ 2. Business Logic                   │
-│ 3. Database Operations (use Aditya's models) │
-│ 4. Response Formatting              │
-│ 5. Error Handling                   │
-└─────────────────────────────────────┘
-      ↓
-   RESPONSE
+      │ Uses Models Created by You
+      │
+┌─────▼────────────────────────────────────────────────────┐
+│              YOUR DATABASE MODELS                         │
+│              (Mongoose Schemas)                           │
+├───────────────────────────────────────────────────────────┤
+│ 1. Schema Definition (Structure)                          │
+│ 2. Data Types (String, Number, Boolean, etc.)           │
+│ 3. Validation Rules (Required, Min, Max, etc.)          │
+│ 4. Indexes (For Fast Queries)                           │
+│ 5. Relationships (References to Other Collections)       │
+└─────┬────────────────────────────────────────────────────┘
+      │
+      │ Mongoose ODM
+      │
+┌─────▼────────────────────────────────────────────────────┐
+│              MONGODB DATABASE                             │
+│              (Document Storage)                           │
+├───────────────────────────────────────────────────────────┤
+│ Collections:                                              │
+│ • users (User documents)                                 │
+│ • orders (Order documents)                               │
+│ • admins (Admin documents)                               │
+│ • +7 more collections                                    │
+└───────────────────────────────────────────────────────────┘
 ```
+
+**What is Mongoose?**
+Mongoose ek Object Data Modeling (ODM) library hai jo MongoDB aur Node.js ke beech bridge ka kaam karti hai. Ye features provide karti hai:
+- Schema definition (structure define karna)
+- Data validation (data check karna)
+- Type casting (data types manage karna)
+- Query building (database queries banana)
+- Middleware (hooks for operations)
+
+**What is a Schema?**
+Schema ek blueprint hai jo define karta hai ki:
+- Document mein kaunse fields honge
+- Har field ka data type kya hoga
+- Kaunse fields required hain
+- Default values kya hongi
+- Validation rules kya honge
+
+**What is a Model?**
+Model ek constructor function hai jo:
+- Schema ko use karke documents create karta hai
+- Database operations perform karta hai (CRUD)
+- Queries run karta hai
 
 #### Example API: Create Order
 
