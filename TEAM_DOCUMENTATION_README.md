@@ -112,12 +112,75 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 ### 4. 📊 Database Documentation (Already Exists)
 **File:** [`DATABASE_DOCUMENTATION.md`](./DATABASE_DOCUMENTATION.md)
 - **Size:** 2102 lines
-- **For:** Mainly Aditya, but sabhi ko samajhna chahiye
+- **For:** Mainly Vivek (Database Lead), but sabhi ko samajhna chahiye
 - **Contains:**
   - Complete database architecture
   - All models in detail
   - Data flow diagrams
   - Viva questions with answers
+
+---
+
+### 5. 📈 ER Diagram - Database Visualization (NEW!) ⭐
+**File:** [`ER_DIAGRAM.md`](./ER_DIAGRAM.md)
+- **Size:** 823 lines
+- **For:** **Vivek (Database Lead)** & All team members
+- **Contains:**
+  - **Visual Mermaid ER diagram** (can be rendered in GitHub/VS Code)
+  - **Text-based ER representation**
+  - **All 10 collections** with complete schemas:
+    1. Users - Authentication & profiles
+    2. Orders - Customer orders
+    3. Admins - Admin accounts
+    4. AdminInfo - Business info
+    5. DynamicTemplates - Templates
+    6. Pricing - Service pricing
+    7. PickupLocations - Pickup points
+    8. Printers - Printer devices
+    9. PrintJobs - Queue management
+    10. NewOrders - Alt. structure
+  - Field-level documentation with explanations
+  - Relationship mappings (1:N, N:1, Foreign Keys)
+  - Indexing strategies explained
+  - Database normalization (3NF)
+  - Query examples with code
+  - Database size estimation
+  - **Viva preparation Q&A**
+
+**👉 Perfect for understanding database structure visually!**
+
+---
+
+### 6. 💡 Concepts Explained - Complete Learning Guide (NEW!) ⭐
+**File:** [`CONCEPTS_EXPLAINED.md`](./CONCEPTS_EXPLAINED.md)
+- **Size:** 700+ lines
+- **For:** All team members (especially helpful for viva)
+- **Contains:**
+  - **JavaScript/TypeScript Concepts:**
+    * async/await explained
+    * Promises
+    * Destructuring (object & array)
+    * Spread operator (...)
+    * Optional chaining (?.)
+    * Nullish coalescing (??)
+    * Template literals
+  - **React Hooks Detailed:**
+    * useState - State management
+    * useEffect - Side effects
+    * useRouter - Navigation
+  - **HTTP & API Concepts:**
+    * HTTP status codes
+    * HTTP methods (GET, POST, PUT, DELETE)
+    * fetch() API explained
+  - **MongoDB/Database Concepts:**
+    * CRUD operations
+    * Indexing benefits
+  - **Common Patterns:**
+    * Error handling
+    * Pagination
+  - Each concept explained with **code examples** and **viva answers**
+
+**👉 Perfect for learning & concept clarity!**
 
 ---
 
