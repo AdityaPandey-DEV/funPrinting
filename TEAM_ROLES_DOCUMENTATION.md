@@ -10,42 +10,40 @@
 ## 🎯 Team Structure
 
 ### Team Members
-1. **Aditya** - Full-Stack Architect & Database Lead 🌟
-2. **Vivek** - Backend & API Developer
+1. **Aditya** - Backend & Full-Stack Developer 🌟
+2. **Vivek** - Database Lead & DBMS Architect
 3. **Kartik** - Frontend & UI Developer
 4. **Gaurang** - DevOps, Testing & Quality Assurance Engineer
 
 ---
 
-## 👨‍💼 Role 1: Aditya - Full-Stack Architect & Database Lead
+## 👨‍💼 Role 1: Aditya - Backend & Full-Stack Developer
 
 ### 🎖️ Primary Responsibilities
 
-#### 1. Database Architecture & Design (DBMS Focus - 35% time)
-- **Schema Design:** Complete MongoDB database schema design aur optimization
-- **Data Modeling:** Collections, relationships, aur indexes design karna
-- **Query Optimization:** Complex queries aur aggregation pipelines optimize karna
-- **Database Performance:** Indexing strategies aur performance tuning
-- **Data Integrity:** Validation rules aur data consistency ensure karna
-- **Migration Management:** Database migrations aur versioning handle karna
-- **ACID Properties:** Transaction management aur data consistency
+#### 1. API Development & Backend Logic (40% time)
+- **API Development:** 50+ RESTful API endpoints design aur implement karna
+- **Business Logic:** Order processing, pricing calculation, validation
+- **Error Handling:** Comprehensive error handling aur logging
+- **API Security:** Authentication checks, input validation, rate limiting
+- **Documentation:** API documentation aur endpoint testing
 
-#### 2. System Architecture & Design (25% time)
-- **Architecture Design:** Complete system architecture design karna
-- **API Design:** RESTful API structure aur endpoints design karna
-- **Integration Planning:** Third-party services integration plan karna
-- **Security Implementation:** Security measures implement karna
-- **Scalability Planning:** Future growth ke liye architecture plan karna
-
-#### 3. Core Features Development (25% time)
+#### 2. Core Features Development (30% time)
 - **Authentication System:** NextAuth.js aur Google OAuth integration
 - **Payment Gateway:** Razorpay integration aur payment flow
-- **Order Management System:** Complete order lifecycle implementation
+- **Order Management:** Complete order lifecycle backend implementation
 - **File Upload System:** Cloudinary integration aur file handling
-- **Template System:** Dynamic template generation
+- **Template System:** Dynamic template generation backend
 
-#### 4. Team Leadership & Quality (15% time)
-- **Code Review:** Sabhi team members ka code review karna
+#### 3. System Architecture & Integration (20% time)
+- **Architecture Design:** Complete system architecture design karna
+- **Third-Party Integration:** Razorpay, Cloudinary, Cloudmersive APIs
+- **Document Processing:** PDF/DOCX conversion aur manipulation
+- **Email Service:** Nodemailer configuration aur notifications
+- **Webhook Handlers:** Payment webhooks aur external integrations
+
+#### 4. Team Leadership & Quality (10% time)
+- **Code Review:** Team members ka code review karna
 - **Team Coordination:** Team members ke beech communication maintain karna
 - **Technical Decisions:** Major technical decisions finalize karna
 - **Bug Fixing:** Critical bugs solve karna
@@ -53,20 +51,16 @@
 
 ### 📂 Assigned Files & Directories
 
-#### Database Layer (PRIMARY RESPONSIBILITY)
+#### API Routes (PRIMARY RESPONSIBILITY)
 ```
-- src/lib/mongodb.ts (Database connection)
-- src/models/User.ts
-- src/models/Admin.ts
-- src/models/AdminInfo.ts
-- src/models/Order.ts
-- src/models/NewOrder.ts
-- src/models/DynamicTemplate.ts
-- src/models/Pricing.ts
-- src/models/PickupLocation.ts
-- src/models/Printer.ts
-- src/models/PrintJob.ts
-- DATABASE_DOCUMENTATION.md (Complete database docs)
+- src/app/api/orders/** (Order management APIs)
+- src/app/api/payment/** (Payment APIs)
+- src/app/api/auth/** (Authentication APIs)
+- src/app/api/admin/** (Admin APIs)
+- src/app/api/templates/** (Template APIs)
+- src/app/api/convert-*/** (Conversion APIs)
+- src/app/api/generate-*/** (Generation APIs)
+- src/app/api/upload-*/** (Upload APIs)
 ```
 
 #### Core Configuration
@@ -97,80 +91,8 @@
 - src/lib/orderUtils.ts
 - src/lib/pricing.ts
 - src/lib/printQueue.ts
-- src/app/api/orders/** (Order management APIs)
-```
-
-### 🎯 Daily Tasks
-1. Database schema review aur optimization (2-3 hours)
-2. Complex queries aur aggregations design karna
-3. Code reviews karna (1-2 hours)
-4. Database indexing aur performance monitoring
-5. Core features develop karna
-6. Team members ko technical guidance dena
-7. Integration testing karna
-
-### 📊 Deliverables
-- **Complete Database Schema** (10+ collections with relationships)
-- **Database Documentation** (ER diagrams, query examples)
-- **Optimized Queries** (Aggregation pipelines, indexes)
-- **Data Models** (All Mongoose models with validation)
-- System architecture diagram
-- Authentication system (fully functional)
-- Payment gateway integration (complete)
-- Order management system
-- Performance reports (query execution times)
-
-### 💡 Key Skills Required
-- **MongoDB & Mongoose expertise** (PRIMARY)
-- **Database design & optimization** (PRIMARY)
-- **Data modeling & normalization**
-- Full-stack development
-- System design & architecture
-- Performance optimization
-- Problem-solving & decision making
-
----
-
-## 👨‍💻 Role 2: Vivek - Backend & API Developer
-
-### 🎯 Primary Responsibilities
-
-#### 1. API Development
-- **RESTful APIs:** All API endpoints develop karna
-- **API Testing:** Postman/Thunder Client se APIs test karna
-- **Error Handling:** Proper error handling implement karna
-- **Validation:** Input validation aur data sanitization
-- **Response Formatting:** Consistent API responses maintain karna
-
-#### 2. Document Processing
-- **PDF Generation:** PDF creation aur manipulation
-- **Document Conversion:** PDF to DOCX aur DOCX to PDF conversion
-- **Template Processing:** Dynamic document generation
-- **Cloudmersive Integration:** Document conversion API integration
-
-#### 3. Business Logic Implementation
-- **Order Processing:** Order lifecycle backend logic
-- **Pricing Calculation:** Dynamic pricing logic
-- **Template Management:** Template CRUD operations
-- **Admin Operations:** Admin panel backend functionality
-
-#### 4. Third-Party Integrations
-- **Cloudinary:** File storage integration
-- **Email Service:** Nodemailer configuration
-- **Cron Jobs:** Scheduled tasks setup
-- **Webhook Handlers:** Payment webhooks handle karna
-
-### 📂 Assigned Files & Directories
-
-#### API Routes
-```
-- src/app/api/convert-pdf-to-word/**
-- src/app/api/convert-word-to-pdf/**
-- src/app/api/convert-docx-to-html/**
-- src/app/api/extract-placeholders/**
-- src/app/api/generate-document/**
-- src/app/api/parse-docx-structure/**
-- src/app/api/replace-placeholders/**
+- src/lib/adminUtils.ts
+- src/lib/paymentUtils.ts
 ```
 
 #### Document Processing
@@ -186,50 +108,142 @@
 ```
 - src/lib/cloudinary.ts
 - src/app/api/upload-file/**
-- src/app/api/upload-raw-file/**
 - src/app/api/document-proxy/**
 ```
 
-#### Admin APIs
+### 🎯 Daily Tasks
+1. API endpoints develop karna (3-4 hours)
+2. Backend business logic implement karna
+3. Code reviews karna (1-2 hours)
+4. Third-party integrations handle karna
+5. Authentication aur payment features develop karna
+6. Team members ko technical guidance dena
+7. API testing aur optimization
+
+### 📊 Deliverables
+- **50+ API Endpoints** (Complete RESTful APIs)
+- **Authentication System** (NextAuth + Google OAuth)
+- **Payment Gateway Integration** (Razorpay complete)
+- **Order Management Backend** (Complete lifecycle)
+- **Document Processing** (PDF/DOCX conversion)
+- **File Upload System** (Cloudinary integration)
+- **API Documentation** (Postman collection)
+- System architecture diagram
+- Error handling & logging
+
+### 💡 Key Skills Required
+- **Backend development expertise** (PRIMARY)
+- **API design & development** (PRIMARY)
+- **Third-party integrations**
+- Full-stack development
+- System design & architecture
+- Payment gateway integration
+- Problem-solving & decision making
+
+---
+
+## 👨‍💻 Role 2: Vivek - Database Lead & DBMS Architect
+
+### 🎯 Primary Responsibilities
+
+#### 1. Database Architecture & Design (DBMS Focus - 40% time)
+- **Schema Design:** Complete MongoDB database schema design aur optimization
+- **Data Modeling:** Collections, relationships, aur indexes design karna
+- **Query Optimization:** Complex queries aur aggregation pipelines optimize karna
+- **Database Performance:** Indexing strategies aur performance tuning
+- **Data Integrity:** Validation rules aur data consistency ensure karna
+- **Migration Management:** Database migrations aur versioning handle karna
+- **ACID Properties:** Transaction management aur data consistency
+
+#### 2. Database Models & Operations (30% time)
+- **Mongoose Models:** All database models create aur maintain karna (10+ models)
+- **CRUD Operations:** Efficient database operations implement karna
+- **Aggregation Pipelines:** Complex data aggregations design karna
+- **Relationships:** Document relationships aur references manage karna
+- **Validation:** Schema-level validation implement karna
+- **Transactions:** Multi-document transactions handle karna
+
+#### 3. Database Optimization & Monitoring (20% time)
+- **Query Performance:** Slow queries identify aur optimize karna
+- **Index Management:** Proper indexing strategies implement karna
+- **Database Monitoring:** Performance metrics track karna
+- **Data Migration:** Database schema changes manage karna
+- **Backup Strategy:** Data backup aur recovery planning
+
+#### 4. Database Documentation & Support (10% time)
+- **ER Diagrams:** Database structure visualize karna
+- **Documentation:** Complete database documentation maintain karna
+- **Team Support:** Team members ko database queries mein help karna
+- **Best Practices:** Database best practices implement karna
+
+### 📂 Assigned Files & Directories
+
+#### Database Layer (PRIMARY RESPONSIBILITY)
 ```
-- src/app/api/admin/templates/**
-- src/app/api/admin/orders/**
-- src/app/api/admin/pricing/**
-- src/app/api/admin/pickup-locations/**
+- src/lib/mongodb.ts (Database connection)
+- src/models/User.ts
+- src/models/Admin.ts
+- src/models/AdminInfo.ts
+- src/models/Order.ts
+- src/models/NewOrder.ts
+- src/models/DynamicTemplate.ts
+- src/models/Pricing.ts
+- src/models/PickupLocation.ts
+- src/models/Printer.ts
+- src/models/PrintJob.ts
+- DATABASE_DOCUMENTATION.md (Complete database docs)
 ```
 
-#### Utility Services
+#### Database Utilities
 ```
-- src/lib/email-verification.ts
-- src/lib/notificationService.ts
-- src/app/api/cron/** (Cron jobs)
-- src/app/api/webhooks/**
+- src/lib/orderUtils.ts (Database queries for orders)
+- src/lib/adminUtils.ts (Database queries for admin)
+- Any utility files with database operations
+```
+
+#### Database Testing
+```
+- scripts/test-db.js
+- scripts/setup-admin.js
+- scripts/setup-pricing.js
+- scripts/setup-pickup-locations.js
+- scripts/init-admin.js
+- scripts/clear-admin-data.js
+```
+
+#### API Endpoints (Database Related)
+```
+- src/app/api/test-db/**
+- Database query implementations in all API routes
 ```
 
 ### 🎯 Daily Tasks
-1. New API endpoints develop karna
-2. Existing APIs optimize karna
-3. API documentation update karna
-4. Third-party integration test karna
-5. Error logs monitor karna
-6. Database queries optimize karna
-7. Backend testing karna
+1. Database schema design aur review (3-4 hours)
+2. Complex queries aur aggregations optimize karna
+3. Database models create aur maintain karna
+4. Indexing strategies implement karna
+5. Performance monitoring aur optimization
+6. Database documentation update karna
+7. Team members ko database support dena
 
 ### 📊 Deliverables
-- Complete API endpoints (50+ APIs)
-- Document conversion system
-- File upload/download system
-- Email notification system
-- Cron job setup
-- Admin panel backend
-- API documentation (Postman collection)
+- **Complete Database Schema** (10+ collections with relationships)
+- **Database Documentation** (ER diagrams, query examples)
+- **Optimized Queries** (Aggregation pipelines, indexes)
+- **Data Models** (All Mongoose models with validation)
+- **Performance Reports** (Query execution times)
+- **Migration Scripts** (Database setup & updates)
+- **Backup Strategy** (Data protection plan)
+- Database best practices documentation
 
 ### 💡 Key Skills Required
-- Node.js & Express expertise
-- API development & testing
-- Third-party integrations
-- Document processing
-- Error handling
+- **MongoDB & Mongoose expertise** (PRIMARY)
+- **Database design & optimization** (PRIMARY)
+- **Data modeling & normalization**
+- Schema design patterns
+- Query optimization
+- Indexing strategies
+- Performance tuning
 
 ---
 
@@ -505,18 +519,17 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                           ADITYA                                │
-│            (Architect & Database Lead)                          │
-│  • Database schema & models                                     │
-│  • System architecture                                          │
-│  • Code reviews                                                 │
-│  • Core features                                                │
+│                           VIVEK                                 │
+│            (Database Lead & DBMS Architect)                     │
+│  • Database schema & models (10+ collections)                   │
+│  • Query optimization & indexing                                │
+│  • Data modeling & relationships                                │
 └──────────────┬──────────────┬──────────────┬───────────────────┘
                │              │              │
                │ DB Models    │              │
                ▼              ▼              ▼
      ┌─────────────┐  ┌─────────────┐  ┌─────────────┐
-     │   VIVEK     │  │   KARTIK    │  │  GAURANG    │
+     │   ADITYA    │  │   KARTIK    │  │  GAURANG    │
      │  (Backend)  │  │ (Frontend)  │  │ (DevOps/QA) │
      └──────┬──────┘  └──────┬──────┘  └──────┬──────┘
             │                │                 │
@@ -534,30 +547,30 @@
 ### Task Dependencies
 
 #### Phase 1: Foundation (Week 1)
-1. **Aditya** → Database models create karna (DBMS focus)
+1. **Vivek** → Database models create karna (DBMS focus - 10+ models)
 2. **Aditya** → Architecture aur API structure define karna
 3. **Kartik** → Basic UI components create karna
-4. **Vivek** → Core utilities setup karna
+4. **Vivek** → MongoDB connection aur schema setup
 5. **Gaurang** → Environment setup aur testing scripts
 
 #### Phase 2: Core Features (Week 2-3)
-1. **Aditya** → Models ready → **Vivek** APIs develop kar sakta hai
-2. **Aditya** → Query optimization aur indexing implement karna
-3. **Vivek** → APIs ready → **Kartik** integration kar sakta hai
+1. **Vivek** → Models ready → **Aditya** APIs develop kar sakta hai
+2. **Vivek** → Query optimization aur indexing implement karna
+3. **Aditya** → APIs ready → **Kartik** integration kar sakta hai
 4. **Aditya** → Payment aur auth integrate karna
 5. **Kartik** → UI complete karna
 6. **Gaurang** → Continuous testing aur bug reporting
 
 #### Phase 3: Integration (Week 4)
 1. **All** → Features integrate karna
-2. **Aditya** → Database performance optimization
+2. **Vivek** → Database performance optimization
 3. **Gaurang** → Integration testing aur bug tracking
 4. **Kartik** → UI polishing
-5. **Vivek** → API optimization
+5. **Aditya** → API optimization aur integration fixes
 
 #### Phase 4: Testing & Deployment (Week 5)
 1. **Gaurang** → Complete testing suite run karna
-2. **Aditya** → Database final optimization aur backups
+2. **Vivek** → Database final optimization aur backups
 3. **Gaurang** → Production deployment
 4. **Aditya** → Final review aur approval
 
@@ -593,23 +606,26 @@
 
 ### Individual Metrics
 
-#### Aditya (Full-Stack Architect & Database Lead)
+#### Aditya (Backend & Full-Stack Developer)
+- [ ] **50+ API endpoints** working perfectly
+- [ ] **Authentication system** (NextAuth + Google OAuth) complete
+- [ ] **Payment gateway** (Razorpay) fully integrated
+- [ ] **API response time < 500ms** for all endpoints
+- [ ] Document processing working (PDF/DOCX conversion)
+- [ ] File upload system functional (Cloudinary)
+- [ ] Zero security vulnerabilities in APIs
+- [ ] Code reviews on time (20+ PRs per week)
+- [ ] Proper error handling & logging
+
+#### Vivek (Database Lead & DBMS Architect)
 - [ ] **Complete database schema** (10+ models with proper relationships)
 - [ ] **Query response time < 100ms** (all optimized queries)
 - [ ] **Database documentation** complete with ER diagrams
 - [ ] **Indexing implemented** on all frequently queried fields
 - [ ] **Zero data integrity issues** in production
-- [ ] Authentication & payment systems working 100%
-- [ ] Code reviews on time (20+ PRs per week)
-- [ ] Integration success rate > 95%
-
-#### Vivek (Backend)
-- [ ] 50+ API endpoints working
-- [ ] API response time < 500ms
-- [ ] 100% API test coverage
-- [ ] Zero security vulnerabilities
-- [ ] Proper error handling in all APIs
-- [ ] Document conversion working perfectly
+- [ ] All Mongoose models with proper validation
+- [ ] Aggregation pipelines for complex queries
+- [ ] Database performance reports generated
 
 #### Kartik (Frontend)
 - [ ] 100% responsive design
@@ -637,18 +653,19 @@
 - **TypeScript Handbook:** Learn TypeScript
 - **Git Best Practices:** Version control guidelines
 
-### For Aditya (Database & Architecture)
+### For Aditya (Backend & Full-Stack)
+- Node.js best practices
+- RESTful API design & development
+- Payment gateway integration (Razorpay)
+- Third-party API integrations
+- System design interviews
+
+### For Vivek (Database & DBMS)
 - **MongoDB University** - M001, M121, M201 courses
 - **Database Design Patterns** - MongoDB schema design
 - **Mongoose Documentation** - Complete ODM guide
-- System design interviews
-- Performance optimization techniques
-
-### For Vivek (Backend)
-- Node.js best practices
-- RESTful API design
-- Document processing techniques
-- Error handling patterns
+- Query optimization techniques
+- Indexing strategies
 
 ### For Kartik (Frontend)
 - React patterns
@@ -727,23 +744,24 @@
 
 ### For Aditya
 - [ ] Setup project repository
-- [ ] **Setup MongoDB Atlas cluster** (PRIMARY)
-- [ ] **Review all database models** (10+ files)
-- [ ] **Design database schema & ER diagrams**
-- [ ] **Implement database indexes**
 - [ ] Review architecture documentation
-- [ ] Setup authentication system
-- [ ] Setup payment integration
+- [ ] **Setup authentication system** (NextAuth + Google OAuth)
+- [ ] **Setup payment integration** (Razorpay)
+- [ ] Review API structure
+- [ ] Setup Postman collection
+- [ ] Plan API endpoints (50+)
+- [ ] Setup document processing (Cloudmersive)
 - [ ] Create team communication channels
 
 ### For Vivek
 - [ ] Clone repository
-- [ ] Setup development environment
-- [ ] Review API documentation
-- [ ] Setup Postman collection
-- [ ] Test existing APIs
-- [ ] Plan new API development
-- [ ] Setup document conversion APIs
+- [ ] **Setup MongoDB Atlas cluster** (PRIMARY)
+- [ ] **Review all database models** (10+ files)
+- [ ] **Design database schema & ER diagrams**
+- [ ] **Implement database indexes**
+- [ ] Study DATABASE_DOCUMENTATION.md thoroughly
+- [ ] Setup database connection
+- [ ] Create sample data for testing
 
 ### For Kartik
 - [ ] Clone repository
@@ -771,8 +789,8 @@
 ### General Questions (All Members)
 
 **Q: Apna role kya hai is project mein?**
-- **Aditya:** Main full-stack architect aur **database lead** hoon. Kyunki ye DBMS project hai, main **complete database schema design**, **MongoDB models**, **query optimization**, aur **indexing** handle karta hoon. Sath hi authentication, payment integration, aur code reviews bhi karta hoon.
-- **Vivek:** Main backend developer hoon. Main APIs develop karta hoon, document processing handle karta hoon, aur third-party integrations karta hoon.
+- **Aditya:** Main backend aur full-stack developer hoon. Main **50+ API endpoints** develop karta hoon, **authentication** (NextAuth + Google OAuth), **payment gateway** (Razorpay), document processing, aur third-party integrations handle karta hoon. Main team coordination bhi karta hoon.
+- **Vivek:** Main **database lead aur DBMS architect** hoon. Kyunki ye DBMS project hai, main **complete database schema design**, **10+ MongoDB models**, **query optimization**, aur **indexing** handle karta hoon. Database performance aur data integrity meri primary responsibility hai.
 - **Kartik:** Main frontend developer hoon. Main user interface develop karta hoon, responsive design implement karta hoon, aur user experience enhance karta hoon.
 - **Gaurang:** Main DevOps aur QA engineer hoon. Main deployment manage karta hoon, testing karta hoon, bug tracking karta hoon, aur production monitoring handle karta hoon.
 

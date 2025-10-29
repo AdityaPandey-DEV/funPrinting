@@ -1,34 +1,34 @@
-# 🌟 Aditya - Full-Stack Architect & Database Lead Technical Guide
+# 🌟 Aditya - Backend & Full-Stack Developer Technical Guide
 
 ## 👨‍💼 Role Overview
-**Position:** Full-Stack Architect & Database Lead  
-**Primary Focus:** **Database Design & Optimization (DBMS Project Focus)**, System Architecture, Core Features, Code Quality
+**Position:** Backend & Full-Stack Developer  
+**Primary Focus:** **API Development, Authentication, Payment Integration**, Third-Party Services, System Architecture
 
-### Why You're the Database Lead
-Ye ek **DBMS (Database Management System) project** hai, isliye tumhara **primary responsibility** hai complete database architecture design karna, MongoDB models create karna, queries optimize karna, aur indexing implement karna. Tum project ka technical backbone ho!
+### Why You're the Backend Lead
+Tumhara **primary responsibility** hai complete backend infrastructure build karna - **50+ API endpoints** develop karna, authentication system (NextAuth + Google OAuth) implement karna, payment gateway (Razorpay) integrate karna, aur sare third-party services handle karna. Tum project ka backend backbone ho!
 
 ---
 
 ## 📚 Your Responsibilities in Detail
 
-### 1. Database Architecture & Design (35% time) - PRIMARY FOCUS
+### 1. API Development & Backend Logic (40% time) - PRIMARY FOCUS
 
-#### Complete Database Schema
-Tumhare paas **10+ MongoDB collections** hain jo tum design aur maintain karoge:
+#### Complete Backend Infrastructure
+Tumhare paas **50+ API endpoints** hain jo tum design aur implement karoge:
 
 ```typescript
-Collections Overview:
+API Endpoints Overview:
 ┌──────────────────────────────────────────────────────────┐
-│ 1. Users Collection     → User authentication & profiles │
-│ 2. Admins Collection    → Admin accounts                 │
-│ 3. AdminInfo Collection → Business information          │
-│ 4. Orders Collection    → Main orders                   │
-│ 5. NewOrder Collection  → Alternative order structure   │
-│ 6. DynamicTemplate      → Template definitions          │
-│ 7. Pricing Collection   → Price configurations          │
-│ 8. PickupLocation       → Pickup points                 │
-│ 9. Printer Collection   → Printer devices               │
-│ 10. PrintJob Collection → Print queue management        │
+│ 1. Authentication APIs  → Login, signup, OAuth          │
+│ 2. Payment APIs         → Razorpay integration          │
+│ 3. Order APIs           → Order management              │
+│ 4. Upload APIs          → File upload to Cloudinary     │
+│ 5. Template APIs        → Template operations           │
+│ 6. Conversion APIs      → PDF ↔ DOCX conversion        │
+│ 7. Admin APIs           → Admin panel operations        │
+│ 8. User APIs            → User profile & settings       │
+│ 9. Webhook APIs         → Payment webhooks              │
+│ 10. Utility APIs        → Email, notifications, etc.    │
 └──────────────────────────────────────────────────────────┘
 ```
 

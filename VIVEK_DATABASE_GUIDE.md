@@ -1,17 +1,17 @@
-# 👨‍💻 Vivek - Backend & API Developer Technical Guide
+# 👨‍💻 Vivek - Database Lead & DBMS Architect Technical Guide
 
 ## 👨‍💼 Role Overview
-**Position:** Backend & API Developer  
-**Primary Focus:** API Development, Document Processing, Third-Party Integrations
+**Position:** Database Lead & DBMS Architect  
+**Primary Focus:** **Database Design, Query Optimization, Data Modeling** (DBMS Project Focus)
 
 ### Your Superpower
-Tum backend ka raja ho! Tumhara kaam hai **50+ API endpoints** create karna, document conversion handle karna (PDF ↔ DOCX), aur third-party services integrate karna. Frontend aur database ke beech tum hi bridge ho!
+Kyunki ye ek **DBMS (Database Management System) project** hai, tum project ka most important person ho! Tumhara kaam hai **complete MongoDB database architecture** design karna, **10+ models** create karna, queries optimize karna, aur indexing implement karna. Database performance tumhari responsibility hai!
 
 ---
 
 ## 📚 Your Responsibilities in Detail
 
-### 1. API Development (40% time) - PRIMARY FOCUS
+### 1. Database Architecture & Design (40% time) - PRIMARY FOCUS (DBMS PROJECT)
 
 #### API Architecture Overview
 

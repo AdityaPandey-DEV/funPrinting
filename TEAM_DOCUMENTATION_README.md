@@ -26,37 +26,37 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 ### 2. Individual Technical Guides
 
-#### 🌟 Aditya - Database Lead & Full-Stack Architect
-**File:** [`ADITYA_TECHNICAL_GUIDE.md`](./ADITYA_TECHNICAL_GUIDE.md)
+#### 🌟 Aditya - Backend & Full-Stack Developer
+**File:** [`ADITYA_BACKEND_GUIDE.md`](./ADITYA_BACKEND_GUIDE.md)
 - **Size:** 942 lines
+- **Primary Focus:** API Development, Authentication, Payment
+- **Contains:**
+  - 50+ API endpoints design & implementation
+  - Authentication system (NextAuth + Google OAuth)
+  - Payment gateway integration (Razorpay)
+  - Third-party integrations
+  - Document processing (PDF ↔ DOCX)
+  - Error handling patterns
+  - Leadership guidelines
+
+**Role:** Backend ka raja - APIs, authentication, payment, integrations Aditya handle karega!
+
+---
+
+#### 👨‍💻 Vivek - Database Lead & DBMS Architect
+**File:** [`VIVEK_DATABASE_GUIDE.md`](./VIVEK_DATABASE_GUIDE.md)
+- **Size:** 585 lines
 - **Primary Focus:** Database Design (DBMS Project)
 - **Contains:**
   - Complete MongoDB schema design
   - 10+ database models with code
   - Query optimization techniques
   - Indexing strategies
-  - Authentication implementation
-  - Payment gateway integration
-  - Leadership guidelines
+  - Data modeling & relationships
+  - Performance tuning
+  - Database best practices
 
-**Role:** Kyunki ye DBMS project hai, Aditya **database architecture** handle karega. Sabse important role!
-
----
-
-#### 👨‍💻 Vivek - Backend Developer
-**File:** [`VIVEK_BACKEND_GUIDE.md`](./VIVEK_BACKEND_GUIDE.md)
-- **Size:** 585 lines
-- **Primary Focus:** API Development
-- **Contains:**
-  - 50+ API endpoints design
-  - RESTful API best practices
-  - Document processing (PDF ↔ DOCX)
-  - Cloudmersive integration
-  - Cloudinary file upload
-  - Error handling patterns
-  - Admin APIs
-
-**Role:** Backend ka raja - sare APIs aur integrations Vivek ka kaam
+**Role:** Kyunki ye DBMS project hai, Vivek **database architecture** handle karega. Sabse important role!
 
 ---
 
@@ -123,34 +123,34 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 ## 🎯 Kisko Kya Padhna Chahiye?
 
-### Aditya (Database Lead) 🌟
+### Aditya (Backend & Full-Stack Developer) 🌟
 **Must Read:**
 1. ✅ `TEAM_ROLES_DOCUMENTATION.md` (Team overview)
-2. ✅ `ADITYA_TECHNICAL_GUIDE.md` (Your detailed guide)
-3. ✅ `DATABASE_DOCUMENTATION.md` (Complete DB docs)
-4. ✅ `PROJECT_SUMMARY.md` (Quick reference)
+2. ✅ `ADITYA_BACKEND_GUIDE.md` (Your detailed guide)
+3. ✅ `PROJECT_SUMMARY.md` (Quick reference)
 
 **Focus Areas:**
-- MongoDB schema design
-- Query optimization
-- Indexing strategies
+- API development (50+ endpoints)
 - Authentication & payment
+- Third-party integrations
+- Document processing
 - Code reviews
 
 ---
 
-### Vivek (Backend Developer)
+### Vivek (Database Lead & DBMS Architect)
 **Must Read:**
 1. ✅ `TEAM_ROLES_DOCUMENTATION.md` (Team overview)
-2. ✅ `VIVEK_BACKEND_GUIDE.md` (Your detailed guide)
-3. ✅ `DATABASE_DOCUMENTATION.md` (Models understanding ke liye)
+2. ✅ `VIVEK_DATABASE_GUIDE.md` (Your detailed guide)
+3. ✅ `DATABASE_DOCUMENTATION.md` (Complete DB docs)
 4. ✅ `PROJECT_SUMMARY.md` (Quick reference)
 
 **Focus Areas:**
-- API development
-- Document processing
-- Third-party integrations
-- Error handling
+- MongoDB schema design (10+ models)
+- Query optimization
+- Indexing strategies
+- Data modeling
+- Performance tuning
 
 ---
 
@@ -226,18 +226,20 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 ## 💡 Tips for Each Role
 
-### Aditya (Database Lead)
-- **Database design** pe strong grip rakho
-- Indexing aur optimization concepts clear karo
-- Authentication flow explain kar sako
-- Payment integration samjho
+### Aditya (Backend & Full-Stack)
+- API endpoints ki list ready rakho (50+)
+- Authentication flow explain kar sako (NextAuth + OAuth)
+- Payment integration samjho (Razorpay)
+- Document conversion process explain kar sako
+- Third-party integration samjho
 - Leadership qualities demonstrate karo
 
-### Vivek (Backend)
-- API endpoints ki list ready rakho
-- Document conversion process explain kar sako
-- Error handling examples ready rakho
-- Third-party integration samjho
+### Vivek (Database Lead)
+- **Database design** pe strong grip rakho
+- Indexing aur optimization concepts clear karo
+- Query optimization explain kar sako
+- Data modeling aur relationships samjho
+- Performance tuning techniques jano
 
 ### Kartik (Frontend)
 - Component architecture samjho
@@ -257,18 +259,20 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 
 ### Aditya
 - [ ] Read all documentation
-- [ ] Setup MongoDB Atlas
-- [ ] Review all 10+ models
-- [ ] Design ER diagrams
-- [ ] Setup authentication
-- [ ] Setup payment gateway
+- [ ] Setup authentication (NextAuth + OAuth)
+- [ ] Setup payment gateway (Razorpay)
+- [ ] Setup Postman collection
+- [ ] Review API structure (50+ endpoints)
+- [ ] Test Cloudmersive API
+- [ ] Setup Cloudinary
 
 ### Vivek
 - [ ] Read your guide
-- [ ] Setup Postman collection
-- [ ] Review API structure
-- [ ] Test Cloudmersive API
-- [ ] Setup Cloudinary
+- [ ] Setup MongoDB Atlas
+- [ ] Review all 10+ models
+- [ ] Design ER diagrams
+- [ ] Implement indexing
+- [ ] Study query optimization
 
 ### Kartik
 - [ ] Read your guide
@@ -306,8 +310,8 @@ Ye documentation 4 team members ke liye banaya gaya hai. Apna naam dhundho aur a
 | File | Status | Size | For |
 |------|--------|------|-----|
 | TEAM_ROLES_DOCUMENTATION.md | ✅ Complete | 813 lines | All |
-| ADITYA_TECHNICAL_GUIDE.md | ✅ Complete | 942 lines | Aditya |
-| VIVEK_BACKEND_GUIDE.md | ✅ Complete | 585 lines | Vivek |
+| ADITYA_BACKEND_GUIDE.md | ✅ Complete | 942 lines | Aditya |
+| VIVEK_DATABASE_GUIDE.md | ✅ Complete | 585 lines | Vivek |
 | KARTIK_FRONTEND_GUIDE.md | ✅ Complete | 463 lines | Kartik |
 | GAURANG_DEVOPS_QA_GUIDE.md | ✅ Complete | 531 lines | Gaurang |
 | PROJECT_SUMMARY.md | ✅ Complete | 445 lines | All |
@@ -338,5 +342,5 @@ Make this DBMS project awesome!
 **Created By:** AI Assistant  
 **For:** Aditya, Vivek, Kartik, Gaurang
 
-**Note:** Aditya ko special focus diya gaya hai kyunki wo database lead hai aur ye DBMS project hai. 🌟
+**Note:** Vivek ko special focus diya gaya hai kyunki wo database lead hai aur ye DBMS project hai. Aditya backend aur APIs handle karega. 🌟
 

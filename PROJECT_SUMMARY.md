@@ -15,8 +15,8 @@
 
 | Name | Role | Primary Responsibility | Key Focus |
 |------|------|----------------------|-----------|
-| **Aditya** 🌟 | Full-Stack Architect & Database Lead | **Database Design (DBMS Focus)**, Architecture, Core Features | MongoDB schemas, query optimization, indexing, authentication, payment |
-| **Vivek** | Backend & API Developer | API Development, Document Processing | 50+ API endpoints, PDF/DOCX conversion, third-party integrations |
+| **Aditya** 🌟 | Backend & Full-Stack Developer | **API Development**, Authentication, Payment Integration | 50+ API endpoints, NextAuth + OAuth, Razorpay, third-party integrations |
+| **Vivek** | Database Lead & DBMS Architect | **Database Design (DBMS Focus)**, Query Optimization | MongoDB schemas (10+ models), query optimization, indexing, data modeling |
 | **Kartik** | Frontend & UI Developer | User Interface, Responsive Design | React components, Tailwind CSS, user experience |
 | **Gaurang** | DevOps & QA Engineer | Deployment, Testing, Quality Assurance | Vercel deployment, testing scripts, bug tracking |
 
@@ -36,25 +36,25 @@
 ### 2. Individual Technical Guides
 
 #### Aditya's Guide
-**File:** `ADITYA_TECHNICAL_GUIDE.md` (942 lines)
-- **Database architecture & design** (PRIMARY - 35% time)
+**File:** `ADITYA_BACKEND_GUIDE.md` (942 lines)
+- **API development & backend logic** (PRIMARY - 40% time)
+- 50+ API endpoints design & implementation
+- Authentication system (NextAuth + Google OAuth)
+- Payment gateway integration (Razorpay)
+- Third-party integrations (Cloudinary, Cloudmersive)
+- Document processing (PDF ↔ DOCX)
+- Error handling & logging
+- Code review guidelines
+
+#### Vivek's Guide
+**File:** `VIVEK_DATABASE_GUIDE.md` (585 lines)
+- **Database architecture & design** (PRIMARY - 40% time)
 - Complete MongoDB schema explanation
 - 10+ database models with code examples
 - Query optimization techniques
 - Indexing strategies
-- Authentication system implementation
-- Payment gateway integration
-- Code review guidelines
-
-#### Vivek's Guide
-**File:** `VIVEK_BACKEND_GUIDE.md` (585 lines)
-- API development best practices
-- 50+ API endpoints structure
-- Document processing (PDF ↔ DOCX)
-- Cloudmersive integration
-- Cloudinary file upload
-- Error handling patterns
-- Admin APIs
+- Data modeling & relationships
+- Performance tuning
 
 #### Kartik's Guide
 **File:** `KARTIK_FRONTEND_GUIDE.md` (463 lines)
@@ -191,7 +191,7 @@
 - **File Processing:** Cloudmersive API, pdf-lib
 - **Document:** docxtemplater, mammoth
 
-### Database (Aditya's Domain) ⭐
+### Database (Vivek's Domain) ⭐
 - **Database:** MongoDB Atlas
 - **ODM:** Mongoose
 - **Collections:** 10+ collections
@@ -214,7 +214,7 @@
 
 ---
 
-## 📊 Database Schema (Aditya's Focus)
+## 📊 Database Schema (Vivek's Focus)
 
 ### Main Collections
 
@@ -265,18 +265,18 @@
 
 ### Phase 1: Foundation (Week 1)
 ```
-Aditya  → Design & create all database models
-Aditya  → Setup MongoDB Atlas & indexes
+Vivek   → Design & create all database models (10+)
+Aditya  → Setup API structure & architecture
 Kartik  → Create basic UI components
-Vivek   → Setup API structure & utilities
+Vivek   → Setup MongoDB Atlas & indexes
 Gaurang → Setup development environment & scripts
 ```
 
 ### Phase 2: Core Features (Week 2-3)
 ```
 Aditya  → Implement authentication & payment
-Aditya  → Optimize database queries
-Vivek   → Develop 50+ API endpoints
+Vivek   → Optimize database queries & indexing
+Aditya  → Develop 50+ API endpoints
 Kartik  → Build all pages & forms
 Gaurang → Continuous testing & bug reporting
 ```
@@ -284,8 +284,8 @@ Gaurang → Continuous testing & bug reporting
 ### Phase 3: Integration (Week 4)
 ```
 All     → Integrate features together
-Aditya  → Database performance tuning
-Vivek   → API optimization
+Vivek   → Database performance tuning
+Aditya  → API optimization & fixes
 Kartik  → UI polishing & responsive fixes
 Gaurang → Integration testing
 ```
@@ -293,7 +293,7 @@ Gaurang → Integration testing
 ### Phase 4: Deployment (Week 5)
 ```
 Gaurang → Deploy to Vercel production
-Aditya  → Final database optimization
+Vivek   → Final database optimization
 Gaurang → Production monitoring setup
 All     → Bug fixes & improvements
 ```
@@ -317,12 +317,12 @@ All     → Bug fixes & improvements
 - **Storage:** Cloudinary
 
 **Q: Tumhara role kya hai?**
-- **Aditya:** Database lead - Complete MongoDB schema design, query optimization, indexing, plus authentication & payment integration
-- **Vivek:** Backend - API development, document processing, third-party integrations
+- **Aditya:** Backend lead - 50+ API endpoints, authentication (NextAuth + OAuth), payment gateway (Razorpay), third-party integrations
+- **Vivek:** Database lead (DBMS focus) - Complete MongoDB schema design (10+ models), query optimization, indexing, data modeling
 - **Kartik:** Frontend - UI/UX, responsive design, React components
 - **Gaurang:** DevOps/QA - Deployment, testing, monitoring, bug tracking
 
-### Database Questions (Aditya Focus)
+### Database Questions (Vivek Focus)
 
 **Q: MongoDB kyun use kiya?**
 **A:** MongoDB ek NoSQL database hai jo flexible schema provide karta hai. Document-based storage hai jo complex nested data easily handle kar sakta hai. Next.js ke saath integrate karna easy hai aur Mongoose ODM powerful features provide karta hai.
