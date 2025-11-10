@@ -52,6 +52,55 @@ export async function POST(request: NextRequest) {
     // Check if order is already processed (race condition protection)
     if (order.paymentStatus === 'completed' && order.razorpayPaymentId === razorpay_payment_id) {
       console.log(`ℹ️ Order ${order.orderId} already processed for payment ${razorpay_payment_id}`);
+      
+      // Even if payment is already completed, check if print job needs to be sent
+      if (order.orderType === 'file' && order.fileURL) {
+        try {
+          // Determine printer index
+          let printerUrls: string[] = [];
+          const urlsEnv = process.env.PRINTER_API_URLS;
+          if (urlsEnv) {
+            const trimmed = urlsEnv.trim();
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+              try {
+                printerUrls = JSON.parse(trimmed);
+                if (!Array.isArray(printerUrls)) printerUrls = [];
+              } catch {
+                const urlMatch = trimmed.match(/\[(.*?)\]/);
+                if (urlMatch && urlMatch[1]) {
+                  printerUrls = [urlMatch[1].trim()];
+                }
+              }
+            } else {
+              printerUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
+              if (printerUrls.length === 0 && trimmed.length > 0) {
+                printerUrls = [trimmed];
+              }
+            }
+            printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
+          }
+          const printerIndex = printerUrls.length > 0 ? 1 : 1;
+          
+          // Check if print job was already sent by checking delivery number or print job status
+          const PrintJob = (await import('@/models/PrintJob')).default;
+          const existingPrintJob = await PrintJob.findOne({ orderId: order._id.toString() });
+          
+          if (!existingPrintJob || existingPrintJob.status === 'pending') {
+            console.log(`🖨️ Payment already completed, but sending print job for order: ${order.orderId}`);
+            const printJobResult = await sendPrintJobFromOrder(order, printerIndex);
+            
+            if (printJobResult.success && printJobResult.deliveryNumber) {
+              await Order.findByIdAndUpdate(order._id, {
+                $set: { deliveryNumber: printJobResult.deliveryNumber }
+              });
+              console.log(`✅ Print job sent for already-completed order. Delivery number: ${printJobResult.deliveryNumber}`);
+            }
+          }
+        } catch (printJobError) {
+          console.error('❌ Error sending print job for already-completed order:', printJobError);
+        }
+      }
+      
       return NextResponse.json({
         success: true,
         message: 'Payment already verified',
