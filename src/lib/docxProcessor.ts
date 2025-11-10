@@ -1,4 +1,5 @@
 import PizZip from 'pizzip';
+import { createReport } from 'docx-templates';
 
 /**
  * Preprocess DOCX to directly replace {{placeholder}} with form data
@@ -52,7 +53,7 @@ export async function preprocessDocxTemplate(docxBuffer: Buffer, data: Record<st
 }
 
 /**
- * Fill DOCX template with data using direct replacement
+ * Fill DOCX template with data using docx-templates library (handles split placeholders)
  * @param docxBuffer - DOCX file as Buffer
  * @param data - Object containing placeholder values
  * @returns Buffer - Filled DOCX as Buffer
@@ -72,20 +73,51 @@ export async function fillDocxTemplate(docxBuffer: Buffer, data: Record<string, 
       throw new Error('Invalid DOCX file: file does not appear to be a valid ZIP/DOCX file');
     }
     
-    // Preprocess the DOCX to directly replace {{placeholder}} with form data
-    let processedBuffer = docxBuffer;
+    // Use docx-templates library which handles split placeholders correctly
     try {
-      console.log('🔄 Preprocessing DOCX template with direct replacement...');
-      processedBuffer = await preprocessDocxTemplate(docxBuffer, data);
-      console.log('✅ DOCX preprocessing completed successfully');
-    } catch (preprocessError) {
-      console.warn('⚠️ DOCX preprocessing failed, using original buffer:', preprocessError);
-      // Continue with original buffer if preprocessing fails
+      console.log('🔄 Using docx-templates library to replace placeholders...');
+      console.log('📝 Placeholders to replace:', Object.keys(data));
+      
+      const report = await createReport({
+        template: docxBuffer,
+        data: data,
+        cmdDelimiter: ['{{', '}}'], // Use {{placeholder}} format
+        processLineBreaks: true,
+        noSandbox: false,
+        additionalJsContext: {
+          formatDate: (date: string) => {
+            if (!date) return new Date().toLocaleDateString();
+            return new Date(date).toLocaleDateString();
+          },
+          formatCurrency: (amount: number) => {
+            if (!amount) return '₹0.00';
+            return new Intl.NumberFormat('en-IN', {
+              style: 'currency',
+              currency: 'INR'
+            }).format(amount);
+          }
+        }
+      });
+      
+      const resultBuffer = await report;
+      console.log('✅ DOCX template filled successfully using docx-templates');
+      console.log('📊 Result buffer size:', resultBuffer.length, 'bytes');
+      return Buffer.from(resultBuffer);
+      
+    } catch (docxTemplatesError) {
+      console.warn('⚠️ docx-templates failed, falling back to direct XML replacement:', docxTemplatesError);
+      
+      // Fallback to direct XML replacement
+      try {
+        console.log('🔄 Falling back to direct XML replacement...');
+        const processedBuffer = await preprocessDocxTemplate(docxBuffer, data);
+        console.log('✅ DOCX preprocessing completed successfully (fallback)');
+        return processedBuffer;
+      } catch (preprocessError) {
+        console.error('❌ Both docx-templates and direct replacement failed:', preprocessError);
+        throw new Error('Failed to fill DOCX template with both methods');
+      }
     }
-    
-    // Since we're doing direct replacement in preprocessing, we can return the processed buffer directly
-    console.log('✅ DOCX template filled successfully with direct replacement');
-    return processedBuffer;
     
   } catch (error: any) {
     console.error('Error filling DOCX template:', error);
