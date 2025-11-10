@@ -63,7 +63,28 @@ function PrinterMonitorContent() {
       setIsLoading(true);
       const response = await fetch(`/api/admin/printer-status?t=${Date.now()}`);
       const data = await response.json();
-      setStatus(data);
+      
+      // Ensure data has the expected structure
+      if (data && data.success !== undefined) {
+        setStatus(data);
+      } else {
+        // Handle unexpected response structure
+        setStatus({
+          success: false,
+          printerIndex: 1,
+          printerUrl: data?.printerUrl || '',
+          printerApi: {
+            health: data?.printerApi?.health || { status: 'unknown' },
+            queue: data?.printerApi?.queue || { total: 0, pending: 0, jobs: [] }
+          },
+          funPrinting: {
+            printerHealth: data?.funPrinting?.printerHealth || { available: false, message: 'Unknown status' },
+            retryQueue: data?.funPrinting?.retryQueue || { total: 0, jobs: [] }
+          },
+          timestamp: new Date().toISOString(),
+          error: 'Unexpected response format'
+        });
+      }
     } catch (error) {
       console.error('Error fetching printer status:', error);
       setStatus({
@@ -167,9 +188,9 @@ function PrinterMonitorContent() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Printer API Status</p>
                     <p className={`text-2xl font-bold mt-2 ${
-                      status.printerApi.health.status === 'healthy' ? 'text-green-600' : 'text-red-600'
+                      status.printerApi?.health?.status === 'healthy' ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {status.printerApi.health.status === 'healthy' ? '✅ Online' : '❌ Offline'}
+                      {status.printerApi?.health?.status === 'healthy' ? '✅ Online' : '❌ Offline'}
                     </p>
                   </div>
                   <div className="text-3xl">🖨️</div>
@@ -181,7 +202,7 @@ function PrinterMonitorContent() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Queue Total</p>
                     <p className="text-2xl font-bold text-gray-900 mt-2">
-                      {status.printerApi.queue.total}
+                      {status.printerApi?.queue?.total || 0}
                     </p>
                   </div>
                   <div className="text-3xl">📋</div>
@@ -193,7 +214,7 @@ function PrinterMonitorContent() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Pending Jobs</p>
                     <p className="text-2xl font-bold text-yellow-600 mt-2">
-                      {status.printerApi.queue.pending}
+                      {status.printerApi?.queue?.pending || 0}
                     </p>
                   </div>
                   <div className="text-3xl">⏳</div>
@@ -205,7 +226,7 @@ function PrinterMonitorContent() {
                   <div>
                     <p className="text-sm font-medium text-gray-600">Retry Queue</p>
                     <p className="text-2xl font-bold text-orange-600 mt-2">
-                      {status.funPrinting.retryQueue.total}
+                      {status.funPrinting?.retryQueue?.total || 0}
                     </p>
                   </div>
                   <div className="text-3xl">🔄</div>
@@ -225,18 +246,18 @@ function PrinterMonitorContent() {
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">URL:</span>
-                        <span className="text-sm font-mono text-gray-900">{status.printerUrl}</span>
+                        <span className="text-sm font-mono text-gray-900">{status.printerUrl || 'Not configured'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Printer Index:</span>
-                        <span className="text-sm font-medium text-gray-900">{status.printerIndex}</span>
+                        <span className="text-sm font-medium text-gray-900">{status.printerIndex || 1}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Status:</span>
                         <span className={`text-sm font-medium ${
-                          status.printerApi.health.status === 'healthy' ? 'text-green-600' : 'text-red-600'
+                          status.printerApi?.health?.status === 'healthy' ? 'text-green-600' : 'text-red-600'
                         }`}>
-                          {status.printerApi.health.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
+                          {status.printerApi?.health?.status === 'healthy' ? 'Healthy' : 'Unhealthy'}
                         </span>
                       </div>
                     </div>
@@ -244,7 +265,7 @@ function PrinterMonitorContent() {
                   <div>
                     <h3 className="text-sm font-medium text-gray-700 mb-2">Printer Status</h3>
                     <div className="space-y-2">
-                      {status.printerApi.health.printer && (
+                      {status.printerApi?.health?.printer && (
                         <>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-gray-600">Available:</span>
@@ -260,7 +281,7 @@ function PrinterMonitorContent() {
                           </div>
                         </>
                       )}
-                      {status.printerApi.health.error && (
+                      {status.printerApi?.health?.error && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-red-600">Error:</span>
                           <span className="text-sm text-red-600">{status.printerApi.health.error}</span>
@@ -276,11 +297,11 @@ function PrinterMonitorContent() {
             <div className="bg-white rounded-lg shadow border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Print Queue ({status.printerApi.queue.pending} pending)
+                  Print Queue ({status.printerApi?.queue?.pending || 0} pending)
                 </h2>
               </div>
               <div className="overflow-x-auto">
-                {status.printerApi.queue.jobs.length > 0 ? (
+                {status.printerApi?.queue?.jobs && status.printerApi.queue.jobs.length > 0 ? (
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
@@ -305,7 +326,7 @@ function PrinterMonitorContent() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {status.printerApi.queue.jobs.map((job) => (
+                      {status.printerApi?.queue?.jobs?.map((job: any) => (
                         <tr key={job.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             {job.id.substring(0, 20)}...
@@ -342,7 +363,7 @@ function PrinterMonitorContent() {
             </div>
 
             {/* Retry Queue (funPrinting) */}
-            {status.funPrinting.retryQueue.total > 0 && (
+            {status.funPrinting?.retryQueue && status.funPrinting.retryQueue.total > 0 && (
               <div className="bg-white rounded-lg shadow border border-gray-200">
                 <div className="px-6 py-4 border-b border-gray-200 bg-orange-50">
                   <h2 className="text-xl font-semibold text-orange-900">
@@ -354,7 +375,7 @@ function PrinterMonitorContent() {
                 </div>
                 <div className="p-6">
                   <div className="space-y-2">
-                    {status.funPrinting.retryQueue.jobs.map((job, index) => (
+                    {status.funPrinting.retryQueue.jobs?.map((job: any, index: number) => (
                       <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded">
                         <span className="text-sm text-gray-600">
                           Queued at: {formatDate(job.timestamp.toString())}
