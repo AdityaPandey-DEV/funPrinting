@@ -330,6 +330,12 @@ function AdminDashboardContent() {
             description="Manage business information"
             href="/admin/info"
           />
+          <AdminCard
+            icon="🖨️"
+            title="Printer Monitor"
+            description="Monitor printer API and queue status"
+            href="/admin/printer-monitor"
+          />
         </div>
 
         {/* Orders Table */}
