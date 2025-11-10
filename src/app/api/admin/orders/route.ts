@@ -14,14 +14,23 @@ async function processCompletedPaymentOrders() {
       paymentStatus: 'completed',
       orderStatus: 'pending',
       orderType: 'file',
-      fileURL: { $exists: true, $ne: null }
+      fileURL: { $exists: true, $ne: null, $nin: [null, ''] }
     }).sort({ createdAt: -1 });
 
+    console.log(`🔍 Checking for orders with completed payment...`);
+    console.log(`📊 Found ${pendingOrders.length} orders matching criteria`);
+
     if (pendingOrders.length === 0) {
+      // Log why no orders were found
+      const totalCompleted = await Order.countDocuments({ paymentStatus: 'completed' });
+      const totalPending = await Order.countDocuments({ orderStatus: 'pending' });
+      const totalFileOrders = await Order.countDocuments({ orderType: 'file' });
+      console.log(`📊 Stats: ${totalCompleted} completed payments, ${totalPending} pending orders, ${totalFileOrders} file orders`);
       return { processed: 0, skipped: 0, failed: 0 };
     }
 
     console.log(`🔄 Found ${pendingOrders.length} orders with completed payment but pending status`);
+    console.log(`📋 Order IDs: ${pendingOrders.map(o => o.orderId).join(', ')}`);
 
     // Determine printer index
     let printerUrls: string[] = [];
@@ -144,10 +153,15 @@ export async function GET() {
   try {
     await connectDB();
     
+    console.log(`🔄 ADMIN API - Starting auto-processing at ${new Date().toISOString()}`);
+    
     // Automatically process orders with completed payment but pending status
     const processResult = await processCompletedPaymentOrders();
-    if (processResult.processed > 0 || processResult.skipped > 0) {
-      console.log(`🔄 Auto-processed orders: ${processResult.processed} processed, ${processResult.skipped} skipped, ${processResult.failed} failed`);
+    
+    console.log(`🔄 Auto-processed orders: ${processResult.processed} processed, ${processResult.skipped} skipped, ${processResult.failed} failed`);
+    
+    if (processResult.processed > 0) {
+      console.log(`✅ Successfully processed ${processResult.processed} orders - they should now be in the print queue`);
     }
     
     const orders = await Order.find({}).sort({ createdAt: -1 });
@@ -155,6 +169,8 @@ export async function GET() {
     console.log(`🔍 ADMIN API - Fetched ${orders.length} orders from database at ${new Date().toISOString()}`);
     console.log('🔍 ADMIN API - Latest orders:', orders.slice(0, 3).map(o => ({
       orderId: o.orderId,
+      paymentStatus: o.paymentStatus,
+      orderStatus: o.orderStatus,
       createdAt: o.createdAt,
       serviceOption: o.printingOptions?.serviceOption,
       expectedDate: o.expectedDate,
@@ -166,7 +182,12 @@ export async function GET() {
       orders,
       timestamp: new Date().toISOString(),
       count: orders.length,
-      autoProcessed: processResult
+      autoProcessed: processResult,
+      message: processResult.processed > 0 
+        ? `✅ Auto-processed ${processResult.processed} orders - they are now in the print queue`
+        : processResult.skipped > 0
+        ? `⏭️ Skipped ${processResult.skipped} orders (already processed)`
+        : 'No orders needed processing'
     });
   } catch (error) {
     console.error('Error fetching orders:', error);
