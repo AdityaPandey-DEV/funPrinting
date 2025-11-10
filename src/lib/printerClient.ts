@@ -101,6 +101,40 @@ export class PrinterClient {
   }
 
   /**
+   * Extract error message from axios error
+   */
+  private extractErrorMessage(error: any): string {
+    // Check if it's an axios error with response
+    if (error.response) {
+      const status = error.response.status;
+      const statusText = error.response.statusText;
+      const responseData = error.response.data;
+      
+      // Try to extract error message from response data
+      let errorMessage = '';
+      if (responseData) {
+        if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+      }
+      
+      // Build comprehensive error message
+      if (errorMessage) {
+        return `${status} ${statusText}: ${errorMessage}`;
+      } else {
+        return `${status} ${statusText}`;
+      }
+    }
+    
+    // Fall back to error message or default
+    return error.message || 'Unknown error';
+  }
+
+  /**
    * Select printer API URL based on printer index
    */
   private getPrinterUrl(printerIndex: number): string | null {
@@ -143,10 +177,43 @@ export class PrinterClient {
         customerInfo: request.customerInfo
       });
 
-      console.log(`✅ Print job sent successfully: ${response.data.jobId}`);
+      // Validate response - check if success is actually true
+      if (!response.data || response.data.success !== true) {
+        const errorMessage = response.data?.error || response.data?.message || 'Printer API returned unsuccessful response';
+        console.error(`❌ Printer API returned unsuccessful response:`, {
+          success: response.data?.success,
+          message: response.data?.message,
+          error: response.data?.error,
+          data: response.data
+        });
+        
+        // Add to retry queue
+        this.addToRetryQueue(request);
+        
+        return {
+          success: false,
+          message: 'Printer API returned unsuccessful response',
+          error: errorMessage
+        };
+      }
+
+      console.log(`✅ Print job sent successfully: ${response.data.jobId}, Delivery: ${response.data.deliveryNumber || 'N/A'}`);
       return response.data;
     } catch (error: any) {
-      console.error(`❌ Error sending print job to ${printerUrl}:`, error.message);
+      // Extract full error details from axios error
+      const errorMessage = this.extractErrorMessage(error);
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText;
+      const responseData = error.response?.data;
+      
+      // Log full error details
+      console.error(`❌ Error sending print job to ${printerUrl}:`, {
+        message: errorMessage,
+        status: statusCode,
+        statusText: statusText,
+        responseData: responseData,
+        error: error.message
+      });
       
       // Add to retry queue (infinite retry)
       this.addToRetryQueue(request);
@@ -154,7 +221,7 @@ export class PrinterClient {
       return {
         success: false,
         message: 'Failed to send print job, added to retry queue',
-        error: error.message || 'Unknown error'
+        error: errorMessage
       };
     }
   }
