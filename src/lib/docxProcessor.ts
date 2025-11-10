@@ -1,7 +1,7 @@
 import PizZip from 'pizzip';
 
 /**
- * Preprocess DOCX to directly replace @placeholder with form data
+ * Preprocess DOCX to directly replace {{placeholder}} with form data
  * @param docxBuffer - DOCX file as Buffer
  * @param data - Form data to replace placeholders with
  * @returns Buffer - Preprocessed DOCX as Buffer
@@ -18,15 +18,15 @@ export async function preprocessDocxTemplate(docxBuffer: Buffer, data: Record<st
     
     let xmlContent = documentXml.asText();
     
-    // Directly replace @placeholder with form data
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    // Directly replace {{placeholder}} with form data - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
     const originalContent = xmlContent;
     
-    console.log('🔄 Preprocessing: Directly replacing @placeholders with form data');
-    console.log('🔄 Original placeholders found:', originalContent.match(/@([A-Za-z0-9_]+)/g));
+    console.log('🔄 Preprocessing: Directly replacing {{placeholders}} with form data');
+    console.log('🔄 Original placeholders found:', originalContent.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g));
     console.log('🔄 Available form data:', data);
     
-    // Replace each @placeholder with the corresponding form data
+    // Replace each {{placeholder}} with the corresponding form data
     xmlContent = xmlContent.replace(placeholderRegex, (match, placeholderName) => {
       const value = data[placeholderName] || data[placeholderName.toLowerCase()] || match;
       console.log(`🔄 Replacing ${match} with: "${value}"`);
@@ -72,7 +72,7 @@ export async function fillDocxTemplate(docxBuffer: Buffer, data: Record<string, 
       throw new Error('Invalid DOCX file: file does not appear to be a valid ZIP/DOCX file');
     }
     
-    // Preprocess the DOCX to directly replace @placeholder with form data
+    // Preprocess the DOCX to directly replace {{placeholder}} with form data
     let processedBuffer = docxBuffer;
     try {
       console.log('🔄 Preprocessing DOCX template with direct replacement...');
@@ -109,16 +109,21 @@ export async function extractPlaceholders(docxBuffer: Buffer): Promise<string[]>
     
     const xmlContent = documentXml.asText();
     
-    // Find @placeholder patterns
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    // Find {{placeholder}} patterns - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
     const matches = xmlContent.match(placeholderRegex);
     
     if (!matches) {
       return [];
     }
     
-    // Extract unique placeholder names
-    const placeholders = [...new Set(matches.map(match => match.substring(1)))];
+    // Extract unique placeholder names (remove {{ and }} brackets)
+    const extractedNames = matches.map((match: string) => {
+      // Extract the placeholder name from {{placeholder}} format
+      const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
+      return matchResult ? matchResult[1] : '';
+    }).filter((name: string) => name.length > 0);
+    const placeholders = [...new Set(extractedNames)];
     console.log('📝 Extracted placeholders:', placeholders);
     
     return placeholders;

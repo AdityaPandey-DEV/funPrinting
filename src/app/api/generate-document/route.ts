@@ -51,16 +51,16 @@ export async function POST(request: NextRequest) {
         console.log('✅ Word file downloaded via HTTPS API, size:', wordBuffer.length, 'bytes');
         
         // For direct Word document usage, we'll create a simple placeholder
-        const wordText = 'Word document loaded. Use Microsoft Word to add placeholders like @name, @date, etc.';
+        const wordText = 'Word document loaded. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.';
         
         console.log('✅ Text extracted from Word document, length:', wordText.length, 'characters');
         
         // Replace placeholders in the text
         let personalizedText = wordText;
         Object.keys(formData).forEach(key => {
-          const placeholder = `@${key}`;
+          const placeholder = `{{${key}}}`;
           const value = formData[key] || '';
-          personalizedText = personalizedText.replace(new RegExp(placeholder, 'g'), value);
+          personalizedText = personalizedText.replace(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g'), value);
         });
         
         // Create new Word document with personalized content
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
           const trimmedLine = line.trim();
           
           // Check if it's a placeholder
-          const placeholderMatch = trimmedLine.match(/@\w+/);
+          const placeholderMatch = trimmedLine.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
           
           if (placeholderMatch) {
             // This is a placeholder, make it stand out

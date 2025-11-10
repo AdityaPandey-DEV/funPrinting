@@ -97,7 +97,7 @@ export default function WordDocumentLivePreview({ docxBuffer, onDocumentEdited, 
         if (data.placeholders && data.placeholders.length > 0) {
           setShowPlaceholderForm(true);
         } else {
-          alert('No placeholders found in the document. Add placeholders like @name, @phone, etc.');
+          alert('No placeholders found in the document. Add placeholders like {{name}}, {{phone}}, etc.');
         }
       } else {
         alert('Error processing document. Please try again.');

@@ -161,9 +161,9 @@ export async function POST(request: NextRequest) {
       </div>
     `;
 
-    // Highlight placeholders in the HTML
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
-    const highlightedHtml = styledHtml.replace(placeholderRegex, '<span class="placeholder">@$1</span>');
+    // Highlight placeholders in the HTML - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    const highlightedHtml = styledHtml.replace(placeholderRegex, '<span class="placeholder">{{$1}}</span>');
 
     console.log('📄 DOCX converted to HTML with styling');
 

@@ -10,13 +10,13 @@ export default function TestPlaceholder() {
     console.log('🧪 Testing template with data:', testData);
     console.log('🧪 Placeholders:', placeholders);
     
-    // Create a simple test DOCX with @Name placeholder
+    // Create a simple test DOCX with {{Name}} placeholder
     const testDocxContent = `
       <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
         <w:body>
           <w:p>
             <w:r>
-              <w:t>Hello @Name, welcome to our system!</w:t>
+              <w:t>Hello {{Name}}, welcome to our system!</w:t>
             </w:r>
           </w:p>
         </w:body>
@@ -85,7 +85,7 @@ export default function TestPlaceholder() {
         <div className="bg-white rounded-lg shadow-md p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">Expected Behavior</h2>
           <p className="text-gray-700 mb-2">
-            <strong>Document contains:</strong> &quot;Hello @Name, welcome to our system!&quot;
+            <strong>Document contains:</strong> &quot;Hello {{Name}}, welcome to our system!&quot;
           </p>
           <p className="text-gray-700 mb-2">
             <strong>Form data:</strong> {JSON.stringify(testData)}

@@ -32,25 +32,21 @@ export async function POST(request: NextRequest) {
     const result = await mammoth.extractRawText({ buffer });
     const text = result.value;
 
-    // Find placeholders using regex pattern @placeholder
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    // Find placeholders using regex pattern {{placeholder}} - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
     const matches = text.match(placeholderRegex) || [];
     console.log('🔍 Found placeholder matches:', matches);
     
     const placeholders = [...new Set(
       matches
-        .map(match => match.substring(1)) // Remove @ symbol
+        .map(match => {
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
+          return matchResult ? matchResult[1] : '';
+        })
         .filter(placeholder => placeholder.length > 0)
     )];
     
     console.log('🔍 Extracted placeholders:', placeholders);
-
-    // Also convert @placeholder to {{placeholder}} format in the text for docxtemplater
-    let convertedText = text;
-    placeholders.forEach(placeholder => {
-      const regex = new RegExp(`@${placeholder}`, 'g');
-      convertedText = convertedText.replace(regex, `{{${placeholder}}}`);
-    });
 
     // Sort placeholders for better UX
     const sortedPlaceholders = placeholders.sort();

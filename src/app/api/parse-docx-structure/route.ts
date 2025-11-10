@@ -200,11 +200,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Extract placeholders from the text
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    // Extract placeholders from the text - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
     const placeholders = [...new Set(
       (text.match(placeholderRegex) || [])
-        .map(match => match.substring(1))
+        .map(match => {
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
+          return matchResult ? matchResult[1] : '';
+        })
         .filter(placeholder => placeholder.length > 0)
     )].sort();
 

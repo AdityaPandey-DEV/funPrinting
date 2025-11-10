@@ -383,11 +383,11 @@ Viva Questions:
 3. What is the difference between printf and scanf?
 
 Student Details:
-Name: @studentName
-Roll Number: @rollNumber
-Class: @className
-Date: @date
-Instructor: @instructorName
+Name: {{studentName}}
+Roll Number: {{rollNumber}}
+Class: {{className}}
+Date: {{date}}
+Instructor: {{instructorName}}
 
 This content has been extracted from your actual PDF file.
 File Size: ${pdfBuffer.length} bytes
@@ -421,8 +421,8 @@ function parseTextToStructuredContent(text: string) {
                      (trimmedLine.toUpperCase() === trimmedLine || 
                       trimmedLine.match(/^[A-Z][^.!?]*$/));
     
-    // Detect placeholders
-    const placeholderMatch = trimmedLine.match(/@\w+/);
+    // Detect placeholders - require placeholder to start with a letter
+    const placeholderMatch = trimmedLine.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
     
     return {
       id: (index + 1).toString(),
@@ -430,7 +430,7 @@ function parseTextToStructuredContent(text: string) {
       style: isHeading ? 'heading' as const : 'normal' as const,
       level: isHeading ? 1 : undefined,
       isPlaceholder: !!placeholderMatch,
-      placeholderName: placeholderMatch ? placeholderMatch[0] : ''
+      placeholderName: placeholderMatch ? `{{${placeholderMatch[1]}}}` : ''
     };
   });
 
@@ -443,10 +443,10 @@ function parseTextToStructuredContent(text: string) {
         title: 'Lab Schedule',
         headers: ['Week', 'Experiment', 'Duration', 'Instructor'],
         rows: [
-          ['Week 1', 'Introduction to C Programming', '2 hours', '@instructor1'],
-          ['Week 2', 'Variables and Data Types', '2 hours', '@instructor2'],
-          ['Week 3', 'Control Structures', '2 hours', '@instructor3'],
-          ['Week 4', 'Functions and Arrays', '2 hours', '@instructor4']
+          ['Week 1', 'Introduction to C Programming', '2 hours', '{{instructor1}}'],
+          ['Week 2', 'Variables and Data Types', '2 hours', '{{instructor2}}'],
+          ['Week 3', 'Control Structures', '2 hours', '{{instructor3}}'],
+          ['Week 4', 'Functions and Arrays', '2 hours', '{{instructor4}}']
         ]
       },
       {
@@ -522,31 +522,31 @@ async function mockAdobeConversion(_pdfBuffer: Buffer) {
       },
       {
         id: '5',
-        text: 'Name: @studentName',
+        text: 'Name: {{studentName}}',
         style: 'normal',
         isPlaceholder: true,
-        placeholderName: '@studentName'
+        placeholderName: '{{studentName}}'
       },
       {
         id: '6',
-        text: 'Roll Number: @rollNumber',
+        text: 'Roll Number: {{rollNumber}}',
         style: 'normal',
         isPlaceholder: true,
-        placeholderName: '@rollNumber'
+        placeholderName: '{{rollNumber}}'
       },
       {
         id: '7',
-        text: 'Class: @className',
+        text: 'Class: {{className}}',
         style: 'normal',
         isPlaceholder: true,
-        placeholderName: '@className'
+        placeholderName: '{{className}}'
       },
       {
         id: '8',
-        text: 'Date: @date',
+        text: 'Date: {{date}}',
         style: 'normal',
         isPlaceholder: true,
-        placeholderName: '@date'
+        placeholderName: '{{date}}'
       },
       {
         id: '9',

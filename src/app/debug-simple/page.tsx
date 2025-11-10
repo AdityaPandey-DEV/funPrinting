@@ -12,7 +12,7 @@ export default function DebugSimple() {
     console.log('🧪 Placeholders:', placeholders);
     
     // Create a minimal valid DOCX buffer for testing
-    // This is a minimal DOCX file with @Name placeholder
+    // This is a minimal DOCX file with {{Name}} placeholder
     const minimalDocx = `UEsDBBQAAAAIAA==`; // This is just a test - we need a real DOCX
     
     try {
@@ -40,17 +40,20 @@ export default function DebugSimple() {
     console.log('🧪 Testing placeholder extraction...');
     
     // Create a simple text with placeholders
-    const testText = 'Hello @Name, today is @Date, and you are in @Course course.';
+    const testText = 'Hello {{Name}}, today is {{Date}}, and you are in {{Course}} course.';
     console.log('🧪 Test text:', testText);
     
-    // Extract placeholders using the same regex
-    const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+    // Extract placeholders using the same regex - require placeholder to start with a letter
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
     const matches = testText.match(placeholderRegex) || [];
     console.log('🧪 Found matches:', matches);
     
     const extractedPlaceholders = [...new Set(
       matches
-        .map(match => match.substring(1)) // Remove @ symbol
+        .map(match => {
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
+          return matchResult ? matchResult[1] : '';
+        })
         .filter(placeholder => placeholder.length > 0)
     )];
     

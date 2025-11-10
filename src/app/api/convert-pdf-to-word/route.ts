@@ -127,11 +127,15 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
       // Use PDF text as the primary content source
       console.log('✅ Using PDF text as primary content source');
       
-      // Extract placeholders from PDF text
-      const placeholderRegex = /@([A-Za-z0-9_]+)/g;
+      // Extract placeholders from PDF text - require placeholder to start with a letter
+      const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
       const placeholders = [...new Set(
         (pdfText.match(placeholderRegex) || [])
-          .map(match => match.substring(1))
+          .map(match => {
+            const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
+            return matchResult ? matchResult[1] : '';
+          })
+          .filter(placeholder => placeholder.length > 0)
       )];
       
       console.log('📝 Extracted placeholders from PDF text:', placeholders);
@@ -140,7 +144,7 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
       const lines = pdfText.split('\n').filter(line => line.trim().length > 0);
   const paragraphs = lines.map((line, index) => {
     const trimmedLine = line.trim();
-    const placeholderMatch = trimmedLine.match(/@(\w+)/);
+    const placeholderMatch = trimmedLine.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
     const isPlaceholder = !!placeholderMatch;
     const placeholderName = isPlaceholder ? placeholderMatch[1] : '';
     
@@ -187,7 +191,7 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
     
     const paragraphs = [{
       id: '1',
-      text: 'Word document ready. Use Microsoft Word to add placeholders like @name, @date, etc.',
+      text: 'Word document ready. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.',
       style: 'normal' as const,
         level: 1,
       isPlaceholder: false,
@@ -204,7 +208,7 @@ async function cloudmersiveConversion(pdfBuffer: Buffer) {
         placeholders: [],
         conversionMethod: 'microsoft-word',
         docxBuffer: docxBuffer.toString('base64'),
-        fullHtml: '<p>Word document ready. Use Microsoft Word to add placeholders like @name, @date, etc.</p>'
+        fullHtml: '<p>Word document ready. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.</p>'
       },
       message: 'Word document ready for Microsoft Word editing',
       conversionMethod: 'microsoft-word'

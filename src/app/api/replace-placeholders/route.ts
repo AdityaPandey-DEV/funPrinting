@@ -33,16 +33,16 @@ export async function POST(request: NextRequest) {
       console.log('✅ Word file written to temporary location');
 
       // For direct Word document usage, we'll create a simple placeholder
-      const originalText = 'Word document loaded. Use Microsoft Word to add placeholders like @name, @date, etc.';
+      const originalText = 'Word document loaded. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.';
       
       console.log('✅ Text extracted from Word document');
 
       // Replace placeholders in the text
       let replacedText = originalText;
       for (const [placeholder, value] of Object.entries(placeholders)) {
-        const placeholderPattern = new RegExp(`@${placeholder}\\b`, 'g');
+        const placeholderPattern = new RegExp(`\\{\\{${placeholder}\\}\\}`, 'g');
         replacedText = replacedText.replace(placeholderPattern, value as string);
-        console.log(`✅ Replaced @${placeholder} with: ${value}`);
+        console.log(`✅ Replaced {{${placeholder}}} with: ${value}`);
       }
 
       // Create new Word document with replaced text

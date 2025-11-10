@@ -99,7 +99,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
       // For direct Word document usage, we'll show the embedded Microsoft Word editor
       const paragraphs = [{
         id: '1',
-        text: 'Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like @name, @date, etc.',
+        text: 'Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like {{name}}, {{date}}, etc.',
         style: 'normal' as const,
         level: 1,
         isPlaceholder: false,
@@ -114,7 +114,7 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
         placeholders: [],
         conversionMethod: 'microsoft-word',
         docxBuffer: Buffer.from(arrayBuffer).toString('base64'),
-        fullHtml: '<p>Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like @name, @date, etc.</p>'
+        fullHtml: '<p>Word document loaded successfully. Click "Edit with Microsoft Word Online" to open the embedded editor and add your placeholders like {{name}}, {{date}}, etc.</p>'
       });
       
       setConversionSuccess(true);

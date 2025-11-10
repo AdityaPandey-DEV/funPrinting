@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       // The actual content processing will happen when the user edits the document
       const paragraphs = [{
         id: '1',
-        text: 'Word document uploaded successfully. Use Microsoft Word to add placeholders like @name, @date, etc.',
+        text: 'Word document uploaded successfully. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.',
         style: 'normal' as const,
         level: 1,
         isPlaceholder: false,
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         placeholders: [],
         conversionMethod: 'microsoft-word',
         docxBuffer: wordBuffer.toString('base64'),
-        fullHtml: '<p>Word document uploaded successfully. Use Microsoft Word to add placeholders like @name, @date, etc.</p>'
+        fullHtml: '<p>Word document uploaded successfully. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.</p>'
       };
       
       console.log('✅ Word document processed successfully');
