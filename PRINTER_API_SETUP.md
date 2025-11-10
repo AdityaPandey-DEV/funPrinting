@@ -40,15 +40,18 @@
 
 6. **Copy the forwarding URL:**
    ```
-   Forwarding: https://abc123.ngrok-free.app -> http://localhost:3001
+   Forwarding: https://barrie-navigable-unresponsibly.ngrok-free.dev -> http://localhost:3001
    ```
+   (Example: Your current ngrok URL is `https://barrie-navigable-unresponsibly.ngrok-free.dev`)
 
 7. **Update funPrinting `.env.local`:**
    ```env
-   PRINTER_API_URLS=["https://abc123.ngrok-free.app"]
+   PRINTER_API_URLS=["https://barrie-navigable-unresponsibly.ngrok-free.dev"]
    PRINTER_API_KEY=your_secure_api_key_here
    PRINTER_API_TIMEOUT=5000
    ```
+   
+   **Note:** Replace `your_secure_api_key_here` with the actual API key from your printer-api `.env` file (the `API_KEY` value).
 
 8. **Restart funPrinting**
 
