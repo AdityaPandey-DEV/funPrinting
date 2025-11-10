@@ -46,11 +46,31 @@ export class PrinterClient {
       console.warn('PRINTER_API_URLS not configured');
       this.apiUrls = [];
     } else {
-      try {
-        this.apiUrls = JSON.parse(urlsEnv);
-      } catch {
-        // Fallback: treat as comma-separated string
-        this.apiUrls = urlsEnv.split(',').map(url => url.trim());
+      const trimmed = urlsEnv.trim();
+      // Check if it looks like a JSON array (starts with [ and ends with ])
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          this.apiUrls = JSON.parse(trimmed);
+          // Ensure it's an array
+          if (!Array.isArray(this.apiUrls)) {
+            this.apiUrls = [];
+          }
+        } catch {
+          // Invalid JSON array format like [https://...] - extract URL from brackets
+          const urlMatch = trimmed.match(/\[(.*?)\]/);
+          if (urlMatch && urlMatch[1]) {
+            this.apiUrls = [urlMatch[1].trim()];
+          } else {
+            this.apiUrls = [];
+          }
+        }
+      } else {
+        // Not a JSON array - treat as comma-separated string or single URL
+        this.apiUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
+        // If no commas, treat as single URL
+        if (this.apiUrls.length === 0 && trimmed.length > 0) {
+          this.apiUrls = [trimmed];
+        }
       }
     }
 

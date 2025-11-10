@@ -50,18 +50,30 @@ export async function POST(request: NextRequest) {
     let printerUrls: string[] = [];
     const urlsEnv = process.env.PRINTER_API_URLS;
     if (urlsEnv) {
-      try {
-        printerUrls = JSON.parse(urlsEnv);
-        // Ensure it's an array
-        if (!Array.isArray(printerUrls)) {
-          printerUrls = [];
+      const trimmed = urlsEnv.trim();
+      // Check if it looks like a JSON array (starts with [ and ends with ])
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          printerUrls = JSON.parse(trimmed);
+          // Ensure it's an array
+          if (!Array.isArray(printerUrls)) {
+            printerUrls = [];
+          }
+        } catch {
+          // Invalid JSON array format like [https://...] - extract URL from brackets
+          const urlMatch = trimmed.match(/\[(.*?)\]/);
+          if (urlMatch && urlMatch[1]) {
+            printerUrls = [urlMatch[1].trim()];
+          } else {
+            printerUrls = [];
+          }
         }
-      } catch {
-        // Fallback: treat as comma-separated string or single URL
-        printerUrls = urlsEnv.split(',').map(url => url.trim()).filter(url => url.length > 0);
+      } else {
+        // Not a JSON array - treat as comma-separated string or single URL
+        printerUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
         // If no commas, treat as single URL
-        if (printerUrls.length === 0 && urlsEnv.trim().length > 0) {
-          printerUrls = [urlsEnv.trim()];
+        if (printerUrls.length === 0 && trimmed.length > 0) {
+          printerUrls = [trimmed];
         }
       }
     }
