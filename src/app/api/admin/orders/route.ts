@@ -60,6 +60,7 @@ async function processCompletedPaymentOrders() {
     let processed = 0;
     let skipped = 0;
     let failed = 0;
+    const failedOrders: Array<{ orderId: string; error: string }> = [];
 
     for (const order of pendingOrders) {
       try {
@@ -117,8 +118,13 @@ async function processCompletedPaymentOrders() {
           });
         } else {
           // Keep order as pending if print job failed
+          const errorMessage = printJobResult.error || printJobResult.message || 'Unknown error';
           console.warn(`⚠️ Print job failed for order ${order.orderId}, keeping status as pending for retry`);
-          console.warn(`⚠️ Error: ${printJobResult.error || printJobResult.message}`);
+          console.warn(`⚠️ Error: ${errorMessage}`);
+          failedOrders.push({
+            orderId: order.orderId,
+            error: errorMessage
+          });
         }
 
         // Create or update print job record
@@ -161,14 +167,19 @@ async function processCompletedPaymentOrders() {
         }
       } catch (error: any) {
         failed++;
+        const errorMessage = error?.message || error?.toString() || 'Unknown error occurred';
         console.error(`❌ Error processing order ${order.orderId}:`, error);
+        failedOrders.push({
+          orderId: order.orderId,
+          error: errorMessage
+        });
       }
     }
 
-    return { processed, skipped, failed };
+    return { processed, skipped, failed, failedOrders };
   } catch (error) {
     console.error('Error in processCompletedPaymentOrders:', error);
-    return { processed: 0, skipped: 0, failed: 0 };
+    return { processed: 0, skipped: 0, failed: 0, failedOrders: [] };
   }
 }
 
@@ -200,17 +211,23 @@ export async function GET() {
       amount: o.amount
     })));
 
+    let message = 'No orders needed processing';
+    if (processResult.processed > 0) {
+      message = `✅ Auto-processed ${processResult.processed} orders - they are now in the print queue`;
+    } else if (processResult.skipped > 0) {
+      message = `⏭️ Skipped ${processResult.skipped} orders (already processed)`;
+    } else if (processResult.failed > 0) {
+      const failedDetails = processResult.failedOrders?.map(f => `Order ${f.orderId}: ${f.error}`).join('; ') || 'Unknown error';
+      message = `⚠️ Failed to process ${processResult.failed} order(s). ${failedDetails}`;
+    }
+
     return NextResponse.json({
       success: true,
       orders,
       timestamp: new Date().toISOString(),
       count: orders.length,
       autoProcessed: processResult,
-      message: processResult.processed > 0 
-        ? `✅ Auto-processed ${processResult.processed} orders - they are now in the print queue`
-        : processResult.skipped > 0
-        ? `⏭️ Skipped ${processResult.skipped} orders (already processed)`
-        : 'No orders needed processing'
+      message
     });
   } catch (error) {
     console.error('Error fetching orders:', error);

@@ -123,11 +123,22 @@ function AdminDashboardContent() {
       const data = await response.json();
       
       if (data.success) {
-        const { processed, skipped, failed } = data.results;
+        const { processed, skipped, failed, orders } = data.results;
         if (processed > 0) {
           alert(`✅ Successfully processed ${processed} orders - they are now in the print queue!`);
         } else if (failed > 0) {
-          alert(`⚠️ Failed to process ${failed} orders. Check console for details.`);
+          // Build detailed error message
+          let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+          const failedOrders = orders?.filter((o: any) => o.status === 'failed' || o.status === 'error') || [];
+          if (failedOrders.length > 0) {
+            errorMessage += 'Error details:\n';
+            failedOrders.forEach((failedOrder: { orderId: string; message: string }) => {
+              errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.message}\n`;
+            });
+          } else {
+            errorMessage += 'Check console for details.';
+          }
+          alert(errorMessage);
         } else {
           alert(`ℹ️ ${data.message || 'No orders needed processing'}`);
         }
@@ -186,13 +197,23 @@ function AdminDashboardContent() {
         
         // Show auto-processing results if any
         if (data.autoProcessed) {
-          const { processed, skipped, failed } = data.autoProcessed;
+          const { processed, skipped, failed, failedOrders } = data.autoProcessed;
           if (processed > 0) {
             console.log(`✅ Auto-processed ${processed} orders`);
             alert(`✅ Auto-processed ${processed} orders - they are now in the print queue!`);
           } else if (failed > 0) {
             console.warn(`⚠️ Failed to process ${failed} orders`);
-            alert(`⚠️ Failed to process ${failed} orders. Check console for details.`);
+            // Build detailed error message
+            let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+            if (failedOrders && failedOrders.length > 0) {
+              errorMessage += 'Error details:\n';
+              failedOrders.forEach((failedOrder: { orderId: string; error: string }) => {
+                errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.error}\n`;
+              });
+            } else {
+              errorMessage += 'Check console for details.';
+            }
+            alert(errorMessage);
           } else if (skipped > 0) {
             console.log(`⏭️ Skipped ${skipped} orders (already processed)`);
           }
@@ -200,6 +221,13 @@ function AdminDashboardContent() {
         
         if (data.message) {
           console.log('📋 Processing message:', data.message);
+          // Only show message alert if it's not already shown above
+          if (!data.autoProcessed || (data.autoProcessed.processed === 0 && data.autoProcessed.failed === 0 && data.autoProcessed.skipped === 0)) {
+            // Only show "No orders needed processing" in console, not as alert
+            if (data.message !== 'No orders needed processing') {
+              console.log('ℹ️', data.message);
+            }
+          }
         }
       } else {
         alert('Failed to fetch orders');
