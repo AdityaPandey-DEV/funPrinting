@@ -5,6 +5,15 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 
+interface FormField {
+  key: string;
+  type: string;
+  label: string;
+  required: boolean;
+  placeholder?: string;
+  defaultPlaceholder?: string;
+}
+
 interface Template {
   _id: string;
   name: string;
@@ -12,6 +21,7 @@ interface Template {
   category: string;
   pdfUrl: string;
   placeholders: string[];
+  formSchema?: FormField[];
   os?: string;
   dbms?: string;
   programmingLanguage?: string;
@@ -38,6 +48,7 @@ function EditDynamicTemplateContent() {
     tools: [] as string[],
   });
   const [newTool, setNewTool] = useState('');
+  const [formSchema, setFormSchema] = useState<FormField[]>([]);
   
   const router = useRouter();
   const params = useParams();
@@ -61,6 +72,30 @@ function EditDynamicTemplateContent() {
           framework: data.template.framework || '',
           tools: data.template.tools || [],
         });
+        // Load formSchema and ensure defaultPlaceholder is set
+        if (data.template.formSchema && Array.isArray(data.template.formSchema) && data.template.formSchema.length > 0) {
+          const schemaWithDefaults = data.template.formSchema.map((field: any) => ({
+            ...field,
+            defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
+          }));
+          setFormSchema(schemaWithDefaults);
+        } else if (data.template.placeholders && Array.isArray(data.template.placeholders) && data.template.placeholders.length > 0) {
+          // Generate formSchema from placeholders if formSchema doesn't exist
+          const generatedSchema = data.template.placeholders.map((placeholder: string) => {
+            const defaultPlaceholder = `Enter ${placeholder}`;
+            return {
+              key: placeholder,
+              type: 'text',
+              label: placeholder.charAt(0).toUpperCase() + placeholder.slice(1),
+              required: true,
+              placeholder: defaultPlaceholder,
+              defaultPlaceholder: defaultPlaceholder
+            };
+          });
+          setFormSchema(generatedSchema);
+        } else {
+          setFormSchema([]);
+        }
       } else {
         setError('Failed to fetch template');
       }
@@ -102,6 +137,65 @@ function EditDynamicTemplateContent() {
     }));
   };
 
+  const handlePlaceholderReset = (fieldIndex: number) => {
+    setFormSchema(prev => {
+      const updated = [...prev];
+      const field = updated[fieldIndex];
+      if (field) {
+        // Reset placeholder to default value
+        updated[fieldIndex] = {
+          ...field,
+          placeholder: field.defaultPlaceholder || `Enter ${field.key || field.label || ''}`
+        };
+      }
+      return updated;
+    });
+  };
+
+  const handlePlaceholderRemove = (fieldIndex: number) => {
+    setFormSchema(prev => {
+      const updated = [...prev];
+      const field = updated[fieldIndex];
+      if (field) {
+        // Remove placeholder (set to empty string, but keep defaultPlaceholder)
+        updated[fieldIndex] = {
+          ...field,
+          placeholder: ''
+        };
+      }
+      return updated;
+    });
+  };
+
+  const handlePlaceholderRestore = (fieldIndex: number) => {
+    setFormSchema(prev => {
+      const updated = [...prev];
+      const field = updated[fieldIndex];
+      if (field) {
+        // Restore placeholder from default
+        updated[fieldIndex] = {
+          ...field,
+          placeholder: field.defaultPlaceholder || `Enter ${field.key || field.label || ''}`
+        };
+      }
+      return updated;
+    });
+  };
+
+  const handlePlaceholderChange = (fieldIndex: number, newPlaceholder: string) => {
+    setFormSchema(prev => {
+      const updated = [...prev];
+      const field = updated[fieldIndex];
+      if (field) {
+        updated[fieldIndex] = {
+          ...field,
+          placeholder: newPlaceholder
+        };
+      }
+      return updated;
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -112,12 +206,17 @@ function EditDynamicTemplateContent() {
 
     try {
       setSaving(true);
+      // Ensure formSchema is saved if it was generated from placeholders
+      const schemaToSave = formSchema.length > 0 ? formSchema : undefined;
       const response = await fetch(`/api/admin/templates/dynamic/${templateId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          formSchema: schemaToSave
+        }),
       });
 
       if (response.ok) {
@@ -365,6 +464,69 @@ function EditDynamicTemplateContent() {
                 </div>
               )}
             </div>
+
+            {/* Form Schema Placeholder Management (Admin Only) */}
+            {(formSchema.length > 0 || (template.placeholders && template.placeholders.length > 0)) && (
+              <div className="md:col-span-2 border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Schema Placeholders</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Manage placeholders for form fields. Click &quot;Remove&quot; to reset to default value, or &quot;Restore&quot; to add back if removed.
+                </p>
+                <div className="space-y-3">
+                  {formSchema.map((field, index) => (
+                    <div key={field.key || index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                      <div className="flex-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {field.label} {field.required && <span className="text-red-500">*</span>}
+                        </label>
+                        <input
+                          type="text"
+                          value={field.placeholder || ''}
+                          onChange={(e) => handlePlaceholderChange(index, e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder={field.defaultPlaceholder || `Enter ${field.key || field.label || ''}`}
+                        />
+                        {field.defaultPlaceholder && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Default: {field.defaultPlaceholder}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        {field.placeholder && field.placeholder !== field.defaultPlaceholder ? (
+                          <button
+                            type="button"
+                            onClick={() => handlePlaceholderReset(index)}
+                            className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm"
+                            title="Reset to default placeholder"
+                          >
+                            Reset
+                          </button>
+                        ) : field.placeholder ? (
+                          <button
+                            type="button"
+                            onClick={() => handlePlaceholderRemove(index)}
+                            className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            title="Remove placeholder (set to empty)"
+                          >
+                            Remove
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handlePlaceholderRestore(index)}
+                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            title="Restore default placeholder"
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Submit Buttons */}

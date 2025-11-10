@@ -77,6 +77,36 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     
+    // If formSchema is being updated, ensure defaultPlaceholder is preserved
+    if (body.formSchema && Array.isArray(body.formSchema)) {
+      // Get existing template to preserve defaultPlaceholder values
+      const existingTemplate = await DynamicTemplate.findById(id);
+      if (existingTemplate && existingTemplate.formSchema && Array.isArray(existingTemplate.formSchema)) {
+        // Create a map of existing defaultPlaceholder values by key
+        const defaultPlaceholderMap = new Map<string, string>();
+        existingTemplate.formSchema.forEach((field: any) => {
+          if (field.key && field.defaultPlaceholder) {
+            defaultPlaceholderMap.set(field.key, field.defaultPlaceholder);
+          }
+        });
+        
+        // Ensure all formSchema fields have defaultPlaceholder
+        body.formSchema = body.formSchema.map((field: any) => {
+          const existingDefault = defaultPlaceholderMap.get(field.key);
+          return {
+            ...field,
+            defaultPlaceholder: field.defaultPlaceholder || existingDefault || field.placeholder || `Enter ${field.key || field.label || ''}`
+          };
+        });
+      } else {
+        // If no existing formSchema, ensure defaultPlaceholder is set
+        body.formSchema = body.formSchema.map((field: any) => ({
+          ...field,
+          defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
+        }));
+      }
+    }
+    
     // Update the template
     const updatedTemplate = await DynamicTemplate.findByIdAndUpdate(
       id,

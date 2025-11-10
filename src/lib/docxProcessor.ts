@@ -138,11 +138,13 @@ export function generateFormSchema(placeholders: string[]): Record<string, any> 
   const schema: Record<string, any> = {};
   
   placeholders.forEach(placeholder => {
+    const defaultPlaceholder = `Enter ${placeholder}`;
     schema[placeholder] = {
       type: 'string',
       label: placeholder.charAt(0).toUpperCase() + placeholder.slice(1),
       required: true,
-      placeholder: `Enter ${placeholder}`
+      placeholder: defaultPlaceholder,
+      defaultPlaceholder: defaultPlaceholder // Store default value for reset functionality
     };
   });
   

@@ -11,6 +11,10 @@ export interface PrintJobRequest {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
   };
   printerIndex: number;
   orderId?: string;
@@ -46,12 +50,35 @@ export class PrinterClient {
       console.warn('PRINTER_API_URLS not configured');
       this.apiUrls = [];
     } else {
-      try {
-        this.apiUrls = JSON.parse(urlsEnv);
-      } catch {
-        // Fallback: treat as comma-separated string
-        this.apiUrls = urlsEnv.split(',').map(url => url.trim());
+      const trimmed = urlsEnv.trim();
+      // Check if it looks like a JSON array (starts with [ and ends with ])
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          this.apiUrls = JSON.parse(trimmed);
+          // Ensure it's an array
+          if (!Array.isArray(this.apiUrls)) {
+            this.apiUrls = [];
+          }
+        } catch {
+          // Invalid JSON array format like [https://...] - extract URL from brackets
+          const urlMatch = trimmed.match(/\[(.*?)\]/);
+          if (urlMatch && urlMatch[1]) {
+            this.apiUrls = [urlMatch[1].trim()];
+          } else {
+            this.apiUrls = [];
+          }
+        }
+      } else {
+        // Not a JSON array - treat as comma-separated string or single URL
+        this.apiUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
+        // If no commas, treat as single URL
+        if (this.apiUrls.length === 0 && trimmed.length > 0) {
+          this.apiUrls = [trimmed];
+        }
       }
+      
+      // Normalize all URLs: remove trailing slashes
+      this.apiUrls = this.apiUrls.map(url => url.replace(/\/+$/, ''));
     }
 
     this.apiKey = process.env.PRINTER_API_KEY || '';
@@ -65,14 +92,50 @@ export class PrinterClient {
    * Create axios instance for a printer API URL
    */
   private createAxiosInstance(baseURL: string): AxiosInstance {
+    // Ensure baseURL doesn't have trailing slash to avoid double slashes
+    const normalizedBaseURL = baseURL.replace(/\/+$/, '');
     return axios.create({
-      baseURL,
+      baseURL: normalizedBaseURL,
       timeout: this.timeout,
       headers: {
         'X-API-Key': this.apiKey,
         'Content-Type': 'application/json'
       }
     });
+  }
+
+  /**
+   * Extract error message from axios error
+   */
+  private extractErrorMessage(error: any): string {
+    // Check if it's an axios error with response
+    if (error.response) {
+      const status = error.response.status;
+      const statusText = error.response.statusText;
+      const responseData = error.response.data;
+      
+      // Try to extract error message from response data
+      let errorMessage = '';
+      if (responseData) {
+        if (typeof responseData === 'string') {
+          errorMessage = responseData;
+        } else if (responseData.error) {
+          errorMessage = responseData.error;
+        } else if (responseData.message) {
+          errorMessage = responseData.message;
+        }
+      }
+      
+      // Build comprehensive error message
+      if (errorMessage) {
+        return `${status} ${statusText}: ${errorMessage}`;
+      } else {
+        return `${status} ${statusText}`;
+      }
+    }
+    
+    // Fall back to error message or default
+    return error.message || 'Unknown error';
   }
 
   /**
@@ -118,10 +181,43 @@ export class PrinterClient {
         customerInfo: request.customerInfo
       });
 
-      console.log(`✅ Print job sent successfully: ${response.data.jobId}`);
+      // Validate response - check if success is actually true
+      if (!response.data || response.data.success !== true) {
+        const errorMessage = response.data?.error || response.data?.message || 'Printer API returned unsuccessful response';
+        console.error(`❌ Printer API returned unsuccessful response:`, {
+          success: response.data?.success,
+          message: response.data?.message,
+          error: response.data?.error,
+          data: response.data
+        });
+        
+        // Add to retry queue
+        this.addToRetryQueue(request);
+        
+        return {
+          success: false,
+          message: 'Printer API returned unsuccessful response',
+          error: errorMessage
+        };
+      }
+
+      console.log(`✅ Print job sent successfully: ${response.data.jobId}, Delivery: ${response.data.deliveryNumber || 'N/A'}`);
       return response.data;
     } catch (error: any) {
-      console.error(`❌ Error sending print job to ${printerUrl}:`, error.message);
+      // Extract full error details from axios error
+      const errorMessage = this.extractErrorMessage(error);
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText;
+      const responseData = error.response?.data;
+      
+      // Log full error details
+      console.error(`❌ Error sending print job to ${printerUrl}:`, {
+        message: errorMessage,
+        status: statusCode,
+        statusText: statusText,
+        responseData: responseData,
+        error: error.message
+      });
       
       // Add to retry queue (infinite retry)
       this.addToRetryQueue(request);
@@ -129,7 +225,7 @@ export class PrinterClient {
       return {
         success: false,
         message: 'Failed to send print job, added to retry queue',
-        error: error.message || 'Unknown error'
+        error: errorMessage
       };
     }
   }
@@ -216,8 +312,9 @@ export const printerClient = new PrinterClient();
 
 /**
  * Generate delivery number based on printer index
- * Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
+ * Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}{FILE_NUMBER}
  * This is a simplified version - the actual delivery number is generated by the printer API
+ * The printer API will add the file number (1-10) at the end
  */
 export function generateDeliveryNumber(printerIndex: number): string {
   const now = new Date();
@@ -226,8 +323,9 @@ export function generateDeliveryNumber(printerIndex: number): string {
   const day = String(now.getDate()).padStart(2, '0');
   const dateStr = `${year}${month}${day}`;
   
-  // Start with 'A' for now - actual letter cycling is handled by printer API
-  return `A${dateStr}${printerIndex}`;
+  // Start with 'A' for now - actual letter cycling and file number are handled by printer API
+  // The printer API will generate the full delivery number with file number
+  return `A${dateStr}${printerIndex}0`; // Placeholder - printer API will replace with actual file number
 }
 
 /**
@@ -251,7 +349,8 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       color: order.printingOptions.color,
       sided: order.printingOptions.sided,
       copies: order.printingOptions.copies,
-      pageCount: order.printingOptions.pageCount || 1
+      pageCount: order.printingOptions.pageCount || 1,
+      pageColors: order.printingOptions.pageColors
     },
     printerIndex,
     orderId: order.orderId,

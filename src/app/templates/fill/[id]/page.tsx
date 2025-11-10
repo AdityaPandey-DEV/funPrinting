@@ -9,6 +9,7 @@ interface FormField {
   label: string;
   required: boolean;
   placeholder?: string;
+  defaultPlaceholder?: string;
 }
 
 interface Template {
@@ -190,13 +191,16 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
 
 
   const renderFormField = (field: FormField) => {
+    // Use placeholder if available, otherwise use defaultPlaceholder, otherwise generate default
+    const displayPlaceholder = field.placeholder || (field as any).defaultPlaceholder || `Enter ${field.key || field.label || ''}`;
+    
     const commonProps = {
       id: field.key,
       name: field.key,
       value: formData[field.key] || '',
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => 
         handleInputChange(field.key, e.target.value),
-      placeholder: field.placeholder,
+      placeholder: displayPlaceholder,
       required: field.required,
       className: "mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
     };

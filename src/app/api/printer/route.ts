@@ -47,9 +47,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine printer index
-    const printerUrls = process.env.PRINTER_API_URLS 
-      ? (JSON.parse(process.env.PRINTER_API_URLS) || [])
-      : [];
+    let printerUrls: string[] = [];
+    const urlsEnv = process.env.PRINTER_API_URLS;
+    if (urlsEnv) {
+      const trimmed = urlsEnv.trim();
+      // Check if it looks like a JSON array (starts with [ and ends with ])
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          printerUrls = JSON.parse(trimmed);
+          // Ensure it's an array
+          if (!Array.isArray(printerUrls)) {
+            printerUrls = [];
+          }
+        } catch {
+          // Invalid JSON array format like [https://...] - extract URL from brackets
+          const urlMatch = trimmed.match(/\[(.*?)\]/);
+          if (urlMatch && urlMatch[1]) {
+            printerUrls = [urlMatch[1].trim()];
+          } else {
+            printerUrls = [];
+          }
+        }
+      } else {
+        // Not a JSON array - treat as comma-separated string or single URL
+        printerUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
+        // If no commas, treat as single URL
+        if (printerUrls.length === 0 && trimmed.length > 0) {
+          printerUrls = [trimmed];
+        }
+      }
+      
+      // Normalize all URLs: remove trailing slashes
+      printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
+    }
     const selectedPrinterIndex = printerIndex || (printerUrls.length > 0 ? 1 : 1);
 
     // Generate delivery number if not present
