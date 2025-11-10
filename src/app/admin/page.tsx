@@ -109,6 +109,41 @@ function AdminDashboardContent() {
     setFilteredOrders(filtered);
   }, [orders, statusFilter, paymentFilter]);
 
+  const processPendingOrders = async () => {
+    setIsLoading(true);
+    try {
+      console.log('🔄 Manually processing pending orders...');
+      const response = await fetch('/api/printer/process-pending', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const { processed, skipped, failed } = data.results;
+        if (processed > 0) {
+          alert(`✅ Successfully processed ${processed} orders - they are now in the print queue!`);
+        } else if (failed > 0) {
+          alert(`⚠️ Failed to process ${failed} orders. Check console for details.`);
+        } else {
+          alert(`ℹ️ ${data.message || 'No orders needed processing'}`);
+        }
+        // Refresh orders after processing
+        await fetchOrders();
+      } else {
+        alert(`❌ Failed to process orders: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error processing pending orders:', error);
+      alert('An error occurred while processing orders');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
@@ -148,6 +183,24 @@ function AdminDashboardContent() {
 
       if (data.success) {
         setOrders(data.orders);
+        
+        // Show auto-processing results if any
+        if (data.autoProcessed) {
+          const { processed, skipped, failed } = data.autoProcessed;
+          if (processed > 0) {
+            console.log(`✅ Auto-processed ${processed} orders`);
+            alert(`✅ Auto-processed ${processed} orders - they are now in the print queue!`);
+          } else if (failed > 0) {
+            console.warn(`⚠️ Failed to process ${failed} orders`);
+            alert(`⚠️ Failed to process ${failed} orders. Check console for details.`);
+          } else if (skipped > 0) {
+            console.log(`⏭️ Skipped ${skipped} orders (already processed)`);
+          }
+        }
+        
+        if (data.message) {
+          console.log('📋 Processing message:', data.message);
+        }
       } else {
         alert('Failed to fetch orders');
       }
@@ -232,6 +285,18 @@ function AdminDashboardContent() {
             subtitle="Manage all printing orders and track their status"
             actions={
               <>
+                <button
+                  onClick={processPendingOrders}
+                  disabled={isLoading}
+                  className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base mr-2"
+                >
+                  <span className="hidden sm:inline">
+                    {isLoading ? 'Processing...' : '🖨️ Process Pending Orders'}
+                  </span>
+                  <span className="sm:hidden">
+                    {isLoading ? 'Processing...' : '🖨️ Process'}
+                  </span>
+                </button>
                 <button
                   onClick={fetchOrders}
                   disabled={isLoading}

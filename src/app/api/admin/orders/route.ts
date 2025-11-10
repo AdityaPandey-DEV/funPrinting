@@ -87,21 +87,39 @@ async function processCompletedPaymentOrders() {
 
         // Send print job to printer API
         console.log(`🖨️ Sending print job for order: ${order.orderId}`);
+        console.log(`📄 File URL: ${order.fileURL}`);
+        console.log(`🖨️ Printer URL: ${printerUrls[printerIndex - 1] || 'Not configured'}`);
+        
         const printJobResult = await sendPrintJobFromOrder(order, printerIndex);
+        
+        console.log(`📊 Print job result for ${order.orderId}:`, {
+          success: printJobResult.success,
+          message: printJobResult.message,
+          error: printJobResult.error,
+          jobId: printJobResult.jobId,
+          deliveryNumber: printJobResult.deliveryNumber
+        });
 
         // Update delivery number from printer API response if provided
         if (printJobResult.deliveryNumber) {
           deliveryNumber = printJobResult.deliveryNumber;
         }
 
-        // Update order status to processing and delivery number
-        await Order.findByIdAndUpdate(order._id, {
-          $set: { 
-            orderStatus: 'processing',
-            status: 'processing',
-            deliveryNumber
-          }
-        });
+        // Only update order status if print job was successfully sent
+        // If it failed, keep it as pending so it can be retried
+        if (printJobResult.success) {
+          await Order.findByIdAndUpdate(order._id, {
+            $set: { 
+              orderStatus: 'processing',
+              status: 'processing',
+              deliveryNumber
+            }
+          });
+        } else {
+          // Keep order as pending if print job failed
+          console.warn(`⚠️ Print job failed for order ${order.orderId}, keeping status as pending for retry`);
+          console.warn(`⚠️ Error: ${printJobResult.error || printJobResult.message}`);
+        }
 
         // Create or update print job record
         if (!existingPrintJob) {
@@ -134,8 +152,13 @@ async function processCompletedPaymentOrders() {
           });
         }
 
-        processed++;
-        console.log(`✅ Processed order ${order.orderId} - Status: processing, Delivery: ${deliveryNumber}`);
+        if (printJobResult.success) {
+          processed++;
+          console.log(`✅ Processed order ${order.orderId} - Status: processing, Delivery: ${deliveryNumber}`);
+        } else {
+          failed++;
+          console.error(`❌ Failed to send print job for order ${order.orderId}: ${printJobResult.error || printJobResult.message}`);
+        }
       } catch (error: any) {
         failed++;
         console.error(`❌ Error processing order ${order.orderId}:`, error);
