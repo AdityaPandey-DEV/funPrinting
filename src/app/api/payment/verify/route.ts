@@ -3,6 +3,8 @@ import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import PrintJob from '@/models/PrintJob';
 import { verifyPayment } from '@/lib/razorpay';
+import { sendPrintJobFromOrder, generateDeliveryNumber } from '@/lib/printerClient';
+import { sendInvoiceEmail } from '@/lib/invoiceEmail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,7 +98,66 @@ export async function POST(request: NextRequest) {
 
     console.log(`✅ Order ${order.orderId} marked as paid`);
 
-    // Create print job if this is a file order
+    // Generate delivery number and send print job
+    let deliveryNumber = updateResult.deliveryNumber;
+    let printJobResult = null;
+    
+    // Determine printer index from PRINTER_API_URLS array
+    const printerUrls = process.env.PRINTER_API_URLS 
+      ? (JSON.parse(process.env.PRINTER_API_URLS) || [])
+      : [];
+    const printerIndex = printerUrls.length > 0 ? 1 : 1; // Default to 1, or use first available
+
+    // Generate delivery number if not present
+    if (!deliveryNumber) {
+      deliveryNumber = generateDeliveryNumber(printerIndex);
+      // Update order with delivery number
+      await Order.findByIdAndUpdate(updateResult._id, {
+        $set: { deliveryNumber }
+      });
+      console.log(`✅ Delivery number generated: ${deliveryNumber}`);
+    }
+
+    // Send print job to printer API if this is a file order
+    if (updateResult.orderType === 'file' && updateResult.fileURL) {
+      try {
+        console.log(`🖨️ Sending print job to printer API for order: ${updateResult.orderId}`);
+        printJobResult = await sendPrintJobFromOrder(updateResult, printerIndex);
+        
+        if (printJobResult.success && printJobResult.deliveryNumber) {
+          // Update delivery number from printer API response
+          deliveryNumber = printJobResult.deliveryNumber;
+          await Order.findByIdAndUpdate(updateResult._id, {
+            $set: { deliveryNumber }
+          });
+          console.log(`✅ Print job sent successfully. Delivery number: ${deliveryNumber}`);
+        } else {
+          console.warn(`⚠️ Print job queued but may have failed: ${printJobResult.message}`);
+          // Job is in retry queue, will be processed later
+        }
+      } catch (printJobError) {
+        console.error('❌ Error sending print job:', printJobError);
+        // Don't fail the order if print job fails - it will be retried
+      }
+    }
+
+    // Send invoice email immediately after payment verification
+    try {
+      console.log(`📧 Sending invoice email for order: ${updateResult.orderId}`);
+      const invoiceSent = await sendInvoiceEmail(updateResult, deliveryNumber);
+      
+      if (invoiceSent) {
+        console.log(`✅ Invoice email sent successfully to ${updateResult.customerInfo.email}`);
+      } else {
+        console.warn(`⚠️ Failed to send invoice email, will retry later`);
+        // Invoice email failure doesn't block the order
+      }
+    } catch (invoiceError) {
+      console.error('❌ Error sending invoice email:', invoiceError);
+      // Invoice email failure doesn't block the order
+    }
+
+    // Create print job record in database for tracking
     let printJob = null;
     if (updateResult.orderType === 'file' && updateResult.fileURL) {
       try {
@@ -106,12 +167,12 @@ export async function POST(request: NextRequest) {
           console.log(`ℹ️ Print job already exists for order ${updateResult.orderId}`);
           printJob = existingPrintJob;
         } else {
-          console.log('🖨️ Creating print job for order:', updateResult.orderId);
+          console.log('🖨️ Creating print job record for order:', updateResult.orderId);
           
           // Calculate estimated duration
           const estimatedDuration = Math.ceil(
-            (updateResult.printingOptions.pageCount * updateResult.printingOptions.copies * 0.5) + // 0.5 minutes per page
-            (updateResult.printingOptions.color === 'color' ? updateResult.printingOptions.pageCount * 0.3 : 0) // Extra time for color
+            ((updateResult.printingOptions.pageCount || 1) * updateResult.printingOptions.copies * 0.5) + // 0.5 minutes per page
+            (updateResult.printingOptions.color === 'color' ? (updateResult.printingOptions.pageCount || 1) * 0.3 : 0) // Extra time for color
           );
 
           printJob = new PrintJob({
@@ -125,18 +186,15 @@ export async function POST(request: NextRequest) {
             printingOptions: updateResult.printingOptions,
             priority: 'normal',
             estimatedDuration,
-            status: 'pending'
+            status: printJobResult?.success ? 'printing' : 'pending'
           });
 
           await printJob.save();
-          console.log(`✅ Print job created: ${printJob.orderNumber}`);
-
-          // Note: Auto-printing functionality has been removed
-          console.log(`✅ Order ${updateResult.orderId} ready for manual processing`);
+          console.log(`✅ Print job record created: ${printJob.orderNumber}`);
         }
       } catch (printJobError) {
-        console.error('Error creating print job:', printJobError);
-        // Don't fail the order if print job creation fails
+        console.error('Error creating print job record:', printJobError);
+        // Don't fail the order if print job record creation fails
       }
     }
 
@@ -147,6 +205,7 @@ export async function POST(request: NextRequest) {
         orderId: updateResult.orderId,
         amount: updateResult.amount,
         paymentStatus: updateResult.paymentStatus,
+        deliveryNumber: deliveryNumber,
         createdAt: updateResult.createdAt,
       },
       printJob: printJob ? {
@@ -154,6 +213,7 @@ export async function POST(request: NextRequest) {
         status: printJob.status,
         estimatedDuration: printJob.estimatedDuration
       } : null,
+      invoiceSent: true,
     });
   } catch (error) {
     console.error('Error verifying payment:', error);

@@ -68,6 +68,7 @@ export interface IOrder {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   expectedDate?: Date;
+  deliveryNumber?: string; // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
   createdAt: Date;
   updatedAt: Date;
 }
@@ -217,6 +218,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
       message: 'Expected delivery date must be today or later'
     }
   },
+  deliveryNumber: String, // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
 }, {
   timestamps: true,
 });
