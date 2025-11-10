@@ -3,6 +3,8 @@ import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
 import { extractPlaceholders, generateFormSchema } from '@/lib/docxProcessor';
 import { v4 as uuidv4 } from 'uuid';
+import { getCurrentUser } from '@/lib/templateAuth';
+import User from '@/models/User';
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,6 +89,13 @@ export async function POST(request: NextRequest) {
     // Create template ID
     const templateId = uuidv4();
 
+    // Get admin user info
+    const session = await getCurrentUser();
+    let adminUser = null;
+    if (session?.email) {
+      adminUser = await User.findOne({ email: session.email.toLowerCase() });
+    }
+
     // Create template document
     const template = new DynamicTemplate({
       id: templateId,
@@ -97,7 +106,12 @@ export async function POST(request: NextRequest) {
       wordUrl: normalizedDocxUrl,
       placeholders,
       formSchema, // Store the form schema in MongoDB
-      createdBy: 'admin', // In a real app, this would be the actual admin user ID
+      createdBy: adminUser ? adminUser.email : 'admin', // Backward compatible
+      createdByUserId: adminUser ? adminUser._id : undefined,
+      createdByEmail: adminUser ? adminUser.email : undefined,
+      createdByName: adminUser ? adminUser.name : undefined,
+      isPublic: false, // Default to private
+      createdByType: 'admin',
     });
 
     // Save template to database

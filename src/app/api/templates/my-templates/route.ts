@@ -1,50 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
-import { generateFormSchema } from '@/lib/docxProcessor';
 import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
+import { generateFormSchema } from '@/lib/docxProcessor';
 
 export async function GET(_request: NextRequest) {
   try {
-    await connectDB();
-
     // Get current user from session
     const session = await getCurrentUser();
-    let userId = null;
-    let userEmail = null;
-
-    if (session?.email) {
-      const user = await User.findOne({ email: session.email.toLowerCase() });
-      if (user) {
-        userId = user._id.toString();
-        userEmail = user.email.toLowerCase();
-      }
+    if (!session || !session.email) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Build query: public templates OR user's own templates
-    const query: any = {
+    await connectDB();
+
+    // Get user details
+    const user = await User.findOne({ email: session.email.toLowerCase() });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Fetch user's own templates
+    const templates = await DynamicTemplate.find({
       $or: [
-        { isPublic: true }
+        { createdByUserId: user._id },
+        { createdByEmail: user.email.toLowerCase() }
       ]
-    };
-
-    // Add user's own templates if authenticated
-    if (userId || userEmail) {
-      const userQuery: any[] = [];
-      if (userId) {
-        userQuery.push({ createdByUserId: userId });
-      }
-      if (userEmail) {
-        userQuery.push({ createdByEmail: userEmail });
-      }
-      if (userQuery.length > 0) {
-        query.$or.push({ $or: userQuery });
-      }
-    }
-
-    // Get templates matching the query
-    const templates = await DynamicTemplate.find(query)
+    })
       .select('id name description category placeholders pdfUrl wordUrl formSchema isPublic createdByType createdByEmail createdByName createdAt updatedAt')
       .sort({ createdAt: -1 });
 
@@ -73,10 +62,11 @@ export async function GET(_request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error fetching templates:', error);
+    console.error('Error fetching user templates:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch templates' },
       { status: 500 }
     );
   }
 }
+

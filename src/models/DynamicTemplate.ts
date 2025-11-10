@@ -18,7 +18,12 @@ export interface IDynamicTemplate {
   framework?: string;
   tools?: string[];
   // Metadata
-  createdBy: string;
+  createdBy: string; // Backward compatible - stores email
+  createdByUserId?: mongoose.Types.ObjectId; // Reference to User
+  createdByEmail?: string; // User email for display
+  createdByName?: string; // User name for display
+  isPublic: boolean; // Controls visibility to all users
+  createdByType: 'user' | 'admin'; // Distinguish user vs admin created templates
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +95,33 @@ const dynamicTemplateSchema = new mongoose.Schema<IDynamicTemplate>({
   createdBy: {
     type: String,
     required: true
+  },
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
+  },
+  createdByEmail: {
+    type: String,
+    required: false,
+    trim: true,
+    lowercase: true
+  },
+  createdByName: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  isPublic: {
+    type: Boolean,
+    default: false,
+    required: true
+  },
+  createdByType: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user',
+    required: true
   }
 }, {
   timestamps: true
@@ -98,5 +130,8 @@ const dynamicTemplateSchema = new mongoose.Schema<IDynamicTemplate>({
 // Create index for better search performance
 dynamicTemplateSchema.index({ category: 1, createdAt: -1 });
 dynamicTemplateSchema.index({ name: 'text', description: 'text' });
+dynamicTemplateSchema.index({ createdByUserId: 1, createdAt: -1 });
+dynamicTemplateSchema.index({ isPublic: 1, createdAt: -1 });
+dynamicTemplateSchema.index({ createdByEmail: 1 });
 
 export default mongoose.models.DynamicTemplate || mongoose.model<IDynamicTemplate>('DynamicTemplate', dynamicTemplateSchema);
