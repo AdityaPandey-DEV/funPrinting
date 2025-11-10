@@ -11,6 +11,10 @@ export interface PrintJobRequest {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
   };
   printerIndex: number;
   orderId?: string;
@@ -345,7 +349,8 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       color: order.printingOptions.color,
       sided: order.printingOptions.sided,
       copies: order.printingOptions.copies,
-      pageCount: order.printingOptions.pageCount || 1
+      pageCount: order.printingOptions.pageCount || 1,
+      pageColors: order.printingOptions.pageColors
     },
     printerIndex,
     orderId: order.orderId,
