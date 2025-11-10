@@ -3,6 +3,15 @@ import { printerClient } from '@/lib/printerClient';
 import axios from 'axios';
 
 /**
+ * Helper function to safely join URL with path, avoiding double slashes
+ */
+function joinUrl(baseUrl: string, path: string): string {
+  const normalizedBase = baseUrl.replace(/\/+$/, ''); // Remove trailing slashes
+  const normalizedPath = path.replace(/^\/+/, ''); // Remove leading slashes
+  return `${normalizedBase}/${normalizedPath}`;
+}
+
+/**
  * GET /api/admin/printer-status
  * Get printer API status and queue information
  */
@@ -64,7 +73,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Check health endpoint (no auth required)
-      const healthResponse = await axios.get(`${printerUrl}/health`, {
+      const healthResponse = await axios.get(joinUrl(printerUrl, '/health'), {
         timeout: 5000
       });
       printerApiHealth = healthResponse.data;
@@ -78,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     try {
       // Check queue status (requires auth)
-      const queueResponse = await axios.get(`${printerUrl}/api/queue/status`, {
+      const queueResponse = await axios.get(joinUrl(printerUrl, '/api/queue/status'), {
         headers: {
           'X-API-Key': apiKey
         },

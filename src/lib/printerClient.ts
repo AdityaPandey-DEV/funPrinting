@@ -88,8 +88,10 @@ export class PrinterClient {
    * Create axios instance for a printer API URL
    */
   private createAxiosInstance(baseURL: string): AxiosInstance {
+    // Ensure baseURL doesn't have trailing slash to avoid double slashes
+    const normalizedBaseURL = baseURL.replace(/\/+$/, '');
     return axios.create({
-      baseURL,
+      baseURL: normalizedBaseURL,
       timeout: this.timeout,
       headers: {
         'X-API-Key': this.apiKey,
