@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
     const report = await createReport({
       template: buffer,
       data: formData,
+      cmdDelimiter: ['{{', '}}'], // Use {{placeholder}} format
+      processLineBreaks: true,
+      noSandbox: false,
       additionalJsContext: {
         // Add utility functions for formatters
         formatDate: (date: string) => {

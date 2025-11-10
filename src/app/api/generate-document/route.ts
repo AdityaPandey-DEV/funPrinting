@@ -150,11 +150,13 @@ export async function POST(request: NextRequest) {
     personalizedContent.paragraphs = personalizedContent.paragraphs.map((paragraph: any) => {
       let text = paragraph.text;
       
-      // Replace all placeholders with form data
+      // Replace all placeholders with form data - use {{placeholder}} format
       Object.keys(formData).forEach(key => {
-        const placeholder = `@${key}`;
+        const placeholder = `{{${key}}}`;
         const value = formData[key] || '';
-        text = text.replace(new RegExp(placeholder, 'g'), value);
+        // Escape curly braces in regex
+        const escapedPlaceholder = placeholder.replace(/[{}]/g, '\\$&');
+        text = text.replace(new RegExp(escapedPlaceholder, 'g'), value);
       });
       
       return {
@@ -173,9 +175,11 @@ export async function POST(request: NextRequest) {
             if (typeof cell === 'string') {
               let text = cell;
               Object.keys(formData).forEach(key => {
-                const placeholder = `@${key}`;
+                const placeholder = `{{${key}}}`;
                 const value = formData[key] || '';
-                text = text.replace(new RegExp(placeholder, 'g'), value);
+                // Escape curly braces in regex
+                const escapedPlaceholder = placeholder.replace(/[{}]/g, '\\$&');
+                text = text.replace(new RegExp(escapedPlaceholder, 'g'), value);
               });
               return text;
             }
