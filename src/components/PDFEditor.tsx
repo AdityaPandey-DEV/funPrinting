@@ -340,7 +340,7 @@ export default function PDFEditor({ pdfUrl, onPlaceholdersExtracted }: PDFEditor
               💡 <strong>How it works:</strong><br/>
               • Upload a PDF file<br/>
               • Click anywhere to add text<br/>
-              • Use {{placeholders}} like {{name}}, {{rollno}}<br/>
+              • Use {'{{'}placeholders{'}}'} like {'{{'}name{'}}'}, {'{{'}rollno{'}}'}<br/>
               • Create dynamic templates
             </p>
           </div>
@@ -447,7 +447,7 @@ export default function PDFEditor({ pdfUrl, onPlaceholdersExtracted }: PDFEditor
             <li>• <strong>Click anywhere</strong> on the PDF to add new text</li>
             <li>• <strong>Double-click anywhere</strong> to quickly add editable text</li>
             <li>• <strong>Click on existing text</strong> to edit it</li>
-            <li>• <strong>Use {{placeholders}}</strong> like {{name}}, {{rollno}} for dynamic content</li>
+            <li>• <strong>Use {'{{'}placeholders{'}}'}</strong> like {'{{'}name{'}}'}, {'{{'}rollno{'}}'} for dynamic content</li>
           </ul>
         </div>
         
@@ -550,7 +550,7 @@ export default function PDFEditor({ pdfUrl, onPlaceholdersExtracted }: PDFEditor
                     value={newTextData.placeholderName}
                     onChange={(e) => setNewTextData(prev => ({ ...prev, placeholderName: e.target.value }))}
                     className="w-full border rounded-lg px-3 py-2"
-                    placeholder="e.g., {{name}}, {{rollno}}"
+                    placeholder="e.g., {'{{'}name{'}}'}, {'{{'}rollno{'}}'}"
                   />
                 </div>
               )}

@@ -210,7 +210,7 @@ function DynamicTemplateUploadContent() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Word Document</h3>
                 <p className="text-gray-600 mb-6">
-                  Choose a .docx file with placeholders like {{Name}}, {{Email}}, etc.
+                  Choose a .docx file with placeholders like {'{{'}Name{'}}'}, {'{{'}Email{'}}'}, etc.
                 </p>
               </div>
 
@@ -345,7 +345,7 @@ function DynamicTemplateUploadContent() {
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <p>No placeholders found in the document.</p>
-                  <p className="text-sm mt-2">Make sure your document contains placeholders like {{Name}}, {{Email}}, etc.</p>
+                  <p className="text-sm mt-2">Make sure your document contains placeholders like {'{{'}Name{'}}'}, {'{{'}Email{'}}'}, etc.</p>
                 </div>
               )}
             </div>

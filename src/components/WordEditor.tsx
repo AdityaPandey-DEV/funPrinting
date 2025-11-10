@@ -309,7 +309,7 @@ export default function WordEditor({ pdfUrl, onPlaceholdersExtracted }: WordEdit
             <li>• <strong>Click on any paragraph</strong> to edit the text</li>
             <li>• <strong>Use the &quot;Convert to Placeholder&quot; button</strong> to make text dynamic</li>
             <li>• <strong>Add new paragraphs</strong> with the + Add Paragraph button</li>
-            <li>• <strong>Use {{placeholders}}</strong> like {{name}}, {{rollno}} for dynamic content</li>
+            <li>• <strong>Use {'{{'}placeholders{'}}'}</strong> like {'{{'}name{'}}'}, {'{{'}rollno{'}}'} for dynamic content</li>
             <li>• <strong>Download the final Word document</strong> when finished</li>
           </ul>
         </div>
@@ -437,7 +437,7 @@ export default function WordEditor({ pdfUrl, onPlaceholdersExtracted }: WordEdit
                     value={newParagraphData.placeholderName}
                     onChange={(e) => setNewParagraphData(prev => ({ ...prev, placeholderName: e.target.value }))}
                     className="w-full border rounded-lg px-3 py-2"
-                    placeholder="e.g., {{name}}, {{rollno}}"
+                    placeholder="e.g., {'{{'}name{'}}'}, {'{{'}rollno{'}}'}"
                   />
                 </div>
               )}

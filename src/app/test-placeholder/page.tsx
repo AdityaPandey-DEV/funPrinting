@@ -85,13 +85,13 @@ export default function TestPlaceholder() {
         <div className="bg-white rounded-lg shadow-md p-6 mt-6">
           <h2 className="text-xl font-semibold mb-4">Expected Behavior</h2>
           <p className="text-gray-700 mb-2">
-            <strong>Document contains:</strong> &quot;Hello {{Name}}, welcome to our system!&quot;
+            <strong>Document contains:</strong> &quot;Hello {'{{'}Name{'}}'}, welcome to our system!&quot;
           </p>
           <p className="text-gray-700 mb-2">
             <strong>Form data:</strong> {JSON.stringify(testData)}
           </p>
           <p className="text-gray-700">
-            <strong>Expected result:</strong> &quot;Hello {testData.Name || '{{Name}}'}, welcome to our system!&quot;
+            <strong>Expected result:</strong> &quot;Hello {testData.Name || `{{Name}}`}, welcome to our system!&quot;
           </p>
         </div>
       </div>

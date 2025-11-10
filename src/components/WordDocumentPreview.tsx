@@ -227,7 +227,7 @@ export default function WordDocumentPreview({ docxBuffer, onDocumentEdited, onCl
           <div className="text-sm text-gray-600">
             <p>
               <strong>Instructions:</strong> Choose whether to process the full document or specific pages. 
-              The system will search for placeholders like {{name}}, {{phone}}, {{email}}, etc. in the selected content.
+              The system will search for placeholders like {'{{'}name{'}}'}, {'{{'}phone{'}}'}, {'{{'}email{'}}'}, etc. in the selected content.
             </p>
           </div>
         </div>
