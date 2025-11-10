@@ -73,12 +73,26 @@ function EditDynamicTemplateContent() {
           tools: data.template.tools || [],
         });
         // Load formSchema and ensure defaultPlaceholder is set
-        if (data.template.formSchema && Array.isArray(data.template.formSchema)) {
+        if (data.template.formSchema && Array.isArray(data.template.formSchema) && data.template.formSchema.length > 0) {
           const schemaWithDefaults = data.template.formSchema.map((field: any) => ({
             ...field,
             defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
           }));
           setFormSchema(schemaWithDefaults);
+        } else if (data.template.placeholders && Array.isArray(data.template.placeholders) && data.template.placeholders.length > 0) {
+          // Generate formSchema from placeholders if formSchema doesn't exist
+          const generatedSchema = data.template.placeholders.map((placeholder: string) => {
+            const defaultPlaceholder = `Enter ${placeholder}`;
+            return {
+              key: placeholder,
+              type: 'text',
+              label: placeholder.charAt(0).toUpperCase() + placeholder.slice(1),
+              required: true,
+              placeholder: defaultPlaceholder,
+              defaultPlaceholder: defaultPlaceholder
+            };
+          });
+          setFormSchema(generatedSchema);
         } else {
           setFormSchema([]);
         }
@@ -192,6 +206,8 @@ function EditDynamicTemplateContent() {
 
     try {
       setSaving(true);
+      // Ensure formSchema is saved if it was generated from placeholders
+      const schemaToSave = formSchema.length > 0 ? formSchema : undefined;
       const response = await fetch(`/api/admin/templates/dynamic/${templateId}`, {
         method: 'PUT',
         headers: {
@@ -199,7 +215,7 @@ function EditDynamicTemplateContent() {
         },
         body: JSON.stringify({
           ...formData,
-          formSchema: formSchema.length > 0 ? formSchema : undefined
+          formSchema: schemaToSave
         }),
       });
 
@@ -450,7 +466,7 @@ function EditDynamicTemplateContent() {
             </div>
 
             {/* Form Schema Placeholder Management (Admin Only) */}
-            {formSchema.length > 0 && (
+            {(formSchema.length > 0 || (template.placeholders && template.placeholders.length > 0)) && (
               <div className="md:col-span-2 border-t pt-6 mt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Form Schema Placeholders</h3>
                 <p className="text-sm text-gray-600 mb-4">
