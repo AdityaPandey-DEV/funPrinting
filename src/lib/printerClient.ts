@@ -72,6 +72,9 @@ export class PrinterClient {
           this.apiUrls = [trimmed];
         }
       }
+      
+      // Normalize all URLs: remove trailing slashes
+      this.apiUrls = this.apiUrls.map(url => url.replace(/\/+$/, ''));
     }
 
     this.apiKey = process.env.PRINTER_API_KEY || '';

@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
           printerUrls = [trimmed];
         }
       }
+      
+      // Normalize all URLs: remove trailing slashes
+      printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
     }
     
     if (printerUrls.length === 0) {

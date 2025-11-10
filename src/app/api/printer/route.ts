@@ -76,6 +76,9 @@ export async function POST(request: NextRequest) {
           printerUrls = [trimmed];
         }
       }
+      
+      // Normalize all URLs: remove trailing slashes
+      printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
     }
     const selectedPrinterIndex = printerIndex || (printerUrls.length > 0 ? 1 : 1);
 

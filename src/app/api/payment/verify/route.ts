@@ -132,6 +132,9 @@ export async function POST(request: NextRequest) {
           printerUrls = [trimmed];
         }
       }
+      
+      // Normalize all URLs: remove trailing slashes
+      printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
     }
     const printerIndex = printerUrls.length > 0 ? 1 : 1; // Default to 1, or use first available
 
