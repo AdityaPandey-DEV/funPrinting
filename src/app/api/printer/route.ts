@@ -47,9 +47,24 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine printer index
-    const printerUrls = process.env.PRINTER_API_URLS 
-      ? (JSON.parse(process.env.PRINTER_API_URLS) || [])
-      : [];
+    let printerUrls: string[] = [];
+    const urlsEnv = process.env.PRINTER_API_URLS;
+    if (urlsEnv) {
+      try {
+        printerUrls = JSON.parse(urlsEnv);
+        // Ensure it's an array
+        if (!Array.isArray(printerUrls)) {
+          printerUrls = [];
+        }
+      } catch {
+        // Fallback: treat as comma-separated string or single URL
+        printerUrls = urlsEnv.split(',').map(url => url.trim()).filter(url => url.length > 0);
+        // If no commas, treat as single URL
+        if (printerUrls.length === 0 && urlsEnv.trim().length > 0) {
+          printerUrls = [urlsEnv.trim()];
+        }
+      }
+    }
     const selectedPrinterIndex = printerIndex || (printerUrls.length > 0 ? 1 : 1);
 
     // Generate delivery number if not present
