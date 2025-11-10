@@ -53,7 +53,9 @@ export async function POST(request: NextRequest) {
         const schemaObject = generateFormSchema(placeholders);
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
-          ...value
+          ...value,
+          // Ensure defaultPlaceholder is set if not already present
+          defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
       }
       
@@ -63,12 +65,17 @@ export async function POST(request: NextRequest) {
       if (manualPlaceholders && manualPlaceholders.length > 0) {
         placeholders = manualPlaceholders;
         if (manualFormSchema) {
-          formSchema = manualFormSchema;
+          // Ensure defaultPlaceholder is set for manual formSchema
+          formSchema = manualFormSchema.map((field: any) => ({
+            ...field,
+            defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
+          }));
         } else {
           const schemaObject = generateFormSchema(placeholders);
           formSchema = Object.entries(schemaObject).map(([key, value]) => ({
             key,
-            ...value
+            ...value,
+            defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
           }));
         }
       }
