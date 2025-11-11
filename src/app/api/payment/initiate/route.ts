@@ -128,8 +128,6 @@ export async function POST(request: NextRequest) {
 
     // Get pricing from database
     const pricing = await getPricing();
-    const basePrice = pricing.basePrices[printingOptions.pageSize as keyof typeof pricing.basePrices];
-    const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
     
     // Prepare file data first - prioritize arrays over single file fields
     let fileURLsArray: string[] | undefined;
@@ -197,25 +195,59 @@ export async function POST(request: NextRequest) {
     
     let calculatedAmount = 0;
     
+    // Helper function to get file printing options (with fallback to legacy)
+    const getFilePrintingOptions = (fileIndex: number): {
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: { colorPages: number[]; bwPages: number[] };
+    } => {
+      // Check if we have per-file options
+      if ((printingOptions as any).fileOptions && Array.isArray((printingOptions as any).fileOptions) && (printingOptions as any).fileOptions.length > fileIndex) {
+        return (printingOptions as any).fileOptions[fileIndex];
+      }
+      
+      // Fall back to legacy single options
+      return {
+        pageSize: printingOptions.pageSize || 'A4',
+        color: printingOptions.color || 'bw',
+        sided: printingOptions.sided || 'single',
+        copies: printingOptions.copies || 1,
+        pageColors: (() => {
+          const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
+          return filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
+            ? filePageColors 
+            : undefined;
+        })()
+      };
+    };
+    
     // Calculate cost for each file
     for (let i = 0; i < numFiles; i++) {
       const filePageCount = pagesPerFile[i] || 1;
       
+      // Get per-file printing options
+      const fileOpts = getFilePrintingOptions(i);
+      const fileBasePrice = pricing.basePrices[fileOpts.pageSize as keyof typeof pricing.basePrices];
+      const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+      
       // Get page colors for this file
       const filePageColors = getFilePageColors(i, printingOptions.pageColors);
-      const fileColorPages = filePageColors.colorPages.length;
-      const fileBwPages = filePageColors.bwPages.length;
+      const effectivePageColors = fileOpts.pageColors || filePageColors;
+      const fileColorPages = effectivePageColors.colorPages.length;
+      const fileBwPages = effectivePageColors.bwPages.length;
       
       // Calculate base cost for this file using helper function
       const fileBaseCost = calculateFileCost(
         filePageCount,
         fileColorPages,
         fileBwPages,
-        basePrice,
+        fileBasePrice,
         colorMultiplier,
-        sidedMultiplier,
-        printingOptions.copies,
-        printingOptions.color
+        fileSidedMultiplier,
+        fileOpts.copies,
+        fileOpts.color
       );
       calculatedAmount += fileBaseCost;
       

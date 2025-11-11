@@ -6,11 +6,23 @@ import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 
-interface PrintingOptions {
+interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
   color: 'color' | 'bw' | 'mixed';
   sided: 'single' | 'double';
   copies: number;
+  pageColors?: {
+    colorPages: number[];
+    bwPages: number[];
+  };
+}
+
+interface PrintingOptions {
+  // Legacy: single printing options (for backward compatibility)
+  pageSize?: 'A4' | 'A3';
+  color?: 'color' | 'bw' | 'mixed';
+  sided?: 'single' | 'double';
+  copies?: number;
   serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
   serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
   pageColors?: {
@@ -20,6 +32,8 @@ interface PrintingOptions {
     colorPages: number[];
     bwPages: number[];
   }>;
+  // Per-file printing options (new format)
+  fileOptions?: FilePrintingOptions[];
 }
 
 interface CustomerInfo {
@@ -226,6 +240,33 @@ const truncateFileName = (fileName: string, maxLength: number = 10): string => {
   const lastPart = nameWithoutExt.substring(nameWithoutExt.length - lastPartLength);
   
   return firstPart + '..' + lastPart + extension;
+};
+
+/**
+ * Get printing options for a specific file (handles both per-file and legacy formats)
+ */
+const getFilePrintingOptions = (
+  fileIndex: number,
+  printingOptions: PrintingOptions
+): FilePrintingOptions => {
+  // Check if we have per-file options
+  if (printingOptions.fileOptions && printingOptions.fileOptions.length > fileIndex) {
+    return printingOptions.fileOptions[fileIndex];
+  }
+  
+  // Fall back to legacy single options
+  return {
+    pageSize: printingOptions.pageSize || 'A4',
+    color: printingOptions.color || 'bw',
+    sided: printingOptions.sided || 'single',
+    copies: printingOptions.copies || 1,
+    pageColors: (() => {
+      const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
+      return filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
+        ? filePageColors 
+        : undefined;
+    })()
+  };
 };
 
 /**
@@ -612,9 +653,9 @@ export default function OrderPage() {
   // Calculate amount based on printing options and delivery
   useEffect(() => {
     const calculateAmount = async () => {
-      console.log('🔄 Pricing calculation triggered:', { pageCount, copies: printingOptions.copies });
+      console.log('🔄 Pricing calculation triggered:', { pageCount, copies: printingOptions.copies || 1 });
       // Always run pricing calculation to show base prices, even with default values
-      if (printingOptions.copies > 0) {
+      if ((printingOptions.copies || 1) > 0) {
         try {
           setPricingLoading(true);
           // Fetch pricing from API
@@ -629,35 +670,37 @@ export default function OrderPage() {
             setPricingData(pricing); // Store pricing data for UI display
             setPricingLoading(false);
             
-            // Base price per page
-            const basePrice = pricing.basePrices[printingOptions.pageSize];
-            console.log(`💰 Base price for ${printingOptions.pageSize}: ₹${basePrice}`);
-            
             // Calculate pricing per file
             let total = 0;
             const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
             const colorMultiplier = pricing.multipliers.color;
-            const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
             
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
               
+              // Get per-file printing options
+              const fileOpts = getFilePrintingOptions(i, printingOptions);
+              const fileBasePrice = pricing.basePrices[fileOpts.pageSize];
+              const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+              
               // Get page colors for this file
               const filePageColors = getFilePageColors(i, printingOptions.pageColors);
-              const fileColorPages = filePageColors.colorPages.length;
-              const fileBwPages = filePageColors.bwPages.length;
+              // Use file-specific pageColors if available in fileOpts, otherwise use global
+              const effectivePageColors = fileOpts.pageColors || filePageColors;
+              const fileColorPages = effectivePageColors.colorPages.length;
+              const fileBwPages = effectivePageColors.bwPages.length;
               
               // Calculate base cost for this file using helper function
               const fileBaseCost = calculateFileCost(
                 filePageCount,
                 fileColorPages,
                 fileBwPages,
-                basePrice,
+                fileBasePrice,
                 colorMultiplier,
-                sidedMultiplier,
-                printingOptions.copies,
-                printingOptions.color
+                fileSidedMultiplier,
+                fileOpts.copies,
+                fileOpts.color
               );
               total += fileBaseCost;
               
@@ -681,12 +724,42 @@ export default function OrderPage() {
             
             console.log(`💰 Frontend pricing calculation:`, {
               pageCount,
-              basePrice,
               color: printingOptions.color,
               sided: printingOptions.sided,
               copies: printingOptions.copies,
               serviceOptions: printingOptions.serviceOptions,
-              total
+              total,
+              perFileBreakdown: selectedFiles.map((_, i) => {
+                const filePageCount = filePageCounts[i] || 1;
+                const fileOpts = getFilePrintingOptions(i, printingOptions);
+                const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+                const effectivePageColors = fileOpts.pageColors || filePageColors;
+                const fileColorPages = effectivePageColors.colorPages.length;
+                const fileBwPages = effectivePageColors.bwPages.length;
+                const fileBasePrice = pricing.basePrices[fileOpts.pageSize];
+                const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+                const fileCost = calculateFileCost(
+                  filePageCount,
+                  fileColorPages,
+                  fileBwPages,
+                  fileBasePrice,
+                  colorMultiplier,
+                  fileSidedMultiplier,
+                  fileOpts.copies,
+                  fileOpts.color
+                );
+                return {
+                  fileIndex: i + 1,
+                  filePageCount,
+                  filePageSize: fileOpts.pageSize,
+                  fileColor: fileOpts.color,
+                  fileSided: fileOpts.sided,
+                  fileCopies: fileOpts.copies,
+                  fileColorPages,
+                  fileBwPages,
+                  fileCost
+                };
+              })
             });
             
             setAmount(total);
@@ -701,27 +774,32 @@ export default function OrderPage() {
             // Calculate pricing per file (fallback)
             let total = 0;
             const colorMultiplier = 2; // Default fallback color multiplier
-            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
             
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
               
+              // Get per-file printing options
+              const fileOpts = getFilePrintingOptions(i, printingOptions);
+              const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
+              const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
+              
               // Get page colors for this file
               const filePageColors = getFilePageColors(i, printingOptions.pageColors);
-              const fileColorPages = filePageColors.colorPages.length;
-              const fileBwPages = filePageColors.bwPages.length;
+              const effectivePageColors = fileOpts.pageColors || filePageColors;
+              const fileColorPages = effectivePageColors.colorPages.length;
+              const fileBwPages = effectivePageColors.bwPages.length;
               
               // Calculate base cost for this file using helper function
               const fileBaseCost = calculateFileCost(
                 filePageCount,
                 fileColorPages,
                 fileBwPages,
-                basePrice,
+                fileBasePrice,
                 colorMultiplier,
-                sidedMultiplier,
-                printingOptions.copies,
-                printingOptions.color
+                fileSidedMultiplier,
+                fileOpts.copies,
+                fileOpts.color
               );
               total += fileBaseCost;
               
@@ -764,27 +842,32 @@ export default function OrderPage() {
           // Calculate pricing per file (error fallback)
           let total = 0;
           const colorMultiplier = 2; // Default fallback color multiplier
-          const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
           
           // Calculate cost for each file
           for (let i = 0; i < selectedFiles.length; i++) {
             const filePageCount = filePageCounts[i] || 1;
             
+            // Get per-file printing options
+            const fileOpts = getFilePrintingOptions(i, printingOptions);
+            const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
+            const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
+            
             // Get page colors for this file
             const filePageColors = getFilePageColors(i, printingOptions.pageColors);
-            const fileColorPages = filePageColors.colorPages.length;
-            const fileBwPages = filePageColors.bwPages.length;
+            const effectivePageColors = fileOpts.pageColors || filePageColors;
+            const fileColorPages = effectivePageColors.colorPages.length;
+            const fileBwPages = effectivePageColors.bwPages.length;
             
             // Calculate base cost for this file using helper function
             const fileBaseCost = calculateFileCost(
               filePageCount,
               fileColorPages,
               fileBwPages,
-              basePrice,
+              fileBasePrice,
               colorMultiplier,
-              sidedMultiplier,
-              printingOptions.copies,
-              printingOptions.color
+              fileSidedMultiplier,
+              fileOpts.copies,
+              fileOpts.color
             );
             total += fileBaseCost;
             
@@ -1191,10 +1274,21 @@ export default function OrderPage() {
                               console.log(`📋 Initializing per-file pageColors: ${currentPageColors.length} existing + ${files.length} new = ${newPageColors.length} total`);
                             }
                             
+                            // Initialize per-file printing options
+                            const currentFileOptions = prev.fileOptions || [];
+                            const newFileOptions = [...currentFileOptions, ...files.map(() => ({
+                              pageSize: prev.pageSize || 'A4',
+                              color: prev.color || 'bw',
+                              sided: prev.sided || 'single',
+                              copies: prev.copies || 1,
+                            }))];
+                            console.log(`📋 Initializing per-file printing options: ${currentFileOptions.length} existing + ${files.length} new = ${newFileOptions.length} total`);
+                            
                             return {
                               ...prev,
                               serviceOptions: newServiceOptions,
-                              pageColors: updatedPageColors
+                              pageColors: updatedPageColors,
+                              fileOptions: newFileOptions
                             };
                           });
                           
@@ -1570,6 +1664,263 @@ export default function OrderPage() {
                               </div>
                             </div>
                           )}
+
+                          {/* Per-File Printing Options - After Service Option and Mixed Color */}
+                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <label className="block text-sm font-semibold text-gray-900 mb-3">
+                              Printing Options for File {index + 1}
+                            </label>
+                            {(() => {
+                              const fileOpts = getFilePrintingOptions(index, printingOptions);
+                              return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Page Size */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Page Size
+                                    </label>
+                                    <select
+                                      value={fileOpts.pageSize}
+                                      onChange={(e) => {
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          newFileOptions[index] = {
+                                            ...newFileOptions[index],
+                                            pageSize: e.target.value as 'A4' | 'A3'
+                                          };
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    >
+                                      <option value="A4">A4</option>
+                                      <option value="A3">A3</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Color */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Color
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {/* Colorful Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'color',
+                                              pageColors: undefined
+                                            };
+                                            return { ...prev, fileOptions: newFileOptions };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'color'
+                                            ? 'ring-2 ring-blue-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
+                                          color: 'white'
+                                        }}
+                                      >
+                                        Color
+                                      </button>
+                                      
+                                      {/* B&W Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'bw',
+                                              pageColors: undefined
+                                            };
+                                            return { ...prev, fileOptions: newFileOptions };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'bw'
+                                            ? 'ring-2 ring-gray-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
+                                          color: fileOpts.color === 'bw' ? 'white' : 'black',
+                                          border: '1px solid #333'
+                                        }}
+                                      >
+                                        B&W
+                                      </button>
+                                      
+                                      {/* Mixed Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            // Initialize pageColors for this file if not exists
+                                            const filePageColors = getFilePageColors(index, prev.pageColors);
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'mixed',
+                                              pageColors: filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
+                                                ? filePageColors 
+                                                : undefined
+                                            };
+                                            return { ...prev, fileOptions: newFileOptions };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'mixed'
+                                            ? 'ring-2 ring-purple-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
+                                          color: 'white',
+                                          border: '1px solid #333'
+                                        }}
+                                      >
+                                        Mixed
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Sided */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Sided
+                                    </label>
+                                    <select
+                                      value={fileOpts.sided}
+                                      onChange={(e) => {
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          newFileOptions[index] = {
+                                            ...newFileOptions[index],
+                                            sided: e.target.value as 'single' | 'double'
+                                          };
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    >
+                                      <option value="single">Single-sided</option>
+                                      <option value="double">Double-sided</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Copies */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Number of Copies
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={fileOpts.copies || ''}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          if (value === '') {
+                                            newFileOptions[index] = { ...newFileOptions[index], copies: 0 };
+                                          } else {
+                                            const numValue = parseInt(value);
+                                            if (!isNaN(numValue) && numValue >= 1) {
+                                              newFileOptions[index] = { ...newFileOptions[index], copies: numValue };
+                                            }
+                                          }
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      onBlur={(e) => {
+                                        const value = parseInt(e.target.value);
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          if (isNaN(value) || value < 1) {
+                                            newFileOptions[index] = { ...newFileOptions[index], copies: 1 };
+                                          }
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
                       );
                     })}
@@ -1577,7 +1928,8 @@ export default function OrderPage() {
                 </div>
               )}
 
-              {/* Printing Options */}
+              {/* Legacy Printing Options - Hidden when files are selected (for backward compatibility) */}
+              {selectedFiles.length === 0 && (
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Printing Options</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1915,9 +2267,11 @@ export default function OrderPage() {
                     />
                   </div>
                 </div>
+              </div>
+              )}
 
-                {/* Expected Delivery Date */}
-                <div className="mt-6">
+              {/* Expected Delivery Date */}
+              <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Expected Delivery Date
                   </label>
@@ -1932,7 +2286,6 @@ export default function OrderPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     Please select a date at least 1 day from today
                   </p>
-                </div>
               </div>
 
               {/* Order Summary */}
@@ -1971,18 +2324,60 @@ export default function OrderPage() {
                       )}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Size:</span>
-                    <span className="font-medium text-gray-800">{printingOptions.pageSize}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Color:</span>
-                    <span className="font-medium text-gray-800">
-                      {printingOptions.color === 'color' ? 'Color' : 
-                       printingOptions.color === 'bw' ? 'Black & White' : 
-                       'Mixed'}
-                    </span>
-                  </div>
+                  {/* Per-File Printing Options Summary */}
+                  {selectedFiles.length > 0 && printingOptions.fileOptions && printingOptions.fileOptions.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedFiles.map((file, index) => {
+                        const fileOpts = getFilePrintingOptions(index, printingOptions);
+                        return (
+                          <div key={index} className="p-2 bg-white rounded border border-gray-200">
+                            <div className="text-xs font-semibold text-gray-700 mb-1">
+                              {truncateFileName(file.name)}:
+                            </div>
+                            <div className="text-xs space-y-1 text-gray-600">
+                              <div className="flex justify-between">
+                                <span>Size:</span>
+                                <span className="font-medium">{fileOpts.pageSize}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Color:</span>
+                                <span className="font-medium">
+                                  {fileOpts.color === 'color' ? 'Color' : 
+                                   fileOpts.color === 'bw' ? 'B&W' : 
+                                   'Mixed'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Sided:</span>
+                                <span className="font-medium">
+                                  {fileOpts.sided === 'double' ? 'Double' : 'Single'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Copies:</span>
+                                <span className="font-medium">{fileOpts.copies}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Size:</span>
+                        <span className="font-medium text-gray-800">{printingOptions.pageSize || 'A4'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Color:</span>
+                        <span className="font-medium text-gray-800">
+                          {printingOptions.color === 'color' ? 'Color' : 
+                           printingOptions.color === 'bw' ? 'Black & White' : 
+                           printingOptions.color === 'mixed' ? 'Mixed' : 'B&W'}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   {printingOptions.color === 'mixed' && printingOptions.pageColors && (() => {
                     let colorCount = 0;
                     let bwCount = 0;
@@ -2010,16 +2405,20 @@ export default function OrderPage() {
                       </>
                     );
                   })()}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Sided:</span>
-                    <span className="font-medium text-gray-800">
-                      {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Copies:</span>
-                    <span className="font-medium text-gray-800">{printingOptions.copies}</span>
-                  </div>
+                  {(!printingOptions.fileOptions || printingOptions.fileOptions.length === 0) && (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Sided:</span>
+                        <span className="font-medium text-gray-800">
+                          {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Copies:</span>
+                        <span className="font-medium text-gray-800">{printingOptions.copies || 1}</span>
+                      </div>
+                    </>
+                  )}
                   {/* Service Options per File */}
                   {selectedFiles.length > 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0 && (
                     <div className="space-y-2">
