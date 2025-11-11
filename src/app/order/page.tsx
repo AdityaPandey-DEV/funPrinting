@@ -11,7 +11,8 @@ interface PrintingOptions {
   color: 'color' | 'bw' | 'mixed';
   sided: 'single' | 'double';
   copies: number;
-  serviceOption: 'binding' | 'file' | 'service';
+  serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+  serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
   pageColors?: {
     colorPages: number[];
     bwPages: number[];
@@ -269,7 +270,8 @@ export default function OrderPage() {
     color: 'bw',
     sided: 'single',
     copies: 1,
-    serviceOption: 'service',
+    serviceOption: 'service', // Legacy support
+    serviceOptions: [], // Per-file service options
     pageColors: {
       colorPages: [],
       bwPages: [],
@@ -423,7 +425,7 @@ export default function OrderPage() {
         // Set the PDF URL for preview
         if (orderData.pdfUrl) {
           setPdfUrls([orderData.pdfUrl]);
-          setPdfLoaded(true);
+        setPdfLoaded(true);
         }
         
         // Set customer info from the form data
@@ -501,37 +503,30 @@ export default function OrderPage() {
             const basePrice = pricing.basePrices[printingOptions.pageSize];
             console.log(`💰 Base price for ${printingOptions.pageSize}: ₹${basePrice}`);
             
-            // Calculate color costs for mixed pages
+            // Calculate pricing per file
             let total = 0;
-            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-              // Mixed color pricing: calculate separately for color and B&W pages
-              const colorPages = printingOptions.pageColors.colorPages.length;
-              const bwPages = printingOptions.pageColors.bwPages.length;
-              
-              // If not all pages are specified, treat unspecified pages as B&W
-              const unspecifiedPages = pageCount - (colorPages + bwPages);
-              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-              
-              const colorCost = basePrice * colorPages * pricing.multipliers.color;
-              const bwCost = basePrice * totalBwPages;
-              
-              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1) * printingOptions.copies;
-            } else {
-              // Standard pricing for all color or all B&W
+            const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
               const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
               const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
               
-              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
-            }
-            
-            // Add compulsory service option cost (only for multi-page jobs)
-            if (pageCount > pricing.additionalServices.minServiceFeePageLimit) {
-              if (printingOptions.serviceOption === 'binding') {
+            // Calculate cost for each file
+            for (let i = 0; i < selectedFiles.length; i++) {
+              const filePageCount = filePageCounts[i] || 1;
+              
+              // Base cost for this file
+              const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+              total += fileBaseCost;
+              
+              // Add service option cost for this file if it exceeds limit
+              if (filePageCount > minServiceFeePageLimit) {
+                const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+                if (fileServiceOption === 'binding') {
                 total += pricing.additionalServices.binding;
-              } else if (printingOptions.serviceOption === 'file') {
-                total += 10; // Plastic file fee (keep pages inside file)
-              } else if (printingOptions.serviceOption === 'service') {
-                total += pricing.additionalServices.minServiceFee; // Configurable minimal service fee
+                } else if (fileServiceOption === 'file') {
+                  total += 10; // Plastic file fee
+                } else if (fileServiceOption === 'service') {
+                  total += pricing.additionalServices.minServiceFee;
+                }
               }
             }
             
@@ -546,7 +541,7 @@ export default function OrderPage() {
               color: printingOptions.color,
               sided: printingOptions.sided,
               copies: printingOptions.copies,
-              serviceOption: printingOptions.serviceOption,
+              serviceOptions: printingOptions.serviceOptions,
               total
             });
             
@@ -559,36 +554,29 @@ export default function OrderPage() {
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
             console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
             
+            // Calculate pricing per file (fallback)
             let total = 0;
-            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-              // Mixed color pricing fallback
-              const colorPages = printingOptions.pageColors.colorPages.length;
-              const bwPages = printingOptions.pageColors.bwPages.length;
-              
-              // If not all pages are specified, treat unspecified pages as B&W
-              const unspecifiedPages = pageCount - (colorPages + bwPages);
-              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-              
-              const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-              const bwCost = basePrice * totalBwPages;
-              
-              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
-            } else {
-              // Standard pricing fallback
               const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
               const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
               
-              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
-            }
-            
-            // Add compulsory service option cost (fallback amounts, only if page count exceeds limit)
-            if (pageCount > 1) {
-              if (printingOptions.serviceOption === 'binding') {
+            // Calculate cost for each file
+            for (let i = 0; i < selectedFiles.length; i++) {
+              const filePageCount = filePageCounts[i] || 1;
+              
+              // Base cost for this file
+              const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+              total += fileBaseCost;
+              
+              // Add service option cost for this file if it exceeds limit
+              if (filePageCount > 1) {
+                const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+                if (fileServiceOption === 'binding') {
                 total += 20; // Default binding cost
-              } else if (printingOptions.serviceOption === 'file') {
+                } else if (fileServiceOption === 'file') {
                 total += 10;
-              } else if (printingOptions.serviceOption === 'service') {
-                total += 5; // Default minimal service fee (fallback)
+                } else if (fileServiceOption === 'service') {
+                  total += 5; // Default minimal service fee
+                }
               }
             }
             
@@ -602,7 +590,7 @@ export default function OrderPage() {
               color: printingOptions.color,
               sided: printingOptions.sided,
               copies: printingOptions.copies,
-              serviceOption: printingOptions.serviceOption,
+              serviceOptions: printingOptions.serviceOptions,
               total
             });
             
@@ -615,26 +603,30 @@ export default function OrderPage() {
           const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
           console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
           
+          // Calculate pricing per file (error fallback)
           let total = 0;
-          if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-            // Mixed color pricing fallback
-            const colorPages = printingOptions.pageColors.colorPages.length;
-            const bwPages = printingOptions.pageColors.bwPages.length;
-            
-            // If not all pages are specified, treat unspecified pages as B&W
-            const unspecifiedPages = pageCount - (colorPages + bwPages);
-            const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-            
-            const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-            const bwCost = basePrice * totalBwPages;
-            
-            total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
-          } else {
-            // Standard pricing fallback
             const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
             const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
             
-            total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+          // Calculate cost for each file
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const filePageCount = filePageCounts[i] || 1;
+            
+            // Base cost for this file
+            const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            total += fileBaseCost;
+            
+            // Add service option cost for this file if it exceeds limit
+            if (filePageCount > 1) {
+              const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+              if (fileServiceOption === 'binding') {
+                total += 20; // Default binding cost
+              } else if (fileServiceOption === 'file') {
+                total += 10;
+              } else if (fileServiceOption === 'service') {
+                total += 5; // Default minimal service fee
+              }
+            }
           }
           
           if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
@@ -647,7 +639,7 @@ export default function OrderPage() {
             color: printingOptions.color,
             sided: printingOptions.sided,
             copies: printingOptions.copies,
-            serviceOption: printingOptions.serviceOption,
+            serviceOptions: printingOptions.serviceOptions,
             total
           });
           
@@ -661,7 +653,7 @@ export default function OrderPage() {
     };
 
     calculateAmount();
-  }, [pageCount, printingOptions, deliveryOption]);
+  }, [pageCount, printingOptions, deliveryOption, selectedFiles, filePageCounts]);
 
 
   // Payment function
@@ -683,10 +675,17 @@ export default function OrderPage() {
       return;
     }
 
-    // Validate service option for orders exceeding minimum service fee page limit
-    if (pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && !printingOptions.serviceOption) {
-      alert('Please select a service option (Binding, Plastic file, or Service fee) for orders with more than ' + (pricingData?.additionalServices?.minServiceFeePageLimit || 1) + ' page(s)');
+    // Validate service options for each file exceeding minimum service fee page limit
+    const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const filePageCount = filePageCounts[i] || 1;
+      if (filePageCount > minServiceFeePageLimit) {
+        const fileServiceOption = printingOptions.serviceOptions?.[i];
+        if (!fileServiceOption) {
+          alert(`Please select a service option for File ${i + 1} (${selectedFiles[i].name}) which has more than ${minServiceFeePageLimit} page(s)`);
       return;
+        }
+      }
     }
 
     // Validate mixed color page selection
@@ -740,41 +739,41 @@ export default function OrderPage() {
         try {
           // Upload all files
           for (const file of selectedFiles) {
-            const uploadFormData = new FormData();
+          const uploadFormData = new FormData();
             uploadFormData.append('file', file);
-            
-            const uploadResponse = await fetch('/api/upload-file', {
-              method: 'POST',
-              body: uploadFormData,
-            });
-            
-            // Check if response is ok before trying to parse JSON
-            if (!uploadResponse.ok) {
-              let errorMessage = 'Upload failed';
-              try {
-                const errorData = await uploadResponse.json();
-                errorMessage = errorData.error || errorMessage;
-              } catch (parseError) {
-                // If we can't parse JSON, it might be an HTML error page from Vercel
-                if (uploadResponse.status === 413) {
-                  errorMessage = 'File size too large. Please try a smaller file.';
-                } else if (uploadResponse.status >= 500) {
-                  errorMessage = 'Server error. Please try again later.';
-                } else {
-                  errorMessage = `Upload failed with status ${uploadResponse.status}`;
-                }
+          
+          const uploadResponse = await fetch('/api/upload-file', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+          
+          // Check if response is ok before trying to parse JSON
+          if (!uploadResponse.ok) {
+            let errorMessage = 'Upload failed';
+            try {
+              const errorData = await uploadResponse.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch (parseError) {
+              // If we can't parse JSON, it might be an HTML error page from Vercel
+              if (uploadResponse.status === 413) {
+                errorMessage = 'File size too large. Please try a smaller file.';
+              } else if (uploadResponse.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+              } else {
+                errorMessage = `Upload failed with status ${uploadResponse.status}`;
               }
-              throw new Error(errorMessage);
             }
-            
-            const uploadData = await uploadResponse.json();
-            
-            if (uploadData.success) {
+            throw new Error(errorMessage);
+          }
+          
+          const uploadData = await uploadResponse.json();
+          
+          if (uploadData.success) {
               fileURLs.push(uploadData.fileURL);
               originalFileNames.push(uploadData.originalFileName);
               console.log(`✅ File uploaded successfully: ${uploadData.fileURL}`);
-            } else {
-              throw new Error(uploadData.error || 'Upload failed');
+          } else {
+            throw new Error(uploadData.error || 'Upload failed');
             }
           }
         } catch (error) {
@@ -805,6 +804,8 @@ export default function OrderPage() {
         printingOptions: {
           ...printingOptions,
           pageCount,
+          serviceOptions: printingOptions.serviceOptions, // Include per-file service options
+          serviceOption: printingOptions.serviceOption, // Legacy support
         },
         deliveryOption,
         expectedDate,
@@ -927,7 +928,7 @@ export default function OrderPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
             {/* File Upload & Options Section */}
             <div className="space-y-8">
               <div className="text-center mb-6">
@@ -1001,11 +1002,17 @@ export default function OrderPage() {
                           // Update page counts
                           setFilePageCounts(prev => [...prev, ...newPageCounts]);
                           
+                          // Initialize service options for new files (default to 'service')
+                          setPrintingOptions(prev => ({
+                            ...prev,
+                            serviceOptions: [...(prev.serviceOptions || []), ...files.map(() => 'service' as const)]
+                          }));
+                          
                           // Calculate total page count
                           const totalPages = [...filePageCounts, ...newPageCounts].reduce((sum, count) => sum + count, 0);
                           setPageCount(totalPages);
                           
-                          setIsCountingPages(false);
+                                setIsCountingPages(false);
                           setPdfLoaded(true);
                         }
                       }}
@@ -1039,54 +1046,138 @@ export default function OrderPage() {
                 </div>
               )}
 
-              {/* File Preview */}
+              {/* File Preview with Service Options */}
               {pdfUrls.length > 0 && (
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
-                  <div className="space-y-4">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
-                        <div className="p-2 bg-gray-100 border-b">
-                          <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                  <div className="space-y-6">
+                    {selectedFiles.map((file, index) => {
+                      const filePageCount = filePageCounts[index] || 1;
+                      const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+                      const needsServiceOption = filePageCount > minServiceFeePageLimit;
+                      const currentServiceOption = printingOptions.serviceOptions?.[index] || 'service';
+                      
+                      return (
+                        <div key={index} className="space-y-4">
+                          {/* File Preview */}
+                  <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
+                            <div className="p-2 bg-gray-100 border-b">
+                              <p className="text-sm font-medium text-gray-700">
+                                File {index + 1}: {file.name} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
+                              </p>
                         </div>
-                        <div className="h-64">
-                          {/* Image files - show directly */}
-                          {file.type.startsWith('image/') && (
-                            <img
-                              src={pdfUrls[index]}
-                              alt={`Preview ${file.name}`}
-                              className="w-full h-full object-contain"
-                              onLoad={() => setPdfLoaded(true)}
-                            />
-                          )}
-                          
-                          {/* PDF files - use iframe */}
-                          {file.type === 'application/pdf' && (
-                            <iframe
-                              src={pdfUrls[index]}
-                              className="w-full h-full"
-                              onLoad={() => setPdfLoaded(true)}
-                            />
-                          )}
-                          
-                          {/* Other files - show file info */}
-                          {!file.type.startsWith('image/') && 
-                           file.type !== 'application/pdf' && (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                              <div className="text-center">
-                                <div className="text-4xl mb-2">📄</div>
-                                <p className="text-sm text-gray-600">
-                                  {file.type}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {(file.size / 1024).toFixed(1)} KB
-                                </p>
+                            <div className="h-64">
+                        {/* Image files - show directly */}
+                              {file.type.startsWith('image/') && (
+                                <img
+                                  src={pdfUrls[index]}
+                                  alt={`Preview ${file.name}`}
+                                  className="w-full h-full object-contain"
+                            onLoad={() => setPdfLoaded(true)}
+                          />
+                        )}
+                        
+                        {/* PDF files - use iframe */}
+                              {file.type === 'application/pdf' && (
+                          <iframe
+                                  src={pdfUrls[index]}
+                                  className="w-full h-full"
+                            onLoad={() => setPdfLoaded(true)}
+                                />
+                              )}
+                              
+                              {/* Other files - show file info */}
+                              {!file.type.startsWith('image/') && 
+                               file.type !== 'application/pdf' && (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                  <div className="text-center">
+                                    <div className="text-4xl mb-2">📄</div>
+                                    <p className="text-sm text-gray-600">
+                                      {file.type}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {(file.size / 1024).toFixed(1)} KB
+                                    </p>
                               </div>
+                          </div>
+                        )}
                             </div>
-                          )}
+                          </div>
+                          
+                          {/* Service Option for this file */}
+                          {needsServiceOption && (
+                            <div className="mt-4">
+                              <label className="block text-sm font-medium text-gray-700 mb-3">
+                                Service Option for File {index + 1} (required)
+                              </label>
+                              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'binding'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          newServiceOptions[index] = 'binding';
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      📎 Binding (+₹{pricingData?.additionalServices?.binding || 20})
+                                    </span>
+                                  </label>
+
+                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'file'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          newServiceOptions[index] = 'file';
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      🗂️ Plastic file (₹10)
+                                    </span>
+                                  </label>
+
+                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'service'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          newServiceOptions[index] = 'service';
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
+                                    </span>
+                                  </label>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">
+                                      Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
+                              </p>
+                            </div>
+                          </div>
+                    )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1118,8 +1209,8 @@ export default function OrderPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setPrintingOptions(prev => ({ 
-                            ...prev, 
+                        setPrintingOptions(prev => ({ 
+                          ...prev, 
                             color: 'color',
                             pageColors: undefined
                           }));
@@ -1296,7 +1387,7 @@ export default function OrderPage() {
                                   title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
                                 >
                                   {pageNum}
-                                </div>
+                      </div>
                               );
                             })}
                           </div>
@@ -1370,60 +1461,6 @@ export default function OrderPage() {
                   </div>
                 </div>
 
-                {/* Service Option (only if page count exceeds minimum service fee limit) */}
-                {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && (
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Service Option (one is required)
-                  </label>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'binding'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'binding' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          📎 Binding (+₹{pricingData?.additionalServices?.binding || 20})
-                        </span>
-                      </label>
-
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'file'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'file' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          🗂️ Plastic file (₹10)
-                        </span>
-                      </label>
-
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'service'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'service' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
-                        </span>
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
-                    </p>
-                  </div>
-                </div>
-                )}
-
                 {/* Expected Delivery Date */}
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1457,7 +1494,7 @@ export default function OrderPage() {
                               <span className="font-medium text-gray-800 truncate block">{file.name}</span>
                               <span className="text-xs text-gray-500">
                                 {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
-                              </span>
+                    </span>
                             </div>
                           ))}
                         </div>
@@ -1517,19 +1554,46 @@ export default function OrderPage() {
                     <span className="text-gray-600">Copies:</span>
                     <span className="font-medium text-gray-800">{printingOptions.copies}</span>
                   </div>
-                  {pageCount > 1 && printingOptions.serviceOption === 'binding' && (
+                  {/* Service Options per File */}
+                  {selectedFiles.length > 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0 && (
+                    <div className="space-y-2">
+                      {selectedFiles.map((file, index) => {
+                        const filePageCount = filePageCounts[index] || 1;
+                        const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+                        const fileServiceOption = printingOptions.serviceOptions?.[index];
+                        
+                        if (filePageCount > minServiceFeePageLimit && fileServiceOption) {
+                          return (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                              <span className="text-gray-600">
+                                {file.name.substring(0, 20)}{file.name.length > 20 ? '...' : ''}:
+                              </span>
+                              <span className="font-medium text-gray-800">
+                                {fileServiceOption === 'binding' && `Binding (+₹${pricingData?.additionalServices?.binding || 20})`}
+                                {fileServiceOption === 'file' && 'Plastic file (₹10)'}
+                                {fileServiceOption === 'service' && `Service fee (₹${pricingData?.additionalServices?.minServiceFee || 5})`}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
+                  {/* Legacy support for single serviceOption */}
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'binding' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Binding:</span>
                       <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
                     </div>
                   )}
-                  {pageCount > 1 && printingOptions.serviceOption === 'file' && (
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'file' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Plastic file:</span>
                       <span className="font-medium text-gray-800">₹10</span>
                     </div>
                   )}
-                  {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service fee:</span>
                       <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
@@ -1546,18 +1610,18 @@ export default function OrderPage() {
 
               {/* Upload More Button */}
               {selectedFiles.length > 0 && (
-                <div className="text-center">
-                  <button
-                    type="button"
+              <div className="text-center">
+                <button
+                  type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                  >
+                >
                     + Upload More Files
-                  </button>
-                </div>
+                </button>
+              </div>
               )}
 
-            </div>
+              </div>
 
             {/* Delivery Options Section - Inline after file upload */}
             {selectedFiles.length > 0 && (
@@ -1570,24 +1634,24 @@ export default function OrderPage() {
                     <p className="text-sm text-blue-800 mb-3">
                       <strong>Quick Info:</strong> {!customerInfo.phone && 'Add phone number'} {!customerInfo.phone && !selectedPickupLocation && 'and'} {!selectedPickupLocation && 'select pickup location'} to auto-fill next time!
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {!customerInfo.phone && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone Number *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={customerInfo.phone}
-                            onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
-                            placeholder="Enter your phone number"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={customerInfo.phone}
+                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Enter your phone number"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    />
                   </div>
+                      )}
+                </div>
+              </div>
                 )}
 
                 {!isAuthenticated && (
@@ -1599,7 +1663,7 @@ export default function OrderPage() {
                     </p>
                   </div>
                 )}
-
+                
                 <div className="space-y-4">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -1674,37 +1738,37 @@ export default function OrderPage() {
                   {deliveryOption.type === 'delivery' && (
                     <div className="ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Complete Address *
-                          </label>
-                          <textarea
-                            required
-                            value={deliveryOption.address || ''}
-                            onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
-                            rows={3}
-                            placeholder="Enter your complete delivery address"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                            <input
-                              type="text"
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Complete Address *
+                            </label>
+                            <textarea
                               required
-                              value={deliveryOption.city || ''}
+                              value={deliveryOption.address || ''}
+                            onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
+                              rows={3}
+                              placeholder="Enter your complete delivery address"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                              <input
+                                type="text"
+                                required
+                                value={deliveryOption.city || ''}
                               onChange={(e) => setDeliveryOption(prev => ({ ...prev, city: e.target.value }))}
                               placeholder="City"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
+                              />
+                            </div>
+                            <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
-                            <input
-                              type="text"
-                              required
-                              value={deliveryOption.pinCode || ''}
+                              <input
+                                type="text"
+                                required
+                                value={deliveryOption.pinCode || ''}
                               onChange={(e) => setDeliveryOption(prev => ({ ...prev, pinCode: e.target.value }))}
                               placeholder="PIN Code"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1720,7 +1784,7 @@ export default function OrderPage() {
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Expected Delivery Date *
-                  </label>
+                            </label>
                   <input
                     type="date"
                     value={expectedDate}
@@ -1729,11 +1793,11 @@ export default function OrderPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                              </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            </div>
-          </div>
 
           {/* Right Column - Sticky Order Summary & Payment */}
           <div className="lg:col-span-1">
@@ -1746,33 +1810,33 @@ export default function OrderPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Files:</span>
                     <span className="font-medium">{selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'No files'}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Pages:</span>
+                          <span className="text-gray-600">Pages:</span>
                     <span className="font-medium">{isCountingPages ? '...' : pageCount}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Size:</span>
+                          <span className="text-gray-600">Size:</span>
                     <span className="font-medium">{printingOptions.pageSize}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Color:</span>
+                          <span className="text-gray-600">Color:</span>
                     <span className="font-medium">
-                      {printingOptions.color === 'color' ? 'Color' : 
+                            {printingOptions.color === 'color' ? 'Color' : 
                        printingOptions.color === 'bw' ? 'B&W' : 'Mixed'}
-                    </span>
-                  </div>
+                          </span>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Copies:</span>
+                          <span className="text-gray-600">Copies:</span>
                     <span className="font-medium">{printingOptions.copies}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivery:</span>
+                          <span className="text-gray-600">Delivery:</span>
                     <span className="font-medium text-xs">
                       {deliveryOption.type === 'pickup' ? '🏫 Pickup' : '🚚 Delivery'}
-                    </span>
+                          </span>
+                    </div>
                   </div>
-                </div>
 
                 {/* Total Amount */}
                 <div className="border-t pt-4 mb-6">
@@ -1783,16 +1847,16 @@ export default function OrderPage() {
                 </div>
 
                 {/* Payment Button */}
-                <button
-                  onClick={handlePayment}
+                  <button
+                    onClick={handlePayment}
                   disabled={isProcessingPayment || !isRazorpayLoaded || !isAuthenticated || selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))}
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {!isAuthenticated ? '🔒 Sign In to Place Order' :
+                  >
+                    {!isAuthenticated ? '🔒 Sign In to Place Order' :
                    !isRazorpayLoaded ? '⏳ Loading...' : 
-                   isProcessingPayment ? '🔄 Processing...' : 
+                     isProcessingPayment ? '🔄 Processing...' : 
                    `💳 Pay ₹${amount.toFixed(2)}`}
-                </button>
+                  </button>
 
                 {!isAuthenticated && (
                   <div className="mt-4 text-center">
@@ -1807,22 +1871,22 @@ export default function OrderPage() {
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">🔒</span>
                     <span>Secure Payment</span>
-                  </div>
+                </div>
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">🚀</span>
                     <span>Fast Delivery</span>
-                  </div>
+              </div>
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">⭐</span>
                     <span>1000+ Happy Customers</span>
-                  </div>
+            </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        </div>
       </div>
+    </div>
     </>
   );
 }

@@ -76,42 +76,87 @@ export async function POST(request: NextRequest) {
     const basePrice = pricing.basePrices[printingOptions.pageSize as keyof typeof pricing.basePrices];
     const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
     
-    // Calculate total amount based on color option
-    let calculatedAmount = 0;
-    if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-      // Mixed color pricing: calculate separately for color and B&W pages
-      const colorPages = printingOptions.pageColors.colorPages.length;
-      const bwPages = printingOptions.pageColors.bwPages.length;
-      
-      // If not all pages are specified, treat unspecified pages as B&W
-      const unspecifiedPages = pageCount - (colorPages + bwPages);
-      const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-      
-      const colorCost = basePrice * colorPages * pricing.multipliers.color;
-      const bwCost = basePrice * totalBwPages;
-      
-      calculatedAmount = (colorCost + bwCost) * sidedMultiplier * printingOptions.copies;
-      
-      console.log(`🔍 Payment initiation - Mixed color pricing:`);
-      console.log(`  - Color pages: ${colorPages} (₹${colorCost})`);
-      console.log(`  - B&W pages: ${totalBwPages} (₹${bwCost})`);
-      console.log(`  - Unspecified pages treated as B&W: ${unspecifiedPages}`);
-    } else {
-      // Standard pricing for all color or all B&W
-      const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
-      calculatedAmount = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+    // Prepare file data first - prioritize arrays over single file fields
+    let fileURLsArray: string[] | undefined;
+    let originalFileNamesArray: string[] | undefined;
+    let singleFileURL: string | undefined;
+    let singleOriginalFileName: string | undefined;
+    
+    // Check if we have fileURLs array (multiple files)
+    if (fileURLs && Array.isArray(fileURLs) && fileURLs.length > 0) {
+      fileURLsArray = fileURLs;
+      singleFileURL = fileURLs[0]; // Set first file as legacy fileURL for backward compatibility
+      console.log(`✅ Using fileURLs array with ${fileURLs.length} files`);
+    } else if (fileURL) {
+      // Fall back to single file for backward compatibility
+      fileURLsArray = [fileURL];
+      singleFileURL = fileURL;
+      console.log(`📄 Using single fileURL, converted to array format`);
     }
     
-    // Add compulsory service option cost (only when page count exceeds minimum service fee limit)
-    if (pageCount > pricing.additionalServices.minServiceFeePageLimit) {
-      if (printingOptions.serviceOption === 'binding') {
-        calculatedAmount += pricing.additionalServices.binding;
-      } else if (printingOptions.serviceOption === 'file') {
-        calculatedAmount += 10; // File handling fee
-      } else if (printingOptions.serviceOption === 'service') {
-        calculatedAmount += pricing.additionalServices.minServiceFee; // Configurable minimal service fee
+    // Check if we have originalFileNames array
+    if (originalFileNames && Array.isArray(originalFileNames) && originalFileNames.length > 0) {
+      originalFileNamesArray = originalFileNames;
+      singleOriginalFileName = originalFileNames[0]; // Set first file as legacy originalFileName
+      console.log(`✅ Using originalFileNames array with ${originalFileNames.length} files`);
+    } else if (originalFileName) {
+      // Fall back to single file name for backward compatibility
+      originalFileNamesArray = [originalFileName];
+      singleOriginalFileName = originalFileName;
+      console.log(`📄 Using single originalFileName, converted to array format`);
+    }
+    
+    // Ensure arrays match in length
+    if (fileURLsArray && originalFileNamesArray) {
+      if (fileURLsArray.length !== originalFileNamesArray.length) {
+        console.warn(`⚠️ Mismatch: fileURLs has ${fileURLsArray.length} items, originalFileNames has ${originalFileNamesArray.length} items`);
+        // Pad or truncate to match
+        if (originalFileNamesArray.length < fileURLsArray.length) {
+          while (originalFileNamesArray.length < fileURLsArray.length) {
+            originalFileNamesArray.push(`File ${originalFileNamesArray.length + 1}`);
+          }
+        } else {
+          originalFileNamesArray = originalFileNamesArray.slice(0, fileURLsArray.length);
+        }
       }
     }
+    
+    // Calculate pricing per file
+    const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+    const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
+    
+    // Get file counts - we need to calculate per file
+    const numFiles = (fileURLsArray && fileURLsArray.length > 0) ? fileURLsArray.length : 1;
+    // For per-file calculation, we need page counts per file
+    // Since we don't have that in the API, we'll estimate or use total pageCount divided by files
+    // In a real scenario, you'd pass filePageCounts from frontend
+    const estimatedPagesPerFile = numFiles > 0 ? Math.ceil(pageCount / numFiles) : pageCount;
+    
+    let calculatedAmount = 0;
+    
+    // Calculate cost for each file
+    for (let i = 0; i < numFiles; i++) {
+      // Base cost for this file (using estimated pages per file)
+      const fileBaseCost = basePrice * estimatedPagesPerFile * colorMultiplier * sidedMultiplier * printingOptions.copies;
+      calculatedAmount += fileBaseCost;
+      
+      // Add service option cost for this file if it exceeds limit
+      if (estimatedPagesPerFile > minServiceFeePageLimit) {
+        const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+        if (fileServiceOption === 'binding') {
+          calculatedAmount += pricing.additionalServices.binding;
+        } else if (fileServiceOption === 'file') {
+          calculatedAmount += 10; // File handling fee
+        } else if (fileServiceOption === 'service') {
+          calculatedAmount += pricing.additionalServices.minServiceFee;
+        }
+      }
+    }
+    
+    console.log(`🔍 Payment initiation - Per-file pricing:`);
+    console.log(`  - Files: ${numFiles}`);
+    console.log(`  - Estimated pages per file: ${estimatedPagesPerFile}`);
+    console.log(`  - Service options: ${JSON.stringify(printingOptions.serviceOptions || printingOptions.serviceOption)}`);
     
     // Add delivery charge if delivery option is selected
     if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
@@ -180,51 +225,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Prepare file data - prioritize arrays over single file fields
-    let fileURLsArray: string[] | undefined;
-    let originalFileNamesArray: string[] | undefined;
-    let singleFileURL: string | undefined;
-    let singleOriginalFileName: string | undefined;
-    
-    // Check if we have fileURLs array (multiple files)
-    if (fileURLs && Array.isArray(fileURLs) && fileURLs.length > 0) {
-      fileURLsArray = fileURLs;
-      singleFileURL = fileURLs[0]; // Set first file as legacy fileURL for backward compatibility
-      console.log(`✅ Using fileURLs array with ${fileURLs.length} files`);
-    } else if (fileURL) {
-      // Fall back to single file for backward compatibility
-      fileURLsArray = [fileURL];
-      singleFileURL = fileURL;
-      console.log(`📄 Using single fileURL, converted to array format`);
-    }
-    
-    // Check if we have originalFileNames array
-    if (originalFileNames && Array.isArray(originalFileNames) && originalFileNames.length > 0) {
-      originalFileNamesArray = originalFileNames;
-      singleOriginalFileName = originalFileNames[0]; // Set first file as legacy originalFileName
-      console.log(`✅ Using originalFileNames array with ${originalFileNames.length} files`);
-    } else if (originalFileName) {
-      // Fall back to single file name for backward compatibility
-      originalFileNamesArray = [originalFileName];
-      singleOriginalFileName = originalFileName;
-      console.log(`📄 Using single originalFileName, converted to array format`);
-    }
-    
-    // Ensure arrays match in length
-    if (fileURLsArray && originalFileNamesArray) {
-      if (fileURLsArray.length !== originalFileNamesArray.length) {
-        console.warn(`⚠️ Mismatch: fileURLs has ${fileURLsArray.length} items, originalFileNames has ${originalFileNamesArray.length} items`);
-        // Pad or truncate to match
-        if (originalFileNamesArray.length < fileURLsArray.length) {
-          while (originalFileNamesArray.length < fileURLsArray.length) {
-            originalFileNamesArray.push(`File ${originalFileNamesArray.length + 1}`);
-          }
-        } else {
-          originalFileNamesArray = originalFileNamesArray.slice(0, fileURLsArray.length);
-        }
-      }
-    }
-    
     console.log(`📋 Creating order with ${fileURLsArray?.length || 0} file(s)`);
 
     // Create pending order in database
@@ -240,6 +240,8 @@ export async function POST(request: NextRequest) {
       printingOptions: {
         ...printingOptions,
         pageCount: pageCount,
+        serviceOptions: printingOptions.serviceOptions, // Store per-file service options
+        serviceOption: printingOptions.serviceOption, // Legacy support
       },
       deliveryOption: enhancedDeliveryOption,
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,

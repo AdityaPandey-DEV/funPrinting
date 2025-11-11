@@ -32,7 +32,8 @@ export interface IOrder {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
     pageColors?: {
       colorPages: number[]; // Array of page numbers that should be printed in color
       bwPages: number[];    // Array of page numbers that should be printed in B&W
@@ -136,6 +137,10 @@ const orderSchema = new mongoose.Schema<IOrder>({
     },
     serviceOption: {
       type: String,
+      enum: ['binding', 'file', 'service'],
+    },
+    serviceOptions: {
+      type: [String],
       enum: ['binding', 'file', 'service'],
     },
     pageColors: {
