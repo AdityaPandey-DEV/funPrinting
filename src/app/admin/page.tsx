@@ -32,9 +32,11 @@ interface Order {
     email: string;
   };
   orderType: 'file' | 'template';
-  fileURL?: string;
+  fileURL?: string; // Legacy: single file URL (for backward compatibility)
+  fileURLs?: string[]; // Array of file URLs for multiple files
   fileType?: string;
-  originalFileName?: string;
+  originalFileName?: string; // Legacy: single file name (for backward compatibility)
+  originalFileNames?: string[]; // Array of original file names for multiple files
   templateData?: {
     templateType: string;
     formData: Record<string, unknown>;
@@ -600,18 +602,51 @@ function AdminDashboardContent() {
                           <option value="delivered">Delivered</option>
                         </select>
 
-                        {/* File Download */}
-                        {order.orderType === 'file' && order.fileURL && (
-                          <a
-                            href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
-                            title={`Download ${order.originalFileName || 'File'}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
-                          </a>
+                        {/* File Download - Support multiple files */}
+                        {order.orderType === 'file' && (
+                          <div className="space-y-1">
+                            {/* Multiple files */}
+                            {(order.fileURLs && order.fileURLs.length > 0) ? (
+                              <>
+                                <div className="text-xs text-gray-600 mb-1">
+                                  {order.fileURLs.length} file{order.fileURLs.length !== 1 ? 's' : ''}
+                                </div>
+                                {order.fileURLs.slice(0, 2).map((fileURL, idx) => {
+                                  const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                                  return (
+                                    <a
+                                      key={idx}
+                                      href={`/api/admin/pdf-viewer?url=${encodeURIComponent(fileURL)}&orderId=${order.orderId}&filename=${fileName}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
+                                      title={`Download ${fileName}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {fileName.length > 20 ? fileName.substring(0, 20) + '...' : fileName}
+                                    </a>
+                                  );
+                                })}
+                                {order.fileURLs.length > 2 && (
+                                  <div className="text-xs text-gray-500 text-center">
+                                    +{order.fileURLs.length - 2} more
+                                  </div>
+                                )}
+                              </>
+                            ) : order.fileURL ? (
+                              // Legacy: single file
+                              <a
+                                href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
+                                title={`Download ${order.originalFileName || 'File'}`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
+                              </a>
+                            ) : null}
+                          </div>
                         )}
 
                         {/* Template PDF Download */}

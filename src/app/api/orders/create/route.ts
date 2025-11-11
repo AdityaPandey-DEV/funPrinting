@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     // Continue with existing order processing for file orders and legacy template orders
     
     let customerInfo, orderType, fileURL, fileType, originalFileName, templateData, printingOptions, deliveryOption, expectedDate;
+    let fileURLs: string[] | undefined, originalFileNames: string[] | undefined;
     
     if (contentType?.includes('multipart/form-data')) {
       // Handle file upload
@@ -99,17 +100,26 @@ export async function POST(request: NextRequest) {
         customerInfo,
         orderType,
         fileURL,
+        fileURLs, // Support for multiple files
+        originalFileName,
+        originalFileNames, // Support for multiple file names
         templateData,
         printingOptions,
         deliveryOption,
         expectedDate
-      } = body);
+      } = body as any);
+
+      // Use fileURLs if available, otherwise fall back to fileURL for backward compatibility
+      if (fileURLs && fileURLs.length > 0) {
+        fileURL = fileURLs[0]; // Set first file as legacy fileURL
+      }
 
       // Debug: Log the parsed JSON data
       console.log('🔍 DEBUG - Parsed JSON:');
       console.log('  - customerInfo:', JSON.stringify(customerInfo, null, 2));
       console.log('  - printingOptions:', JSON.stringify(printingOptions, null, 2));
       console.log('  - deliveryOption:', JSON.stringify(deliveryOption, null, 2));
+      console.log('  - fileURLs:', fileURLs?.length || 0, 'files');
     }
 
     // Sanitize and validate order data
@@ -280,8 +290,26 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Get fileURLs and originalFileNames - use from parsed variables if available, otherwise use single file values
+    let fileURLsArray: string[] = [];
+    let originalFileNamesArray: string[] = [];
+    
+    // Check if we have fileURLs from the parsed body (for JSON requests)
+    // For multipart/form-data, we only have single file, so use fileURL
+    if (fileURLs && Array.isArray(fileURLs) && fileURLs.length > 0) {
+      fileURLsArray = fileURLs;
+    } else if (fileURL) {
+      fileURLsArray = [fileURL];
+    }
+    
+    if (originalFileNames && Array.isArray(originalFileNames) && originalFileNames.length > 0) {
+      originalFileNamesArray = originalFileNames;
+    } else if (originalFileName) {
+      originalFileNamesArray = [originalFileName];
+    }
+
     // Ensure all required fields are present and handle optional fields
-    const orderData = {
+    const orderData: any = {
       customerInfo: {
         name: customerInfo.name,
         phone: customerInfo.phone,
@@ -289,8 +317,10 @@ export async function POST(request: NextRequest) {
       },
       orderType,
       fileURL: orderType === 'file' ? fileURL : undefined,
+      fileURLs: orderType === 'file' && fileURLsArray.length > 0 ? fileURLsArray : undefined,
       fileType: orderType === 'file' ? fileType : undefined,
       originalFileName: orderType === 'file' ? originalFileName : undefined,
+      originalFileNames: orderType === 'file' && originalFileNamesArray.length > 0 ? originalFileNamesArray : undefined,
       templateData: orderType === 'template' ? templateData : undefined,
       printingOptions: {
         ...printingOptions,

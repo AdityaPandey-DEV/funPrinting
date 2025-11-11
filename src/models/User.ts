@@ -12,6 +12,7 @@ export interface IUser {
   emailVerified: boolean;
   isActive: boolean;
   lastLogin?: Date;
+  defaultLocationId?: string; // Reference to PickupLocation
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +28,7 @@ const userSchema = new mongoose.Schema<IUser>({
   emailVerified: { type: Boolean, required: true, default: false },
   isActive: { type: Boolean, required: true, default: true },
   lastLogin: { type: Date, required: false },
+  defaultLocationId: { type: String, required: false, trim: true },
 }, {
   timestamps: true,
 });

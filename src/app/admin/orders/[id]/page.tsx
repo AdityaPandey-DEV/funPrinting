@@ -32,9 +32,11 @@ interface Order {
     landmark?: string;
   };
   orderType: 'file' | 'template';
-  fileURL?: string;
+  fileURL?: string; // Legacy: single file URL (for backward compatibility)
+  fileURLs?: string[]; // Array of file URLs for multiple files
   fileType?: string;
-  originalFileName?: string;
+  originalFileName?: string; // Legacy: single file name (for backward compatibility)
+  originalFileNames?: string[]; // Array of original file names for multiple files
   templateData?: {
     templateType: string;
     formData: Record<string, string | number | boolean>;
@@ -89,6 +91,7 @@ function OrderDetailPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [pdfLoaded, setPdfLoaded] = useState(false);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multiple file preview
 
   const fetchOrder = useCallback(async (orderId: string) => {
     try {
@@ -114,12 +117,16 @@ function OrderDetailPageContent() {
     if (params.id) {
       fetchOrder(params.id as string);
       setPdfLoaded(false); // Reset PDF loaded state when order changes
+      setSelectedFileIndex(0); // Reset to first file when order changes
     }
   }, [params.id, fetchOrder]);
 
   // Add timeout to prevent stuck loading state
   useEffect(() => {
-    if (order && order.fileURL && !pdfLoaded) {
+    const currentFileURL = (order?.fileURLs && order.fileURLs.length > 0) 
+      ? order.fileURLs[selectedFileIndex] 
+      : order?.fileURL;
+    if (order && currentFileURL && !pdfLoaded) {
       const timeout = setTimeout(() => {
         console.log('PDF loading timeout, showing iframe anyway');
         setPdfLoaded(true);
@@ -127,7 +134,7 @@ function OrderDetailPageContent() {
       
       return () => clearTimeout(timeout);
     }
-  }, [order, order?.fileURL, pdfLoaded]);
+  }, [order, order?.fileURL, order?.fileURLs, selectedFileIndex, pdfLoaded]);
 
   const updateOrderStatus = async (newStatus: string) => {
     if (!order) return;
@@ -277,8 +284,8 @@ function OrderDetailPageContent() {
                 </div>
                 {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
-                    <div className="font-medium text-green-800 mb-2">🎨 Mixed Color Printing Details</div>
-                    <div className="space-y-2">
+                    <div className="font-medium text-green-800 mb-3">🎨 Mixed Color Printing Details</div>
+                    <div className="space-y-3">
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                         <span className="text-gray-700">Color Pages:</span>
@@ -299,6 +306,36 @@ function OrderDetailPageContent() {
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
                         [{order.printingOptions.pageColors.bwPages.join(', ')}]
                       </div>
+                      
+                      {/* Visual Page Preview */}
+                      {order.printingOptions.pageCount && order.printingOptions.pageCount > 0 && (
+                        <div className="mt-3 pt-3 border-t border-green-300">
+                          <div className="text-xs font-medium text-green-800 mb-2">
+                            Page Preview ({order.printingOptions.pageCount} total pages)
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
+                            {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map((pageNum) => {
+                              const isColor = order.printingOptions.pageColors?.colorPages.includes(pageNum) || false;
+                              const isBw = order.printingOptions.pageColors?.bwPages.includes(pageNum) || false;
+                              return (
+                                <div
+                                  key={pageNum}
+                                  className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
+                                    isColor
+                                      ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                      : isBw
+                                      ? 'bg-gray-300 text-gray-800'
+                                      : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                  }`}
+                                  title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
+                                >
+                                  {pageNum}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -475,19 +512,75 @@ function OrderDetailPageContent() {
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">📄 Document Preview</h2>
               
-              {order.orderType === 'file' && order.fileURL ? (
+              {order.orderType === 'file' && ((order.fileURLs && order.fileURLs.length > 0) || order.fileURL) ? (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Original File</span>
-                    <a
-                      href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
-                    >
-                      Download File
-                    </a>
-                  </div>
+                  {/* Multiple Files Support */}
+                  {(order.fileURLs && order.fileURLs.length > 0) ? (
+                    <>
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm font-medium text-gray-700">
+                          Files ({order.fileURLs.length} total)
+                        </span>
+                      </div>
+                      
+                      {/* File List */}
+                      <div className="space-y-2 mb-4 max-h-48 overflow-y-auto border rounded-lg p-2">
+                        {order.fileURLs.map((fileURL, idx) => {
+                          const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                          return (
+                            <div
+                              key={idx}
+                              className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
+                                selectedFileIndex === idx
+                                  ? 'bg-blue-50 border-blue-300'
+                                  : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                              }`}
+                              onClick={() => {
+                                setSelectedFileIndex(idx);
+                                setPdfLoaded(false);
+                              }}
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="text-xs font-medium text-gray-500">#{idx + 1}</span>
+                                <span className="text-sm text-gray-700 truncate">{fileName}</span>
+                              </div>
+                              <a
+                                href={`/api/admin/pdf-viewer?url=${encodeURIComponent(fileURL)}&orderId=${order.orderId}&filename=${fileName}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-black text-white px-2 py-1 rounded text-xs hover:bg-gray-800 transition-colors ml-2"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                Download
+                              </a>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      {/* Preview for Selected File */}
+                      <div className="border-t pt-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-600">
+                            Preview: {order.originalFileNames?.[selectedFileIndex] || `File ${selectedFileIndex + 1}`}
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Legacy: Single file
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Original File</span>
+                      <a
+                        href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL!)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
+                      >
+                        Download File
+                      </a>
+                    </div>
+                  )}
                   
                   {/* File Preview - Smart preview based on file type */}
                   <div>
@@ -513,15 +606,32 @@ function OrderDetailPageContent() {
                       
                       {/* Smart preview based on file type */}
                       {(() => {
+                        // Get current file URL and name (for multiple files or single file)
+                        const currentFileURL = (order.fileURLs && order.fileURLs.length > 0) 
+                          ? order.fileURLs[selectedFileIndex] 
+                          : order.fileURL;
+                        const currentFileName = (order.originalFileNames && order.originalFileNames.length > 0)
+                          ? order.originalFileNames[selectedFileIndex]
+                          : order.originalFileName || 'document';
                         const fileType = order.fileType || 'application/octet-stream';
                         const isImage = fileType.startsWith('image/');
                         const isPDF = fileType === 'application/pdf';
+                        
+                        if (!currentFileURL) {
+                          return (
+                            <div className="w-full h-96 flex items-center justify-center bg-gray-50">
+                              <div className="text-center text-gray-500">
+                                No file available for preview
+                              </div>
+                            </div>
+                          );
+                        }
                         
                         if (isImage) {
                           // Image files - show directly
                           return (
                             <Image
-                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
                               alt="Document preview"
                               width={800}
                               height={384}
@@ -534,7 +644,7 @@ function OrderDetailPageContent() {
                           // PDF files - use iframe
                           return (
                             <iframe
-                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
                               className="w-full h-96"
                               onLoad={() => {
                                 console.log('PDF iframe loaded successfully');
@@ -555,7 +665,7 @@ function OrderDetailPageContent() {
                               <div className="text-center">
                                 <div className="text-6xl mb-4">📄</div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                  {order.originalFileName || 'Document'}
+                                  {currentFileName}
                                 </h3>
                                 <p className="text-gray-600 mb-2">
                                   File Type: {fileType}
@@ -564,7 +674,7 @@ function OrderDetailPageContent() {
                                   This file type cannot be previewed in the browser
                                 </p>
                                 <a
-                                  href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                                  href={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"

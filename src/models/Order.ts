@@ -9,9 +9,11 @@ export interface IOrder {
     email: string;
   };
   orderType: 'file' | 'template';
-  fileURL?: string;
+  fileURL?: string; // Legacy: single file URL (for backward compatibility)
+  fileURLs?: string[]; // Array of file URLs for multiple files
   fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg')
   originalFileName?: string; // Store the original file name
+  originalFileNames?: string[]; // Array of original file names for multiple files
   // Template-specific fields
   templateId?: string;
   templateName?: string;
@@ -90,9 +92,11 @@ const orderSchema = new mongoose.Schema<IOrder>({
     enum: ['file', 'template'],
     required: true,
   },
-  fileURL: String,
+  fileURL: String, // Legacy: single file URL (for backward compatibility)
+  fileURLs: [String], // Array of file URLs for multiple files
   fileType: String,
-  originalFileName: String,
+  originalFileName: String, // Legacy: single file name (for backward compatibility)
+  originalFileNames: [String], // Array of original file names for multiple files
   // Template-specific fields
   templateId: String,
   templateName: String,

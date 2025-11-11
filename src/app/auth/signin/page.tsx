@@ -37,7 +37,20 @@ export default function SignInPage() {
         // Get the updated session
         const session = await getSession();
         if (session) {
-          router.push('/my-orders');
+          // Check if profile is complete
+          try {
+            const profileCheck = await fetch('/api/user/check-profile-complete');
+            const profileData = await profileCheck.json();
+            
+            if (profileData.success && !profileData.isComplete) {
+              router.push('/complete-profile');
+            } else {
+              router.push('/my-orders');
+            }
+          } catch (error) {
+            console.error('Error checking profile:', error);
+            router.push('/my-orders');
+          }
         }
       }
     } catch (error) {
@@ -53,7 +66,8 @@ export default function SignInPage() {
     setError('');
 
     try {
-      await signIn('google', { callbackUrl: '/my-orders' });
+      // Redirect to a page that will check profile completeness
+      await signIn('google', { callbackUrl: '/auth/check-profile' });
     } catch (error) {
       console.error('Google sign in error:', error);
       setError('Failed to sign in with Google');
