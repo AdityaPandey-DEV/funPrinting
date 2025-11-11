@@ -84,6 +84,69 @@ interface Order {
   createdAt: string;
 }
 
+// Helper function to detect file type from URL or filename
+function getFileTypeFromURL(url: string, fileName: string): string {
+  // Try to get extension from filename first
+  const fileNameLower = fileName.toLowerCase();
+  const urlLower = url.toLowerCase();
+  
+  // Extract extension from filename
+  const fileNameMatch = fileNameLower.match(/\.([a-z0-9]+)$/);
+  if (fileNameMatch) {
+    const ext = fileNameMatch[1];
+    const mimeTypes: Record<string, string> = {
+      // Images
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      // Documents
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Text
+      'txt': 'text/plain',
+      'rtf': 'application/rtf',
+    };
+    
+    if (mimeTypes[ext]) {
+      return mimeTypes[ext];
+    }
+  }
+  
+  // Try to get extension from URL
+  const urlMatch = urlLower.match(/\.([a-z0-9]+)(\?|$)/);
+  if (urlMatch) {
+    const ext = urlMatch[1];
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    
+    if (mimeTypes[ext]) {
+      return mimeTypes[ext];
+    }
+  }
+  
+  // Default fallback
+  return 'application/octet-stream';
+}
+
 function OrderDetailPageContent() {
   const params = useParams();
   const router = useRouter();
@@ -524,32 +587,51 @@ function OrderDetailPageContent() {
                       </div>
                       
                       {/* File List */}
-                      <div className="space-y-2 mb-4 max-h-48 overflow-y-auto border rounded-lg p-2">
+                      <div className="space-y-2 mb-4 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50">
                         {order.fileURLs.map((fileURL, idx) => {
                           const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                          const fileType = getFileTypeFromURL(fileURL, fileName);
+                          const isImage = fileType.startsWith('image/');
+                          const isPDF = fileType === 'application/pdf';
+                          const isDoc = fileType.includes('word') || fileType.includes('document');
+                          
+                          // Get file type icon
+                          const getFileIcon = () => {
+                            if (isImage) return '🖼️';
+                            if (isPDF) return '📄';
+                            if (isDoc) return '📝';
+                            return '📎';
+                          };
+                          
                           return (
                             <div
                               key={idx}
-                              className={`flex items-center justify-between p-2 rounded border cursor-pointer transition-colors ${
+                              className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
                                 selectedFileIndex === idx
-                                  ? 'bg-blue-50 border-blue-300'
-                                  : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                                  ? 'bg-blue-50 border-blue-400 shadow-sm'
+                                  : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
                               }`}
                               onClick={() => {
                                 setSelectedFileIndex(idx);
                                 setPdfLoaded(false);
                               }}
                             >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <span className="text-xs font-medium text-gray-500">#{idx + 1}</span>
-                                <span className="text-sm text-gray-700 truncate">{fileName}</span>
+                              <div className="flex items-center gap-3 flex-1 min-w-0">
+                                <span className="text-lg" title={fileType}>{getFileIcon()}</span>
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="text-sm font-medium text-gray-900 truncate">{fileName}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
+                                  </span>
+                                </div>
                               </div>
                               <a
                                 href={`/api/admin/pdf-viewer?url=${encodeURIComponent(fileURL)}&orderId=${order.orderId}&filename=${fileName}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="bg-black text-white px-2 py-1 rounded text-xs hover:bg-gray-800 transition-colors ml-2"
+                                className="bg-black text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-800 transition-colors ml-2 flex-shrink-0"
                                 onClick={(e) => e.stopPropagation()}
+                                title={`Download ${fileName}`}
                               >
                                 Download
                               </a>
@@ -613,7 +695,10 @@ function OrderDetailPageContent() {
                         const currentFileName = (order.originalFileNames && order.originalFileNames.length > 0)
                           ? order.originalFileNames[selectedFileIndex]
                           : order.originalFileName || 'document';
-                        const fileType = order.fileType || 'application/octet-stream';
+                        // Use per-file type detection instead of single order.fileType
+                        const fileType = currentFileURL && currentFileName
+                          ? getFileTypeFromURL(currentFileURL, currentFileName)
+                          : (order.fileType || 'application/octet-stream');
                         const isImage = fileType.startsWith('image/');
                         const isPDF = fileType === 'application/pdf';
                         
