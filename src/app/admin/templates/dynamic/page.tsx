@@ -9,24 +9,32 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { getCategoryIcon, getCategoryColor } from '@/lib/adminUtils';
 
 interface Template {
+  id: string;
   _id: string;
   name: string;
   description: string;
   category: string;
   pdfUrl: string;
   placeholders: string[];
-  os?: string;
-  dbms?: string;
-  programmingLanguage?: string;
-  framework?: string;
-  tools?: string[];
-  createdBy: string;
+  isPublic: boolean;
+  createdByType: string;
+  createdByEmail?: string;
+  createdByName?: string;
   createdAt: string;
   updatedAt: string;
 }
 
+interface UserGroup {
+  userInfo: {
+    email: string;
+    name: string;
+    templateCount: number;
+  };
+  templates: Template[];
+}
+
 function ManageDynamicTemplatesContent() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
@@ -34,6 +42,8 @@ function ManageDynamicTemplatesContent() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [filterUser, setFilterUser] = useState('all');
+  const [togglingPublic, setTogglingPublic] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,11 +53,11 @@ function ManageDynamicTemplatesContent() {
   const fetchTemplates = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/templates/dynamic');
+      const response = await fetch('/api/admin/templates/all');
       const data = await response.json();
       
       if (data.success) {
-        setTemplates(data.templates);
+        setUserGroups(data.users);
       } else {
         setError('Failed to fetch templates');
       }
@@ -59,6 +69,30 @@ function ManageDynamicTemplatesContent() {
     }
   };
 
+  const handleTogglePublic = async (templateId: string, currentStatus: boolean) => {
+    try {
+      setTogglingPublic(templateId);
+      const response = await fetch(`/api/admin/templates/${templateId}/toggle-public`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPublic: !currentStatus }),
+      });
+
+      if (response.ok) {
+        // Refresh templates
+        await fetchTemplates();
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Failed to update template');
+      }
+    } catch (error) {
+      console.error('Error toggling public status:', error);
+      alert('Failed to update template');
+    } finally {
+      setTogglingPublic(null);
+    }
+  };
+
   const handleDelete = async (templateId: string) => {
     try {
       setDeleteLoading(true);
@@ -67,7 +101,8 @@ function ManageDynamicTemplatesContent() {
       });
 
       if (response.ok) {
-        setTemplates(templates.filter(t => t._id !== templateId));
+        // Refresh templates
+        await fetchTemplates();
         setShowDeleteModal(false);
         setSelectedTemplate(null);
       } else {
@@ -81,12 +116,24 @@ function ManageDynamicTemplatesContent() {
     }
   };
 
-  const filteredTemplates = templates.filter(template => {
-    const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         template.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = filterCategory === 'all' || template.category === filterCategory;
-    return matchesSearch && matchesCategory;
-  });
+  // Flatten all templates for filtering
+  const allTemplates = userGroups.flatMap(group => group.templates);
+
+  // Filter templates
+  const filteredUserGroups = userGroups.map(group => {
+    const filteredTemplates = group.templates.filter(template => {
+      const matchesSearch = template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           template.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = filterCategory === 'all' || template.category === filterCategory;
+      const matchesUser = filterUser === 'all' || group.userInfo.email === filterUser;
+      return matchesSearch && matchesCategory && matchesUser;
+    });
+
+    return {
+      ...group,
+      templates: filteredTemplates
+    };
+  }).filter(group => group.templates.length > 0);
 
   if (loading) {
     return <LoadingSpinner message="Loading templates..." />;
@@ -128,7 +175,7 @@ function ManageDynamicTemplatesContent() {
 
         {/* Search and Filters */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Search Templates</label>
               <input
@@ -154,6 +201,21 @@ function ManageDynamicTemplatesContent() {
                 <option value="other">Other</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by User</label>
+              <select
+                value={filterUser}
+                onChange={(e) => setFilterUser(e.target.value)}
+                className="form-input"
+              >
+                <option value="all">All Users</option>
+                {userGroups.map((group) => (
+                  <option key={group.userInfo.email} value={group.userInfo.email}>
+                    {group.userInfo.name} ({group.userInfo.templateCount})
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="flex items-end">
               <button
                 onClick={fetchTemplates}
@@ -165,141 +227,133 @@ function ManageDynamicTemplatesContent() {
           </div>
         </div>
 
-        {/* Templates Grid */}
-        {filteredTemplates.length === 0 ? (
-          <div className="text-center py-12">
+        {/* Templates Grouped by User */}
+        {filteredUserGroups.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-lg shadow-sm">
             <div className="text-gray-400 text-6xl mb-4">📄</div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
-              {searchTerm || filterCategory !== 'all' ? 'No Templates Found' : 'No Templates Yet'}
+              {searchTerm || filterCategory !== 'all' || filterUser !== 'all' ? 'No Templates Found' : 'No Templates Yet'}
             </h2>
             <p className="text-gray-600 mb-6">
-              {searchTerm || filterCategory !== 'all' 
+              {searchTerm || filterCategory !== 'all' || filterUser !== 'all'
                 ? 'Try adjusting your search or filters.'
                 : 'Create your first dynamic template to get started!'
               }
             </p>
-            {!searchTerm && filterCategory === 'all' && (
+            {!searchTerm && filterCategory === 'all' && filterUser === 'all' && (
               <Link
                 href="/admin/templates/dynamic/upload"
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 inline-block"
               >
                 Create First Template
               </Link>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTemplates.map((template) => (
-              <div
-                key={template._id}
-                className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden"
-              >
-                {/* PDF Preview Image - Top */}
-                <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center relative">
-                  <div className="text-center">
-                    <div className="text-6xl mb-2">📄</div>
-                    <p className="text-sm text-gray-600">PDF Template</p>
-                  </div>
-                  
-                  {/* Category Badge */}
-                  <div className={`absolute top-3 right-3 px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>
-                    {getCategoryIcon(template.category)} {template.category.replace('-', ' ')}
+          <div className="space-y-8">
+            {filteredUserGroups.map((group) => (
+              <div key={group.userInfo.email} className="bg-white rounded-lg shadow-sm p-6">
+                {/* User Header */}
+                <div className="mb-6 pb-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold text-gray-900">{group.userInfo.name}</h2>
+                      <p className="text-sm text-gray-600">{group.userInfo.email}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600">{group.userInfo.templateCount}</div>
+                      <div className="text-sm text-gray-600">Templates</div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Template Info - Bottom */}
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                    {template.name}
-                  </h3>
-                  
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                    {template.description}
-                  </p>
+                {/* Templates Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.templates.map((template) => (
+                    <div
+                      key={template.id}
+                      className="bg-gray-50 rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200"
+                    >
+                      {/* Template Preview */}
+                      <div className="h-32 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center relative">
+                        <div className="text-center">
+                          <div className="text-4xl mb-1">📄</div>
+                          <p className="text-xs text-gray-600">Template</p>
+                        </div>
+                        
+                        {/* Category Badge */}
+                        <div className={`absolute top-2 right-2 px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(template.category)}`}>
+                          {getCategoryIcon(template.category)} {template.category.replace('-', ' ')}
+                        </div>
 
-                  {/* Template-specific fields */}
-                  <div className="space-y-2 mb-4">
-                    {template.os && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="font-medium mr-2">OS:</span>
-                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">{template.os}</span>
+                        {/* Public Badge */}
+                        {template.isPublic && (
+                          <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Public
+                          </div>
+                        )}
                       </div>
-                    )}
-                    
-                    {template.dbms && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="font-medium mr-2">DBMS:</span>
-                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">{template.dbms}</span>
-                      </div>
-                    )}
-                    
-                    {template.programmingLanguage && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="font-medium mr-2">Language:</span>
-                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">{template.programmingLanguage}</span>
-                      </div>
-                    )}
-                    
-                    {template.framework && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="font-medium mr-2">Framework:</span>
-                        <span className="bg-gray-100 px-2 py-1 rounded text-xs">{template.framework}</span>
-                      </div>
-                    )}
-                    
-                    {template.tools && template.tools.length > 0 && (
-                      <div className="flex items-center text-sm text-gray-500">
-                        <span className="font-medium mr-2">Tools:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {template.tools.slice(0, 3).map((tool, index) => (
-                            <span key={index} className="bg-gray-100 px-2 py-1 rounded text-xs">
-                              {tool}
-                            </span>
-                          ))}
-                          {template.tools.length > 3 && (
-                            <span className="bg-gray-100 px-2 py-1 rounded text-xs">
-                              +{template.tools.length - 3}
-                            </span>
-                          )}
+
+                      {/* Template Info */}
+                      <div className="p-4">
+                        <h3 className="text-base font-semibold text-gray-900 mb-2 line-clamp-2">
+                          {template.name}
+                        </h3>
+                        
+                        <p className="text-gray-600 text-xs mb-3 line-clamp-2">
+                          {template.description}
+                        </p>
+
+                        {/* Placeholders count and date */}
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs text-gray-500">
+                            {template.placeholders.length} fields
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(template.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <button
+                            onClick={() => router.push(`/templates/custom/${template.id}`)}
+                            className="bg-blue-600 text-white py-1.5 px-2 rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => router.push(`/admin/templates/dynamic/edit/${template.id}`)}
+                            className="bg-green-600 text-white py-1.5 px-2 rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => handleTogglePublic(template.id, template.isPublic)}
+                            disabled={togglingPublic === template.id}
+                            className={`py-1.5 px-2 rounded-lg transition-colors text-xs font-medium ${
+                              template.isPublic
+                                ? 'bg-yellow-600 text-white hover:bg-yellow-700'
+                                : 'bg-gray-600 text-white hover:bg-gray-700'
+                            } disabled:opacity-50`}
+                          >
+                            {togglingPublic === template.id ? '...' : template.isPublic ? 'Make Private' : 'Make Public'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedTemplate(template);
+                              setShowDeleteModal(true);
+                            }}
+                            className="bg-red-600 text-white py-1.5 px-2 rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Placeholders count and date */}
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="text-xs text-gray-500">
-                      {template.placeholders.length} dynamic fields
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(template.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => router.push(`/templates/custom/${template._id}`)}
-                      className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => router.push(`/admin/templates/dynamic/edit/${template._id}`)}
-                      className="bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedTemplate(template);
-                        setShowDeleteModal(true);
-                      }}
-                      className="bg-red-600 text-white py-2 px-3 rounded-lg hover:bg-red-700 transition-colors text-xs font-medium"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -309,26 +363,26 @@ function ManageDynamicTemplatesContent() {
         {/* Stats */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="text-2xl font-bold text-blue-600">{templates.length}</div>
+            <div className="text-2xl font-bold text-blue-600">{allTemplates.length}</div>
             <div className="text-gray-600">Total Templates</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {templates.filter(t => t.category === 'lab-manual').length}
+              {allTemplates.filter(t => t.category === 'lab-manual').length}
             </div>
             <div className="text-gray-600">Lab Manuals</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {templates.filter(t => t.category === 'assignment').length}
+              {allTemplates.filter(t => t.category === 'assignment').length}
             </div>
             <div className="text-gray-600">Assignments</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-2xl font-bold text-yellow-600">
-              {templates.filter(t => t.category === 'certificate').length}
+              {allTemplates.filter(t => t.isPublic).length}
             </div>
-            <div className="text-gray-600">Certificates</div>
+            <div className="text-gray-600">Public Templates</div>
           </div>
         </div>
       </div>

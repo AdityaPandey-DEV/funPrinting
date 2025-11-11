@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
+import { useAuth } from '@/hooks/useAuth';
 import dynamic from 'next/dynamic';
 
 const ClientAuthSection = dynamic(() => import('./ClientAuthSection'), {
@@ -27,6 +28,7 @@ const ClientMobileAuthSection = dynamic(() => import('./ClientMobileAuthSection'
 
 export default function Navbar() {
   const { adminInfo } = useAdminInfo();
+  const { isAuthenticated } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
@@ -34,9 +36,9 @@ export default function Navbar() {
     { href: '/order', label: 'Order Prints' },
     { href: '/templates', label: 'Templates' },
     { href: '/my-orders', label: 'My Orders' },
-    { href: '/return-policy', label: 'Return & Refund Policy' },
+    { href: '/my-templates', label: 'My Templates', requireAuth: true },
     { href: '/contact', label: 'Contact' },
-  ];
+  ].filter(link => !link.requireAuth || isAuthenticated);
 
   return (
     <nav className="bg-white shadow-lg border-b border-gray-200 sticky top-0 z-50">

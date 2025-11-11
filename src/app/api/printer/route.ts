@@ -38,8 +38,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if order has file
-    if (!order.fileURL) {
+    // Check if order has file(s) - support both single file and multiple files
+    const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+    const hasSingleFile = order.fileURL && !hasMultipleFiles;
+    
+    if (!hasMultipleFiles && !hasSingleFile) {
       return NextResponse.json(
         { success: false, error: 'Order has no file to print' },
         { status: 400 }

@@ -169,10 +169,6 @@ function formatOrderDetails(orderData: OrderNotificationData): string {
     ? `Pickup Location: ${orderData.deliveryOption.pickupLocation || 'Not specified'}`
     : `Delivery Address: ${orderData.deliveryOption.address || 'Not specified'}`;
 
-  const orderTypeInfo = orderData.orderType === 'template' 
-    ? `Template: ${orderData.templateName || 'Unknown Template'}`
-    : `File: ${orderData.fileName || 'Uploaded File'}`;
-
   return `
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
       <div>

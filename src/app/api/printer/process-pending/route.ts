@@ -13,10 +13,14 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     // Find all orders with completed payment but no print job or pending print job
+    // Support both single file (fileURL) and multiple files (fileURLs)
     const orders = await Order.find({
       paymentStatus: 'completed',
       orderType: 'file',
-      fileURL: { $exists: true, $ne: null }
+      $or: [
+        { fileURL: { $exists: true, $ne: null } },
+        { fileURLs: { $exists: true, $ne: null, $not: { $size: 0 } } }
+      ]
     }).sort({ createdAt: -1 });
 
     console.log(`📋 Found ${orders.length} orders with completed payment`);

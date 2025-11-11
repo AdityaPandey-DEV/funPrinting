@@ -18,7 +18,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get current user from session
+    const session = await getCurrentUser();
+    if (!session || !session.email) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     await connectDB();
+
+    // Get user details
+    const user = await User.findOne({ email: session.email.toLowerCase() });
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
 
     // Generate unique template ID
     const templateId = uuidv4();
@@ -110,14 +128,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Word document uploaded to cloud storage:', wordUrl);
 
-    // Get current user from session
-    const session = await getCurrentUser();
-    let user = null;
-    if (session?.email) {
-      user = await User.findOne({ email: session.email.toLowerCase() });
-    }
-
-    // Create new dynamic template
+    // Create new dynamic template with user context
     const template = new DynamicTemplate({
       id: templateId,
       name: templateName,
@@ -127,14 +138,12 @@ export async function POST(request: NextRequest) {
       wordUrl: wordUrl,
       wordContent: wordContent, // Keep JSON structure for backward compatibility
       placeholders: placeholders || [],
-      createdBy: user ? user.email : 'admin', // Backward compatible
-      createdByUserId: user ? user._id : undefined,
-      createdByEmail: user ? user.email : undefined,
-      createdByName: user ? user.name : undefined,
+      createdBy: user.email, // Backward compatible
+      createdByUserId: user._id,
+      createdByEmail: user.email,
+      createdByName: user.name,
       isPublic: false, // Default to private
-      createdByType: user ? 'user' : 'admin',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdByType: 'user'
     });
 
     await template.save();
@@ -156,3 +165,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+

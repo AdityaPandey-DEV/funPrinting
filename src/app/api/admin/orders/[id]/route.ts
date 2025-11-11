@@ -17,9 +17,26 @@ export async function GET(
         { status: 404 }
       );
     }
+    
+    // Convert Mongoose document to plain object to ensure all fields are serialized
+    const orderData = order.toObject ? order.toObject() : order;
+    
+    // Log file data for debugging
+    console.log('📋 Admin API - Order file data:', {
+      orderId: orderData.orderId,
+      hasFileURL: !!orderData.fileURL,
+      hasFileURLs: !!orderData.fileURLs,
+      fileURLsLength: orderData.fileURLs?.length || 0,
+      hasOriginalFileName: !!orderData.originalFileName,
+      hasOriginalFileNames: !!orderData.originalFileNames,
+      originalFileNamesLength: orderData.originalFileNames?.length || 0,
+      fileURLs: orderData.fileURLs,
+      originalFileNames: orderData.originalFileNames
+    });
+    
     return NextResponse.json({
       success: true,
-      order,
+      order: orderData,
     });
   } catch (error) {
     console.error('Error fetching order:', error);

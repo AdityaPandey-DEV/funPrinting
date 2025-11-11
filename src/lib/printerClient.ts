@@ -2,9 +2,14 @@ import axios, { AxiosInstance } from 'axios';
 import { IOrder } from '@/models/Order';
 
 export interface PrintJobRequest {
-  fileUrl: string;
-  fileName: string;
-  fileType: string;
+  // Legacy: single file (for backward compatibility)
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  // Multiple files support
+  fileURLs?: string[];
+  originalFileNames?: string[];
+  fileTypes?: string[];
   printingOptions: {
     pageSize: 'A4' | 'A3';
     color: 'color' | 'bw' | 'mixed';
@@ -171,15 +176,39 @@ export class PrinterClient {
       console.log(`🖨️ Sending print job to printer API: ${printerUrl}`);
       const axiosInstance = this.createAxiosInstance(printerUrl);
 
-      const response = await axiosInstance.post<PrintJobResponse>('/api/print', {
-        fileUrl: request.fileUrl,
-        fileName: request.fileName,
-        fileType: request.fileType,
+      // Prepare request body - support both single file and multiple files
+      const requestBody: any = {
         printingOptions: request.printingOptions,
         printerIndex: request.printerIndex,
         orderId: request.orderId,
         customerInfo: request.customerInfo
-      });
+      };
+
+      // If multiple files exist, send arrays
+      if (request.fileURLs && request.fileURLs.length > 0) {
+        requestBody.fileURLs = request.fileURLs;
+        requestBody.originalFileNames = request.originalFileNames || request.fileURLs.map((_, idx) => `File ${idx + 1}`);
+        requestBody.fileTypes = request.fileTypes || request.fileURLs.map(() => 'application/octet-stream');
+        console.log(`📦 Sending ${request.fileURLs.length} files to printer:`, {
+          fileURLs: request.fileURLs,
+          originalFileNames: requestBody.originalFileNames,
+          fileTypes: requestBody.fileTypes
+        });
+      } else if (request.fileUrl) {
+        // Legacy: single file format
+        requestBody.fileUrl = request.fileUrl;
+        requestBody.fileName = request.fileName || 'document.pdf';
+        requestBody.fileType = request.fileType || 'application/pdf';
+        console.log(`📄 Sending single file to printer: ${requestBody.fileName}`);
+      } else {
+        return {
+          success: false,
+          message: 'No file URL provided',
+          error: 'Either fileUrl or fileURLs must be provided'
+        };
+      }
+
+      const response = await axiosInstance.post<PrintJobResponse>('/api/print', requestBody);
 
       // Validate response - check if success is actually true
       if (!response.data || response.data.success !== true) {
@@ -289,7 +318,7 @@ export class PrinterClient {
 
     try {
       const axiosInstance = this.createAxiosInstance(printerUrl);
-      const response = await axiosInstance.get('/health');
+      await axiosInstance.get('/health');
       return { available: true, message: 'Printer API is healthy' };
     } catch (error: any) {
       return { available: false, message: error.message || 'Health check failed' };
@@ -328,11 +357,78 @@ export function generateDeliveryNumber(printerIndex: number): string {
   return `A${dateStr}${printerIndex}0`; // Placeholder - printer API will replace with actual file number
 }
 
+// Helper function to detect file type from URL or filename
+function getFileTypeFromURL(url: string, fileName: string): string {
+  // Try to get extension from filename first
+  const fileNameLower = fileName.toLowerCase();
+  const urlLower = url.toLowerCase();
+  
+  // Extract extension from filename
+  const fileNameMatch = fileNameLower.match(/\.([a-z0-9]+)$/);
+  if (fileNameMatch) {
+    const ext = fileNameMatch[1];
+    const mimeTypes: Record<string, string> = {
+      // Images
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      // Documents
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Text
+      'txt': 'text/plain',
+      'rtf': 'application/rtf',
+    };
+    
+    if (mimeTypes[ext]) {
+      return mimeTypes[ext];
+    }
+  }
+  
+  // Try to get extension from URL
+  const urlMatch = urlLower.match(/\.([a-z0-9]+)(\?|$)/);
+  if (urlMatch) {
+    const ext = urlMatch[1];
+    const mimeTypes: Record<string, string> = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'svg': 'image/svg+xml',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    };
+    
+    if (mimeTypes[ext]) {
+      return mimeTypes[ext];
+    }
+  }
+  
+  // Default fallback
+  return 'application/octet-stream';
+}
+
 /**
  * Send print job from order
  */
 export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number): Promise<PrintJobResponse> {
-  if (!order.fileURL) {
+  // Check for multiple files first, then fall back to single file
+  const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+  const hasSingleFile = order.fileURL && !hasMultipleFiles;
+  
+  if (!hasMultipleFiles && !hasSingleFile) {
     return {
       success: false,
       message: 'Order has no file URL',
@@ -340,10 +436,49 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
     };
   }
 
+  // If multiple files exist, send them as arrays
+  if (hasMultipleFiles) {
+    const fileURLs = order.fileURLs!;
+    const originalFileNames = order.originalFileNames || fileURLs.map((_, idx) => `File ${idx + 1}`);
+    
+    console.log(`📋 Preparing print job for ${fileURLs.length} files:`, {
+      fileURLs,
+      originalFileNames,
+      orderId: order.orderId
+    });
+    
+    // Detect file types for each file
+    const fileTypes = fileURLs.map((url, idx) => {
+      const fileName = originalFileNames[idx] || `File ${idx + 1}`;
+      return getFileTypeFromURL(url, fileName);
+    });
+
+    const printJob: PrintJobRequest = {
+      fileURLs,
+      originalFileNames,
+      fileTypes,
+      printingOptions: {
+        pageSize: order.printingOptions.pageSize,
+        color: order.printingOptions.color,
+        sided: order.printingOptions.sided,
+        copies: order.printingOptions.copies,
+        pageCount: order.printingOptions.pageCount || 1,
+        pageColors: order.printingOptions.pageColors
+      },
+      printerIndex,
+      orderId: order.orderId,
+      customerInfo: order.customerInfo
+    };
+
+    console.log(`✅ Print job request prepared with ${fileURLs.length} files`);
+    return await printerClient.sendPrintJob(printJob);
+  }
+
+  // Legacy: single file format (backward compatibility)
   const printJob: PrintJobRequest = {
-    fileUrl: order.fileURL,
+    fileUrl: order.fileURL!,
     fileName: order.originalFileName || 'document.pdf',
-    fileType: order.fileType || 'application/pdf',
+    fileType: order.fileType || getFileTypeFromURL(order.fileURL!, order.originalFileName || 'document.pdf'),
     printingOptions: {
       pageSize: order.printingOptions.pageSize,
       color: order.printingOptions.color,

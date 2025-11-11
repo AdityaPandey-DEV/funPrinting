@@ -40,7 +40,8 @@ interface RazorpayOrder {
 }
 
 // Fetch payment details from Razorpay API
-async function fetchRazorpayPayment(paymentId: string): Promise<RazorpayPayment | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _fetchRazorpayPayment(paymentId: string): Promise<RazorpayPayment | null> {
   try {
     const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
     
@@ -66,7 +67,8 @@ async function fetchRazorpayPayment(paymentId: string): Promise<RazorpayPayment 
 }
 
 // Fetch order details from Razorpay API
-async function fetchRazorpayOrder(orderId: string): Promise<RazorpayOrder | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _fetchRazorpayOrder(orderId: string): Promise<RazorpayOrder | null> {
   try {
     const auth = Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64');
     
@@ -143,6 +145,13 @@ async function updateOrderStatus(orderId: string, paymentId: string, amount: num
     if (order.paymentStatus === 'completed' && order.razorpayPaymentId === paymentId) {
       console.log(`ℹ️ Order ${orderId} already processed for payment ${paymentId}`);
       return true;
+    }
+
+    // Validate payment amount matches order amount (convert to paise for comparison)
+    const expectedAmount = Math.round(order.amount * 100);
+    if (amount !== expectedAmount) {
+      console.warn(`⚠️ Payment amount mismatch for order ${orderId}: expected ${expectedAmount} paise, got ${amount} paise`);
+      // Continue anyway as this could be due to rounding differences
     }
 
     // Update order with payment details

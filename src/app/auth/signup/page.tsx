@@ -94,7 +94,8 @@ export default function SignUpPage() {
     setError('');
 
     try {
-      await signIn('google', { callbackUrl: '/my-orders' });
+      // Redirect to a page that will check profile completeness
+      await signIn('google', { callbackUrl: '/auth/check-profile' });
     } catch (error) {
       console.error('Google sign in error:', error);
       setError('Failed to sign in with Google');

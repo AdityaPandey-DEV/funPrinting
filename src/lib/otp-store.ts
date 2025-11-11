@@ -60,7 +60,6 @@ class OTPStore {
 
   // Clean up expired OTPs
   private cleanupExpiredOTPs(): void {
-    const now = Date.now();
     for (const [email, data] of this.store.entries()) {
       if (this.isExpired(data.timestamp)) {
         this.store.delete(email);

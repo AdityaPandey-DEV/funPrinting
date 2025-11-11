@@ -14,12 +14,21 @@ export async function POST(request: NextRequest) {
       deliveryOption,
       expectedDate,
       fileURL,
+      fileURLs, // Support for multiple files
       fileType,
       originalFileName,
+      originalFileNames, // Support for multiple file names
       templateData,
       razorpayOrderId, // For completing payment on existing order
       amount // For completing payment on existing order
     } = body;
+    
+    // Debug: Log file data received
+    console.log('📋 Payment initiation - File data received:');
+    console.log('  - fileURL:', fileURL ? 'Present' : 'Missing');
+    console.log('  - fileURLs:', fileURLs && Array.isArray(fileURLs) ? `${fileURLs.length} files` : 'Missing or not array');
+    console.log('  - originalFileName:', originalFileName ? 'Present' : 'Missing');
+    console.log('  - originalFileNames:', originalFileNames && Array.isArray(originalFileNames) ? `${originalFileNames.length} files` : 'Missing or not array');
 
     // If this is for completing payment on an existing order
     if (razorpayOrderId && amount) {
@@ -171,13 +180,62 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Prepare file data - prioritize arrays over single file fields
+    let fileURLsArray: string[] | undefined;
+    let originalFileNamesArray: string[] | undefined;
+    let singleFileURL: string | undefined;
+    let singleOriginalFileName: string | undefined;
+    
+    // Check if we have fileURLs array (multiple files)
+    if (fileURLs && Array.isArray(fileURLs) && fileURLs.length > 0) {
+      fileURLsArray = fileURLs;
+      singleFileURL = fileURLs[0]; // Set first file as legacy fileURL for backward compatibility
+      console.log(`✅ Using fileURLs array with ${fileURLs.length} files`);
+    } else if (fileURL) {
+      // Fall back to single file for backward compatibility
+      fileURLsArray = [fileURL];
+      singleFileURL = fileURL;
+      console.log(`📄 Using single fileURL, converted to array format`);
+    }
+    
+    // Check if we have originalFileNames array
+    if (originalFileNames && Array.isArray(originalFileNames) && originalFileNames.length > 0) {
+      originalFileNamesArray = originalFileNames;
+      singleOriginalFileName = originalFileNames[0]; // Set first file as legacy originalFileName
+      console.log(`✅ Using originalFileNames array with ${originalFileNames.length} files`);
+    } else if (originalFileName) {
+      // Fall back to single file name for backward compatibility
+      originalFileNamesArray = [originalFileName];
+      singleOriginalFileName = originalFileName;
+      console.log(`📄 Using single originalFileName, converted to array format`);
+    }
+    
+    // Ensure arrays match in length
+    if (fileURLsArray && originalFileNamesArray) {
+      if (fileURLsArray.length !== originalFileNamesArray.length) {
+        console.warn(`⚠️ Mismatch: fileURLs has ${fileURLsArray.length} items, originalFileNames has ${originalFileNamesArray.length} items`);
+        // Pad or truncate to match
+        if (originalFileNamesArray.length < fileURLsArray.length) {
+          while (originalFileNamesArray.length < fileURLsArray.length) {
+            originalFileNamesArray.push(`File ${originalFileNamesArray.length + 1}`);
+          }
+        } else {
+          originalFileNamesArray = originalFileNamesArray.slice(0, fileURLsArray.length);
+        }
+      }
+    }
+    
+    console.log(`📋 Creating order with ${fileURLsArray?.length || 0} file(s)`);
+
     // Create pending order in database
     const orderData = {
       customerInfo,
       orderType,
-      fileURL,
+      fileURL: orderType === 'file' ? singleFileURL : undefined, // Legacy support
+      fileURLs: orderType === 'file' && fileURLsArray && fileURLsArray.length > 0 ? fileURLsArray : undefined,
       fileType,
-      originalFileName,
+      originalFileName: orderType === 'file' ? singleOriginalFileName : undefined, // Legacy support
+      originalFileNames: orderType === 'file' && originalFileNamesArray && originalFileNamesArray.length > 0 ? originalFileNamesArray : undefined,
       templateData,
       printingOptions: {
         ...printingOptions,
