@@ -185,6 +185,50 @@ const generateBwPages = (totalPages: number, colorPages: number[]): number[] => 
 };
 
 /**
+ * Truncate file name to maintain length of ~10 characters
+ * Example: "adityapandey.pdf" -> "adi..ya.pdf"
+ * Keeps first 3-4 chars, then "..", then last 2-3 chars before extension
+ */
+const truncateFileName = (fileName: string, maxLength: number = 10): string => {
+  if (fileName.length <= maxLength) {
+    return fileName;
+  }
+  
+  // Extract extension
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    // No extension, just truncate with ellipsis
+    return fileName.substring(0, maxLength - 3) + '...';
+  }
+  
+  const nameWithoutExt = fileName.substring(0, lastDotIndex);
+  const extension = fileName.substring(lastDotIndex);
+  
+  // If name without extension is short enough, return as is
+  if (nameWithoutExt.length + extension.length <= maxLength) {
+    return fileName;
+  }
+  
+  // Calculate how much space we have for the name (excluding extension and "..")
+  const availableLength = maxLength - extension.length - 2; // 2 for ".."
+  
+  if (availableLength < 2) {
+    // Very short, just show extension
+    return '..' + extension;
+  }
+  
+  // For better readability: first part gets slightly more (3-4 chars), last part gets 2-3 chars
+  // This creates patterns like "adi..ya.pdf" (3+2=5) or "very..me.pdf" (4+2=6)
+  const firstPartLength = Math.min(4, Math.ceil(availableLength * 0.6)); // Prefer 3-4 chars for first part
+  const lastPartLength = Math.max(2, availableLength - firstPartLength); // At least 2 chars for last part
+  
+  const firstPart = nameWithoutExt.substring(0, firstPartLength);
+  const lastPart = nameWithoutExt.substring(nameWithoutExt.length - lastPartLength);
+  
+  return firstPart + '..' + lastPart + extension;
+};
+
+/**
  * Get page colors for a specific file (handles both array and legacy single object formats)
  */
 const getFilePageColors = (
@@ -1179,7 +1223,7 @@ export default function OrderPage() {
                         <div className="space-y-1">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <span className="text-sm text-gray-600 truncate flex-1">{file.name}</span>
+                              <span className="text-sm text-gray-600 truncate flex-1">{truncateFileName(file.name)}</span>
                               <span className="text-xs text-gray-500 ml-2">
                                 {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
                               </span>
@@ -1215,7 +1259,7 @@ export default function OrderPage() {
                   <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
                             <div className="p-2 bg-gray-100 border-b">
                               <p className="text-sm font-medium text-gray-700">
-                                File {index + 1}: {file.name} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
+                                File {index + 1}: {truncateFileName(file.name)} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
                               </p>
                         </div>
                             <div className="h-64">
@@ -1902,7 +1946,7 @@ export default function OrderPage() {
                         <div className="space-y-1">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="text-sm">
-                              <span className="font-medium text-gray-800 truncate block">{file.name}</span>
+                              <span className="font-medium text-gray-800 truncate block">{truncateFileName(file.name)}</span>
                               <span className="text-xs text-gray-500">
                                 {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
                     </span>
@@ -1988,7 +2032,7 @@ export default function OrderPage() {
                           return (
                             <div key={index} className="flex justify-between items-center text-sm">
                               <span className="text-gray-600">
-                                {file.name.substring(0, 20)}{file.name.length > 20 ? '...' : ''}:
+                                {truncateFileName(file.name)}:
                               </span>
                               <span className="font-medium text-gray-800">
                                 {fileServiceOption === 'binding' && `Binding (+₹${pricingData?.additionalServices?.binding || 20})`}
