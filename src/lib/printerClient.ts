@@ -19,7 +19,10 @@ export interface PrintJobRequest {
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
   };
   printerIndex: number;
   orderId?: string;

@@ -4,6 +4,60 @@ import { getPricing } from '@/lib/pricing';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 
+/**
+ * Get page colors for a specific file (handles both array and legacy single object formats)
+ */
+function getFilePageColors(
+  fileIndex: number,
+  pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>
+): { colorPages: number[]; bwPages: number[] } {
+  if (!pageColors) {
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle array format (per-file)
+  if (Array.isArray(pageColors)) {
+    if (fileIndex >= 0 && fileIndex < pageColors.length) {
+      return pageColors[fileIndex];
+    }
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle legacy single object format (backward compatibility)
+  if (fileIndex === 0) {
+    return pageColors;
+  }
+  
+  return { colorPages: [], bwPages: [] };
+}
+
+/**
+ * Calculate cost for a single file
+ */
+function calculateFileCost(
+  filePageCount: number,
+  fileColorPages: number,
+  fileBwPages: number,
+  basePrice: number,
+  colorMultiplier: number,
+  sidedMultiplier: number,
+  copies: number,
+  colorMode: 'color' | 'bw' | 'mixed'
+): number {
+  if (colorMode === 'mixed') {
+    // Mixed: calculate color and B&W pages separately
+    const colorCost = fileColorPages * basePrice * colorMultiplier;
+    const bwCost = fileBwPages * basePrice;
+    return (colorCost + bwCost) * sidedMultiplier * copies;
+  } else if (colorMode === 'color') {
+    // All color: apply multiplier to all pages
+    return filePageCount * basePrice * colorMultiplier * sidedMultiplier * copies;
+  } else {
+    // All B&W: no multiplier
+    return filePageCount * basePrice * sidedMultiplier * copies;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -20,7 +74,8 @@ export async function POST(request: NextRequest) {
       originalFileNames, // Support for multiple file names
       templateData,
       razorpayOrderId, // For completing payment on existing order
-      amount // For completing payment on existing order
+      amount, // For completing payment on existing order
+      filePageCounts // Per-file page counts from frontend
     } = body;
     
     // Debug: Log file data received
@@ -122,26 +177,50 @@ export async function POST(request: NextRequest) {
     }
     
     // Calculate pricing per file
-    const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
+    const colorMultiplier = pricing.multipliers.color;
     const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
     
     // Get file counts - we need to calculate per file
     const numFiles = (fileURLsArray && fileURLsArray.length > 0) ? fileURLsArray.length : 1;
-    // For per-file calculation, we need page counts per file
-    // Since we don't have that in the API, we'll estimate or use total pageCount divided by files
-    // In a real scenario, you'd pass filePageCounts from frontend
-    const estimatedPagesPerFile = numFiles > 0 ? Math.ceil(pageCount / numFiles) : pageCount;
+    
+    // Use filePageCounts from frontend if available, otherwise estimate
+    let pagesPerFile: number[] = [];
+    if (filePageCounts && Array.isArray(filePageCounts) && filePageCounts.length === numFiles) {
+      pagesPerFile = filePageCounts;
+      console.log(`✅ Using filePageCounts from frontend: ${JSON.stringify(pagesPerFile)}`);
+    } else {
+      // Estimate pages per file
+      const estimatedPagesPerFile = numFiles > 0 ? Math.ceil(pageCount / numFiles) : pageCount;
+      pagesPerFile = Array(numFiles).fill(estimatedPagesPerFile);
+      console.log(`⚠️ Estimating pages per file: ${estimatedPagesPerFile} (filePageCounts not provided or mismatch)`);
+    }
     
     let calculatedAmount = 0;
     
     // Calculate cost for each file
     for (let i = 0; i < numFiles; i++) {
-      // Base cost for this file (using estimated pages per file)
-      const fileBaseCost = basePrice * estimatedPagesPerFile * colorMultiplier * sidedMultiplier * printingOptions.copies;
+      const filePageCount = pagesPerFile[i] || 1;
+      
+      // Get page colors for this file
+      const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+      const fileColorPages = filePageColors.colorPages.length;
+      const fileBwPages = filePageColors.bwPages.length;
+      
+      // Calculate base cost for this file using helper function
+      const fileBaseCost = calculateFileCost(
+        filePageCount,
+        fileColorPages,
+        fileBwPages,
+        basePrice,
+        colorMultiplier,
+        sidedMultiplier,
+        printingOptions.copies,
+        printingOptions.color
+      );
       calculatedAmount += fileBaseCost;
       
       // Add service option cost for this file if it exceeds limit
-      if (estimatedPagesPerFile > minServiceFeePageLimit) {
+      if (filePageCount > minServiceFeePageLimit) {
         const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
         if (fileServiceOption === 'binding') {
           calculatedAmount += pricing.additionalServices.binding;
@@ -155,8 +234,17 @@ export async function POST(request: NextRequest) {
     
     console.log(`🔍 Payment initiation - Per-file pricing:`);
     console.log(`  - Files: ${numFiles}`);
-    console.log(`  - Estimated pages per file: ${estimatedPagesPerFile}`);
+    console.log(`  - Pages per file: ${JSON.stringify(pagesPerFile)}`);
     console.log(`  - Service options: ${JSON.stringify(printingOptions.serviceOptions || printingOptions.serviceOption)}`);
+    console.log(`  - Color mode: ${printingOptions.color}`);
+    if (printingOptions.color === 'mixed') {
+      console.log(`  - Per-file page colors:`, JSON.stringify(printingOptions.pageColors));
+      // Log per-file breakdown for math verification
+      for (let i = 0; i < numFiles; i++) {
+        const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+        console.log(`    File ${i + 1}: ${filePageColors.colorPages.length} color pages, ${filePageColors.bwPages.length} B&W pages`);
+      }
+    }
     
     // Add delivery charge if delivery option is selected
     if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {

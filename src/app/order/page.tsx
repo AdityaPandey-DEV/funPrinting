@@ -16,7 +16,10 @@ interface PrintingOptions {
   pageColors?: {
     colorPages: number[];
     bwPages: number[];
-  };
+  } | Array<{ // Per-file page colors (new format)
+    colorPages: number[];
+    bwPages: number[];
+  }>;
 }
 
 interface CustomerInfo {
@@ -181,9 +184,75 @@ const generateBwPages = (totalPages: number, colorPages: number[]): number[] => 
   return allPages.filter(page => !colorPages.includes(page));
 };
 
-const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] }): string => {
+/**
+ * Get page colors for a specific file (handles both array and legacy single object formats)
+ */
+const getFilePageColors = (
+  fileIndex: number,
+  pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>
+): { colorPages: number[]; bwPages: number[] } => {
+  if (!pageColors) {
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle array format (per-file)
+  if (Array.isArray(pageColors)) {
+    if (fileIndex >= 0 && fileIndex < pageColors.length) {
+      return pageColors[fileIndex];
+    }
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle legacy single object format (backward compatibility)
+  // For legacy format, we'd need to distribute pages across files, but that's complex
+  // For now, return empty for files beyond the first one
+  if (fileIndex === 0) {
+    return pageColors;
+  }
+  
+  return { colorPages: [], bwPages: [] };
+};
+
+/**
+ * Calculate cost for a single file
+ */
+const calculateFileCost = (
+  filePageCount: number,
+  fileColorPages: number,
+  fileBwPages: number,
+  basePrice: number,
+  colorMultiplier: number,
+  sidedMultiplier: number,
+  copies: number,
+  colorMode: 'color' | 'bw' | 'mixed'
+): number => {
+  if (colorMode === 'mixed') {
+    // Mixed: calculate color and B&W pages separately
+    const colorCost = fileColorPages * basePrice * colorMultiplier;
+    const bwCost = fileBwPages * basePrice;
+    return (colorCost + bwCost) * sidedMultiplier * copies;
+  } else if (colorMode === 'color') {
+    // All color: apply multiplier to all pages
+    return filePageCount * basePrice * colorMultiplier * sidedMultiplier * copies;
+  } else {
+    // All B&W: no multiplier
+    return filePageCount * basePrice * sidedMultiplier * copies;
+  }
+};
+
+const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>): string => {
   if (!pageColors) return 'All pages in Black & White';
   
+  // Handle array format (per-file) - show summary
+  if (Array.isArray(pageColors)) {
+    const totalColor = pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+    const totalBw = pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+    if (totalColor === 0) return 'All pages in Black & White';
+    if (totalBw === 0) return 'All pages in Color';
+    return `${totalColor} pages in Color, ${totalBw} pages in Black & White`;
+  }
+  
+  // Handle legacy single object format
   const colorCount = pageColors.colorPages.length;
   const bwCount = pageColors.bwPages.length;
   
@@ -272,10 +341,7 @@ export default function OrderPage() {
     copies: 1,
     serviceOption: 'service', // Legacy support
     serviceOptions: [], // Per-file service options
-    pageColors: {
-      colorPages: [],
-      bwPages: [],
-    },
+    pageColors: [], // Per-file page colors array
   });
   const [expectedDate, setExpectedDate] = useState<string>('');
   const [pageCount, setPageCount] = useState(1);
@@ -294,8 +360,10 @@ export default function OrderPage() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
-  const [colorPagesInput, setColorPagesInput] = useState<string>('');
+  const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
+  const [colorPagesInputs, setColorPagesInputs] = useState<string[]>([]); // Per-file color pages input
   const [colorPagesValidation, setColorPagesValidation] = useState<{ errors: string[]; warnings: string[] }>({ errors: [], warnings: [] });
+  const [colorPagesValidations, setColorPagesValidations] = useState<Array<{ errors: string[]; warnings: string[] }>>([]); // Per-file validations
 
   // Update customer info when user authentication changes
   useEffect(() => {
@@ -524,15 +592,29 @@ export default function OrderPage() {
             // Calculate pricing per file
             let total = 0;
             const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
-              const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
-              const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
-              
+            const colorMultiplier = pricing.multipliers.color;
+            const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+            
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
               
-              // Base cost for this file
-              const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+              // Get page colors for this file
+              const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+              const fileColorPages = filePageColors.colorPages.length;
+              const fileBwPages = filePageColors.bwPages.length;
+              
+              // Calculate base cost for this file using helper function
+              const fileBaseCost = calculateFileCost(
+                filePageCount,
+                fileColorPages,
+                fileBwPages,
+                basePrice,
+                colorMultiplier,
+                sidedMultiplier,
+                printingOptions.copies,
+                printingOptions.color
+              );
               total += fileBaseCost;
               
               // Add service option cost for this file if it exceeds limit
@@ -574,15 +656,29 @@ export default function OrderPage() {
             
             // Calculate pricing per file (fallback)
             let total = 0;
-              const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-              const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
-              
+            const colorMultiplier = 2; // Default fallback color multiplier
+            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
+            
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
               
-              // Base cost for this file
-              const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+              // Get page colors for this file
+              const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+              const fileColorPages = filePageColors.colorPages.length;
+              const fileBwPages = filePageColors.bwPages.length;
+              
+              // Calculate base cost for this file using helper function
+              const fileBaseCost = calculateFileCost(
+                filePageCount,
+                fileColorPages,
+                fileBwPages,
+                basePrice,
+                colorMultiplier,
+                sidedMultiplier,
+                printingOptions.copies,
+                printingOptions.color
+              );
               total += fileBaseCost;
               
               // Add service option cost for this file if it exceeds limit
@@ -623,15 +719,29 @@ export default function OrderPage() {
           
           // Calculate pricing per file (error fallback)
           let total = 0;
-            const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
-            
+          const colorMultiplier = 2; // Default fallback color multiplier
+          const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
+          
           // Calculate cost for each file
           for (let i = 0; i < selectedFiles.length; i++) {
             const filePageCount = filePageCounts[i] || 1;
             
-            // Base cost for this file
-            const fileBaseCost = basePrice * filePageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            // Get page colors for this file
+            const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+            const fileColorPages = filePageColors.colorPages.length;
+            const fileBwPages = filePageColors.bwPages.length;
+            
+            // Calculate base cost for this file using helper function
+            const fileBaseCost = calculateFileCost(
+              filePageCount,
+              fileColorPages,
+              fileBwPages,
+              basePrice,
+              colorMultiplier,
+              sidedMultiplier,
+              printingOptions.copies,
+              printingOptions.color
+            );
             total += fileBaseCost;
             
             // Add service option cost for this file if it exceeds limit
@@ -706,32 +816,32 @@ export default function OrderPage() {
       }
     }
 
-    // Validate mixed color page selection
+    // Validate mixed color page selection (per-file)
     if (printingOptions.color === 'mixed') {
       if (!printingOptions.pageColors) {
-        alert('Please select which pages should be printed in color');
+        alert('Please select which pages should be printed in color for each file');
         return;
       }
       
-      const { colorPages, bwPages } = printingOptions.pageColors;
-      const totalSpecifiedPages = colorPages.length + bwPages.length;
-      
-      if (totalSpecifiedPages === 0) {
-        alert('Please select which pages should be printed in color');
+      // Validate per-file page colors
+      const pageColorsArray = Array.isArray(printingOptions.pageColors) ? printingOptions.pageColors : (printingOptions.pageColors ? [printingOptions.pageColors] : []);
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const filePageCount = filePageCounts[i] || 1;
+        const filePageColors = pageColorsArray[i] || { colorPages: [], bwPages: [] };
+        const totalSpecifiedPages = filePageColors.colorPages.length + filePageColors.bwPages.length;
+        
+        if (filePageCount > 1 && totalSpecifiedPages === 0) {
+          alert(`Please select which pages should be printed in color for File ${i + 1}`);
         return;
       }
       
-      if (totalSpecifiedPages !== pageCount) {
-        alert(`Please specify colors for all ${pageCount} pages. Currently specified: ${totalSpecifiedPages} pages`);
-        return;
-      }
-      
-      // Check for duplicate pages
-      const allPages = [...colorPages, ...bwPages];
+        // Check for duplicate pages in this file
+        const allPages = [...filePageColors.colorPages, ...filePageColors.bwPages];
       const uniquePages = [...new Set(allPages)];
       if (allPages.length !== uniquePages.length) {
-        alert('Pages cannot be specified as both color and B&W. Please check your selection.');
+          alert(`Pages cannot be specified as both color and B&W for File ${i + 1}. Please check your selection.`);
         return;
+        }
       }
     }
 
@@ -811,6 +921,7 @@ export default function OrderPage() {
         fileURL: orderType === 'file' && fileURLs.length > 0 ? fileURLs[0] : undefined, // Legacy support
         originalFileNames: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames : undefined,
         originalFileName: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames[0] : undefined, // Legacy support
+        filePageCounts: orderType === 'file' && filePageCounts.length > 0 ? filePageCounts : undefined, // Per-file page counts
         templateData: orderType === 'template' ? {
           templateType: 'custom',
           formData: {
@@ -824,6 +935,7 @@ export default function OrderPage() {
           pageCount,
           serviceOptions: printingOptions.serviceOptions, // Include per-file service options
           serviceOption: printingOptions.serviceOption, // Legacy support
+          pageColors: printingOptions.pageColors, // Include per-file page colors
         },
         deliveryOption,
         expectedDate,
@@ -1025,9 +1137,20 @@ export default function OrderPage() {
                             const currentServiceOptions = prev.serviceOptions || [];
                             const newServiceOptions = [...currentServiceOptions, ...files.map(() => 'service' as const)];
                             console.log(`📋 Initializing service options: ${currentServiceOptions.length} existing + ${files.length} new = ${newServiceOptions.length} total`);
+                            
+                            // Initialize per-file pageColors array if mixed color is selected
+                            let updatedPageColors = prev.pageColors;
+                            if (prev.color === 'mixed') {
+                              const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : (prev.pageColors ? [prev.pageColors] : []);
+                              const newPageColors = [...currentPageColors, ...files.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }))];
+                              updatedPageColors = newPageColors;
+                              console.log(`📋 Initializing per-file pageColors: ${currentPageColors.length} existing + ${files.length} new = ${newPageColors.length} total`);
+                            }
+                            
                             return {
                               ...prev,
-                              serviceOptions: newServiceOptions
+                              serviceOptions: newServiceOptions,
+                              pageColors: updatedPageColors
                             };
                           });
                           
@@ -1089,7 +1212,7 @@ export default function OrderPage() {
                       return (
                         <div key={index} className="space-y-4 mb-6">
                           {/* File Preview */}
-                          <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
+                  <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
                             <div className="p-2 bg-gray-100 border-b">
                               <p className="text-sm font-medium text-gray-700">
                                 File {index + 1}: {file.name} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
@@ -1226,6 +1349,183 @@ export default function OrderPage() {
                               Service option not required for single-page files
                             </div>
                           )}
+
+                          {/* Per-File Mixed Color Selection - Only show when Mixed is selected */}
+                          {printingOptions.color === 'mixed' && filePageCount > 1 && (
+                            <div className="mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                Select Page Colors for File {index + 1} ({filePageCount} pages)
+                              </label>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-sm font-medium text-green-700 mb-2">
+                                    Color Pages (1-{filePageCount})
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder={`e.g., 1-3 or 2,4 or 1-3,5 for pages 1-${filePageCount}`}
+                                    value={colorPagesInputs[index] || ''}
+                                    onChange={(e) => {
+                                      const inputValue = e.target.value;
+                                      // Update per-file input
+                                      const newInputs = [...colorPagesInputs];
+                                      while (newInputs.length <= index) {
+                                        newInputs.push('');
+                                      }
+                                      newInputs[index] = inputValue;
+                                      setColorPagesInputs(newInputs);
+                                      
+                                      // Parse and update page colors with validation (per-file)
+                                      const parseResult = parsePageRange(inputValue, filePageCount);
+                                      const newValidations = [...colorPagesValidations];
+                                      while (newValidations.length <= index) {
+                                        newValidations.push({ errors: [], warnings: [] });
+                                      }
+                                      newValidations[index] = {
+                                        errors: parseResult.errors,
+                                        warnings: parseResult.warnings
+                                      };
+                                      setColorPagesValidations(newValidations);
+                                      
+                                      // Update per-file pageColors in array
+                                      setPrintingOptions(prev => {
+                                        const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
+                                        const newPageColors = [...currentPageColors];
+                                        while (newPageColors.length <= index) {
+                                          newPageColors.push({ colorPages: [], bwPages: [] });
+                                        }
+                                        newPageColors[index] = {
+                                          colorPages: parseResult.pages,
+                                          bwPages: generateBwPages(filePageCount, parseResult.pages)
+                                        };
+                                        return {
+                                          ...prev,
+                                          pageColors: newPageColors
+                                        };
+                                      });
+                                    }}
+                                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                      (colorPagesValidations[index]?.errors?.length || 0) > 0
+                                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                        : 'border-green-300 focus:ring-green-500 focus:border-green-500'
+                                    }`}
+                                  />
+                                  
+                                  {/* Validation Messages */}
+                                  {colorPagesValidations[index]?.errors && colorPagesValidations[index].errors.length > 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {colorPagesValidations[index].errors.map((error, idx) => (
+                                        <p key={idx} className="text-xs text-red-600">
+                                          ⚠️ {error}
+                                        </p>
+                                      ))}
+                            </div>
+                                  )}
+                                  
+                                  {colorPagesValidations[index]?.warnings && colorPagesValidations[index].warnings.length > 0 && colorPagesValidations[index].errors.length === 0 && (
+                                    <div className="mt-2 space-y-1">
+                                      {colorPagesValidations[index].warnings.map((warning, idx) => (
+                                        <p key={idx} className="text-xs text-yellow-600">
+                                          ℹ️ {warning}
+                                        </p>
+                                      ))}
+                          </div>
+                        )}
+                                  
+                                  {/* Helper Text */}
+                                  <p className="text-xs text-green-600 mt-2">
+                                    <strong>Examples:</strong> 1-3 (pages 1 to 3), 2,4 (pages 2 and 4), 1-3,5 (pages 1-3 and 5)
+                                  </p>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Black & White Pages
+                                  </label>
+                                  <input
+                                    type="text"
+                                    placeholder="Auto-generated"
+                                    value={(() => {
+                                      const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                      return filePageColors.bwPages.join(',') || '';
+                                    })()}
+                                    readOnly
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Automatically calculated from remaining pages
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Visual Page Preview for this file */}
+                              {filePageCount > 0 && (
+                                <div className="mt-4">
+                                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Page Preview for File {index + 1} ({filePageCount} pages)
+                                  </label>
+                                  <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                    {Array.from({ length: filePageCount }, (_, i) => i + 1).map((pageNum) => {
+                                      const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                      const isColor = filePageColors.colorPages.includes(pageNum);
+                                      const isBw = filePageColors.bwPages.includes(pageNum);
+                                      return (
+                                        <div
+                                          key={pageNum}
+                                          className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                            isColor
+                                              ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                              : isBw
+                                              ? 'bg-gray-300 text-gray-800'
+                                              : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                          }`}
+                                          title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
+                                        >
+                                          {pageNum}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  {(() => {
+                                    const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                    const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                    if (totalSpecified < filePageCount) {
+                                      return (
+                                        <p className="text-xs text-yellow-600 mt-2">
+                                          ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                        </p>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+                                </div>
+                              )}
+                              
+                              {/* Summary for this file */}
+                              <div className="mt-3 p-2 bg-white rounded border border-purple-200">
+                                <div className="text-sm text-purple-700">
+                                  <strong>Summary for File {index + 1}:</strong> {(() => {
+                                    const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                    const colorCount = filePageColors.colorPages.length;
+                                    const bwCount = filePageColors.bwPages.length;
+                                    if (colorCount === 0) return 'All pages in Black & White';
+                                    if (bwCount === 0) return 'All pages in Color';
+                                    return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
+                                  })()}
+                                </div>
+                                {(() => {
+                                  const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                  const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                  return (
+                                    <div className="text-xs text-gray-600 mt-1">
+                                      Color: {filePageColors.colorPages.length} pages | 
+                                      B&W: {filePageColors.bwPages.length} pages | 
+                                      Unspecified: {filePageCount - totalSpecified} pages
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1307,11 +1607,30 @@ export default function OrderPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setPrintingOptions(prev => ({ 
-                            ...prev, 
-                            color: 'mixed',
-                            pageColors: prev.pageColors || { colorPages: [], bwPages: [] }
-                          }));
+                          setPrintingOptions(prev => {
+                            // Initialize per-file pageColors array if not already an array
+                            let updatedPageColors = prev.pageColors;
+                            if (!Array.isArray(updatedPageColors)) {
+                              // Convert legacy format to array or initialize new array
+                              if (selectedFiles.length > 0) {
+                                updatedPageColors = selectedFiles.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }));
+                              } else {
+                                updatedPageColors = [];
+                              }
+                            } else if (updatedPageColors.length < selectedFiles.length) {
+                              // Ensure array matches file count
+                              const newPageColors = [...updatedPageColors];
+                              while (newPageColors.length < selectedFiles.length) {
+                                newPageColors.push({ colorPages: [], bwPages: [] });
+                              }
+                              updatedPageColors = newPageColors;
+                            }
+                            return { 
+                              ...prev, 
+                              color: 'mixed',
+                              pageColors: updatedPageColors
+                            };
+                          });
                           setColorPagesInput('');
                           setColorPagesValidation({ errors: [], warnings: [] });
                         }}
@@ -1405,7 +1724,15 @@ export default function OrderPage() {
                           <input
                             type="text"
                             placeholder="Auto-generated"
-                            value={printingOptions.pageColors?.bwPages.join(',') || ''}
+                            value={(() => {
+                              if (!printingOptions.pageColors) return '';
+                              if (Array.isArray(printingOptions.pageColors)) {
+                                // For array format, show summary (legacy UI - should be removed)
+                                const totalBw = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                                return totalBw > 0 ? `${totalBw} pages total` : '';
+                              }
+                              return printingOptions.pageColors.bwPages.join(',') || '';
+                            })()}
                             readOnly
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                           />
@@ -1423,8 +1750,19 @@ export default function OrderPage() {
                           </label>
                           <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
                             {Array.from({ length: pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              const isColor = printingOptions.pageColors?.colorPages.includes(pageNum) || false;
-                              const isBw = printingOptions.pageColors?.bwPages.includes(pageNum) || false;
+                              // Legacy: handle both array and single object format
+                              let isColor = false;
+                              let isBw = false;
+                              if (printingOptions.pageColors) {
+                                if (Array.isArray(printingOptions.pageColors)) {
+                                  // For array format, check all files (legacy UI - should be removed)
+                                  isColor = printingOptions.pageColors.some(pc => pc.colorPages.includes(pageNum));
+                                  isBw = printingOptions.pageColors.some(pc => pc.bwPages.includes(pageNum));
+                                } else {
+                                  isColor = printingOptions.pageColors.colorPages.includes(pageNum);
+                                  isBw = printingOptions.pageColors.bwPages.includes(pageNum);
+                                }
+                              }
                               return (
                                 <div
                                   key={pageNum}
@@ -1442,12 +1780,23 @@ export default function OrderPage() {
                               );
                             })}
                           </div>
-                          {printingOptions.pageColors && 
-                           printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length < pageCount && (
-                            <p className="text-xs text-yellow-600 mt-2">
-                              ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
-                            </p>
-                          )}
+                          {(() => {
+                            if (!printingOptions.pageColors) return null;
+                            let totalSpecified = 0;
+                            if (Array.isArray(printingOptions.pageColors)) {
+                              totalSpecified = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length + pc.bwPages.length, 0);
+                            } else {
+                              totalSpecified = printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length;
+                            }
+                            if (totalSpecified < pageCount) {
+                              return (
+                                <p className="text-xs text-yellow-600 mt-2">
+                                  ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       )}
                       
@@ -1456,13 +1805,24 @@ export default function OrderPage() {
                         <div className="text-sm text-blue-700">
                           <strong>Summary:</strong> {getPageColorPreview(pageCount, printingOptions.pageColors)}
                         </div>
-                        {printingOptions.pageColors && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            Color: {printingOptions.pageColors.colorPages.length} pages | 
-                            B&W: {printingOptions.pageColors.bwPages.length} pages | 
-                            Unspecified: {pageCount - (printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length)} pages
-                          </div>
-                        )}
+                        {printingOptions.pageColors && (() => {
+                          let colorCount = 0;
+                          let bwCount = 0;
+                          if (Array.isArray(printingOptions.pageColors)) {
+                            colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                            bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                          } else {
+                            colorCount = printingOptions.pageColors.colorPages.length;
+                            bwCount = printingOptions.pageColors.bwPages.length;
+                          }
+                          return (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Color: {colorCount} pages | 
+                              B&W: {bwCount} pages | 
+                              Unspecified: {pageCount - (colorCount + bwCount)} pages
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1579,22 +1939,33 @@ export default function OrderPage() {
                        'Mixed'}
                     </span>
                   </div>
-                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (() => {
+                    let colorCount = 0;
+                    let bwCount = 0;
+                    if (Array.isArray(printingOptions.pageColors)) {
+                      colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                      bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                    } else {
+                      colorCount = printingOptions.pageColors.colorPages.length;
+                      bwCount = printingOptions.pageColors.bwPages.length;
+                    }
+                    return (
+                      <>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Color Pages:</span>
                       <span className="font-medium text-green-600">
-                        {printingOptions.pageColors.colorPages.length} pages
+                            {colorCount} pages
                       </span>
                     </div>
-                  )}
-                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">B&W Pages:</span>
                       <span className="font-medium text-gray-600">
-                        {printingOptions.pageColors.bwPages.length} pages
+                            {bwCount} pages
                       </span>
                     </div>
-                  )}
+                      </>
+                    );
+                  })()}
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Sided:</span>
                     <span className="font-medium text-gray-800">

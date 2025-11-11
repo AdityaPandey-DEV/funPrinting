@@ -37,7 +37,10 @@ export interface IOrder {
     pageColors?: {
       colorPages: number[]; // Array of page numbers that should be printed in color
       bwPages: number[];    // Array of page numbers that should be printed in B&W
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[]; // Array of page numbers that should be printed in color
+      bwPages: number[];    // Array of page numbers that should be printed in B&W
+    }>;
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
@@ -144,24 +147,10 @@ const orderSchema = new mongoose.Schema<IOrder>({
       enum: ['binding', 'file', 'service'],
     },
     pageColors: {
-      colorPages: {
-        type: [Number],
-        validate: {
-          validator: function(v: number[]) {
-            return v.every(page => page >= 1 && page <= 1000);
-          },
-          message: 'Color page numbers must be between 1 and 1000'
-        }
-      },
-      bwPages: {
-        type: [Number],
-        validate: {
-          validator: function(v: number[]) {
-            return v.every(page => page >= 1 && page <= 1000);
-          },
-          message: 'B&W page numbers must be between 1 and 1000'
-        }
-      }
+      type: mongoose.Schema.Types.Mixed, // Support both single object and array format
+      // Can be:
+      // 1. Single object: { colorPages: [Number], bwPages: [Number] } (legacy)
+      // 2. Array: [{ colorPages: [Number], bwPages: [Number] }, ...] (per-file)
     },
   },
   paymentStatus: {
