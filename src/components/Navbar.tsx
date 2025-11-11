@@ -37,7 +37,6 @@ export default function Navbar() {
     { href: '/templates', label: 'Templates' },
     { href: '/my-orders', label: 'My Orders' },
     { href: '/my-templates', label: 'My Templates', requireAuth: true },
-    { href: '/return-policy', label: 'Return & Refund Policy' },
     { href: '/contact', label: 'Contact' },
   ].filter(link => !link.requireAuth || isAuthenticated);
 

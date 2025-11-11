@@ -10,6 +10,7 @@ export default function Footer() {
     { href: '/terms', label: 'Terms & Conditions' },
     { href: '/privacy', label: 'Privacy Policy' },
     { href: '/cancellation-refund', label: 'Cancellation & Refund' },
+    { href: '/return-policy', label: 'Return & Refund Policy' },
     { href: '/shipping-delivery', label: 'Shipping & Delivery' },
     { href: '/contact', label: 'Contact Us' },
   ];
