@@ -287,15 +287,29 @@ export class PrinterClient {
 
       for (const { request } of jobs) {
         try {
+          // Check if job was already successfully sent (prevent duplicates)
+          // If orderId exists, we can check if it's already in the printer queue
           const result = await this.sendPrintJob(request);
-          if (!result.success) {
-            // Add back to queue if still failing
-            this.addToRetryQueue(request);
+          if (result.success) {
+            // Job sent successfully, don't add back to retry queue
+            console.log(`✅ Retry successful for job: ${request.orderId || 'unknown'}`);
+          } else {
+            // Only add back to queue if it's a genuine failure
+            // Check if error indicates job is already in queue
+            const errorMsg = result.error?.toLowerCase() || '';
+            if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
+              this.addToRetryQueue(request);
+            } else {
+              console.log(`⏭️ Skipping duplicate job in retry queue: ${request.orderId || 'unknown'}`);
+            }
           }
         } catch (error) {
           console.error('Error processing retry queue job:', error);
-          // Add back to queue
-          this.addToRetryQueue(request);
+          // Only add back if it's not a duplicate error
+          const errorMsg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+          if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
+            this.addToRetryQueue(request);
+          }
         }
 
         // Small delay between retries
