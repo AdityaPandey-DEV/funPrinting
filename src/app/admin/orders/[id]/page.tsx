@@ -162,7 +162,50 @@ function OrderDetailPageContent() {
       const data = await response.json();
       
       if (data.success) {
-        setOrder(data.order);
+        const orderData = data.order;
+        
+        // Normalize file data: ensure fileURLs and originalFileNames are properly set
+        if (orderData) {
+          // If fileURLs exists and has items, use it
+          if (orderData.fileURLs && Array.isArray(orderData.fileURLs) && orderData.fileURLs.length > 0) {
+            // Ensure originalFileNames array matches fileURLs length
+            if (!orderData.originalFileNames || !Array.isArray(orderData.originalFileNames)) {
+              orderData.originalFileNames = orderData.fileURLs.map((_: string, idx: number) => `File ${idx + 1}`);
+            } else if (orderData.originalFileNames.length !== orderData.fileURLs.length) {
+              // Pad or truncate to match length
+              while (orderData.originalFileNames.length < orderData.fileURLs.length) {
+                orderData.originalFileNames.push(`File ${orderData.originalFileNames.length + 1}`);
+              }
+              orderData.originalFileNames = orderData.originalFileNames.slice(0, orderData.fileURLs.length);
+            }
+            console.log(`✅ Order has ${orderData.fileURLs.length} files:`, orderData.originalFileNames);
+          } 
+          // If fileURLs is empty/undefined but fileURL exists, convert to array format for consistency
+          else if (orderData.fileURL && !orderData.fileURLs) {
+            orderData.fileURLs = [orderData.fileURL];
+            orderData.originalFileNames = orderData.originalFileName 
+              ? [orderData.originalFileName] 
+              : ['document.pdf'];
+            console.log(`📄 Converted single file to array format`);
+          }
+          // If fileURLs exists but is empty, and fileURL exists, use fileURL
+          else if ((!orderData.fileURLs || orderData.fileURLs.length === 0) && orderData.fileURL) {
+            orderData.fileURLs = [orderData.fileURL];
+            orderData.originalFileNames = orderData.originalFileName 
+              ? [orderData.originalFileName] 
+              : ['document.pdf'];
+            console.log(`📄 Fallback: Using single fileURL as array`);
+          }
+        }
+        
+        console.log('📋 Order data after normalization:', {
+          hasFileURLs: !!orderData?.fileURLs,
+          fileURLsLength: orderData?.fileURLs?.length || 0,
+          hasFileURL: !!orderData?.fileURL,
+          originalFileNamesLength: orderData?.originalFileNames?.length || 0
+        });
+        
+        setOrder(orderData);
       } else {
         alert('Failed to fetch order details');
         router.push('/admin');
@@ -575,19 +618,27 @@ function OrderDetailPageContent() {
             <div className="bg-white rounded-lg shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">📄 Document Preview</h2>
               
-              {order.orderType === 'file' && ((order.fileURLs && order.fileURLs.length > 0) || order.fileURL) ? (
+              {order.orderType === 'file' && ((order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0) || order.fileURL) ? (
                 <div className="space-y-4">
-                  {/* Multiple Files Support */}
-                  {(order.fileURLs && order.fileURLs.length > 0) ? (
+                  {/* Multiple Files Support - Check if fileURLs exists and has items */}
+                  {order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0 ? (
                     <>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm font-medium text-gray-700">
-                          Files ({order.fileURLs.length} total)
+                      <div className="flex items-center justify-between mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base font-semibold text-gray-900">
+                            📁 Files in this Order
+                          </span>
+                          <span className="px-2.5 py-1 bg-blue-600 text-white text-xs font-bold rounded-full">
+                            {order.fileURLs.length} {order.fileURLs.length === 1 ? 'file' : 'files'}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-600">
+                          Click a file to preview • Download individually
                         </span>
                       </div>
                       
-                      {/* File List */}
-                      <div className="space-y-2 mb-4 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50">
+                      {/* File List - Made more prominent */}
+                      <div className="space-y-2 mb-4 max-h-64 overflow-y-auto border-2 border-gray-300 rounded-lg p-3 bg-white shadow-sm">
                         {order.fileURLs.map((fileURL, idx) => {
                           const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
                           const fileType = getFileTypeFromURL(fileURL, fileName);
