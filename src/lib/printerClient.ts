@@ -189,7 +189,11 @@ export class PrinterClient {
         requestBody.fileURLs = request.fileURLs;
         requestBody.originalFileNames = request.originalFileNames || request.fileURLs.map((_, idx) => `File ${idx + 1}`);
         requestBody.fileTypes = request.fileTypes || request.fileURLs.map(() => 'application/octet-stream');
-        console.log(`📦 Sending ${request.fileURLs.length} files to printer`);
+        console.log(`📦 Sending ${request.fileURLs.length} files to printer:`, {
+          fileURLs: request.fileURLs,
+          originalFileNames: requestBody.originalFileNames,
+          fileTypes: requestBody.fileTypes
+        });
       } else if (request.fileUrl) {
         // Legacy: single file format
         requestBody.fileUrl = request.fileUrl;
@@ -437,6 +441,12 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
     const fileURLs = order.fileURLs!;
     const originalFileNames = order.originalFileNames || fileURLs.map((_, idx) => `File ${idx + 1}`);
     
+    console.log(`📋 Preparing print job for ${fileURLs.length} files:`, {
+      fileURLs,
+      originalFileNames,
+      orderId: order.orderId
+    });
+    
     // Detect file types for each file
     const fileTypes = fileURLs.map((url, idx) => {
       const fileName = originalFileNames[idx] || `File ${idx + 1}`;
@@ -460,6 +470,7 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       customerInfo: order.customerInfo
     };
 
+    console.log(`✅ Print job request prepared with ${fileURLs.length} files`);
     return await printerClient.sendPrintJob(printJob);
   }
 
