@@ -289,7 +289,7 @@ export class PrinterClient {
 
     try {
       const axiosInstance = this.createAxiosInstance(printerUrl);
-      const response = await axiosInstance.get('/health');
+      await axiosInstance.get('/health');
       return { available: true, message: 'Printer API is healthy' };
     } catch (error: any) {
       return { available: false, message: error.message || 'Health check failed' };

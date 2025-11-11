@@ -190,7 +190,7 @@ export default function CompleteProfilePage() {
                 maxLength={10}
                 className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
               />
-              <p className="text-xs text-gray-500 mt-1">We'll use this to contact you about your orders</p>
+              <p className="text-xs text-gray-500 mt-1">We&apos;ll use this to contact you about your orders</p>
             </div>
 
             {/* Pickup Location */}
