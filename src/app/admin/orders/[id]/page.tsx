@@ -702,17 +702,17 @@ function OrderDetailPageContent() {
                     </>
                   ) : (
                     // Legacy: Single file
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Original File</span>
-                      <a
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Original File</span>
+                    <a
                         href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL!)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
-                      >
-                        Download File
-                      </a>
-                    </div>
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
+                    >
+                      Download File
+                    </a>
+                  </div>
                   )}
                   
                   {/* File Preview - Smart preview based on file type */}

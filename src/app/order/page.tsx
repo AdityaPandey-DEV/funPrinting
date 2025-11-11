@@ -376,6 +376,24 @@ export default function OrderPage() {
     return () => clearTimeout(timeoutId);
   }, [customerInfo.phone, isAuthenticated]);
 
+  // Ensure serviceOptions array matches selectedFiles length
+  useEffect(() => {
+    if (selectedFiles.length > 0) {
+      const currentServiceOptions = printingOptions.serviceOptions || [];
+      if (currentServiceOptions.length < selectedFiles.length) {
+        const updatedOptions = [...currentServiceOptions];
+        while (updatedOptions.length < selectedFiles.length) {
+          updatedOptions.push('service');
+        }
+        setPrintingOptions(prev => ({ ...prev, serviceOptions: updatedOptions }));
+        console.log(`📋 Synchronized serviceOptions: ${updatedOptions.length} options for ${selectedFiles.length} files`);
+      }
+    } else if (selectedFiles.length === 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0) {
+      // Clear service options when no files are selected
+      setPrintingOptions(prev => ({ ...prev, serviceOptions: [] }));
+    }
+  }, [selectedFiles.length]);
+
   // Check for pending payment verification on page load (iPhone Safari recovery)
   useEffect(() => {
     checkPendingPaymentVerification().then((result) => {
@@ -1003,10 +1021,15 @@ export default function OrderPage() {
                           setFilePageCounts(prev => [...prev, ...newPageCounts]);
                           
                           // Initialize service options for new files (default to 'service')
-                          setPrintingOptions(prev => ({
-                            ...prev,
-                            serviceOptions: [...(prev.serviceOptions || []), ...files.map(() => 'service' as const)]
-                          }));
+                          setPrintingOptions(prev => {
+                            const currentServiceOptions = prev.serviceOptions || [];
+                            const newServiceOptions = [...currentServiceOptions, ...files.map(() => 'service' as const)];
+                            console.log(`📋 Initializing service options: ${currentServiceOptions.length} existing + ${files.length} new = ${newServiceOptions.length} total`);
+                            return {
+                              ...prev,
+                              serviceOptions: newServiceOptions
+                            };
+                          });
                           
                           // Calculate total page count
                           const totalPages = [...filePageCounts, ...newPageCounts].reduce((sum, count) => sum + count, 0);
@@ -1053,14 +1076,20 @@ export default function OrderPage() {
                   <div className="space-y-6">
                     {selectedFiles.map((file, index) => {
                       const filePageCount = filePageCounts[index] || 1;
-                      const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+                      const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit ?? 1;
+                      // Show service option if file has more pages than the limit (default to 1, so files with 2+ pages show options)
                       const needsServiceOption = filePageCount > minServiceFeePageLimit;
-                      const currentServiceOption = printingOptions.serviceOptions?.[index] || 'service';
+                      // Ensure serviceOptions array has an entry for this file index
+                      const currentServiceOptions = printingOptions.serviceOptions || [];
+                      // Initialize if needed (but don't setState during render - use useEffect)
+                      const currentServiceOption = currentServiceOptions[index] || 'service';
+                      
+                      console.log(`📄 File ${index + 1}: ${filePageCount} pages, needsServiceOption: ${needsServiceOption}, currentOption: ${currentServiceOption}`);
                       
                       return (
-                        <div key={index} className="space-y-4">
+                        <div key={index} className="space-y-4 mb-6">
                           {/* File Preview */}
-                  <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
+                          <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
                             <div className="p-2 bg-gray-100 border-b">
                               <p className="text-sm font-medium text-gray-700">
                                 File {index + 1}: {file.name} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
@@ -1104,42 +1133,54 @@ export default function OrderPage() {
                             </div>
                           </div>
                           
-                          {/* Service Option for this file */}
-                          {needsServiceOption && (
-                            <div className="mt-4">
-                              <label className="block text-sm font-medium text-gray-700 mb-3">
+                          {/* Service Option for this file - Always show for files with more than 1 page */}
+                          {needsServiceOption ? (
+                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <label className="block text-sm font-semibold text-gray-900 mb-3">
                                 Service Option for File {index + 1} (required)
                               </label>
-                              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                              <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'binding' ? '#3b82f6' : '#e5e7eb' }}>
                                     <input
                                       type="radio"
                                       name={`serviceOption-${index}`}
                                       checked={currentServiceOption === 'binding'}
                                       onChange={() => {
                                         setPrintingOptions(prev => {
-                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
                                           newServiceOptions[index] = 'binding';
+                                          console.log(`✅ File ${index + 1} service option set to: binding`);
                                           return { ...prev, serviceOptions: newServiceOptions };
                                         });
                                       }}
                                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
                                     <span className="ml-3 text-sm font-medium text-gray-700">
-                                      📎 Binding (+₹{pricingData?.additionalServices?.binding || 20})
+                                      📎 Binding (+₹{pricingData?.additionalServices?.binding || 40})
                                     </span>
                                   </label>
 
-                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'file' ? '#3b82f6' : '#e5e7eb' }}>
                                     <input
                                       type="radio"
                                       name={`serviceOption-${index}`}
                                       checked={currentServiceOption === 'file'}
                                       onChange={() => {
                                         setPrintingOptions(prev => {
-                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
                                           newServiceOptions[index] = 'file';
+                                          console.log(`✅ File ${index + 1} service option set to: file`);
                                           return { ...prev, serviceOptions: newServiceOptions };
                                         });
                                       }}
@@ -1150,15 +1191,21 @@ export default function OrderPage() {
                                     </span>
                                   </label>
 
-                                  <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'service' ? '#3b82f6' : '#e5e7eb' }}>
                                     <input
                                       type="radio"
                                       name={`serviceOption-${index}`}
                                       checked={currentServiceOption === 'service'}
                                       onChange={() => {
                                         setPrintingOptions(prev => {
-                                          const newServiceOptions = [...(prev.serviceOptions || [])];
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
                                           newServiceOptions[index] = 'service';
+                                          console.log(`✅ File ${index + 1} service option set to: service`);
                                           return { ...prev, serviceOptions: newServiceOptions };
                                         });
                                       }}
@@ -1169,12 +1216,16 @@ export default function OrderPage() {
                                     </span>
                                   </label>
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2">
-                                      Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
-                              </p>
+                                <p className="text-xs text-gray-600 mt-3 font-medium">
+                                  💡 Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
+                                </p>
+                              </div>
                             </div>
-                          </div>
-                    )}
+                          ) : (
+                            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                              Service option not required for single-page files
+                            </div>
+                          )}
                         </div>
                       );
                     })}

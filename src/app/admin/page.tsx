@@ -635,16 +635,16 @@ function AdminDashboardContent() {
                               </>
                             ) : order.fileURL ? (
                               // Legacy: single file
-                              <a
-                                href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
-                                title={`Download ${order.originalFileName || 'File'}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
-                              </a>
+                          <a
+                            href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
+                            title={`Download ${order.originalFileName || 'File'}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
+                          </a>
                             ) : null}
                           </div>
                         )}

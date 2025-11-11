@@ -298,7 +298,7 @@ export class PrinterClient {
             // Check if error indicates job is already in queue
             const errorMsg = result.error?.toLowerCase() || '';
             if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
-              this.addToRetryQueue(request);
+            this.addToRetryQueue(request);
             } else {
               console.log(`⏭️ Skipping duplicate job in retry queue: ${request.orderId || 'unknown'}`);
             }
@@ -308,7 +308,7 @@ export class PrinterClient {
           // Only add back if it's not a duplicate error
           const errorMsg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
           if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
-            this.addToRetryQueue(request);
+          this.addToRetryQueue(request);
           }
         }
 
