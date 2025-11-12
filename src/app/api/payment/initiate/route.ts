@@ -362,6 +362,8 @@ export async function POST(request: NextRequest) {
         pageCount: pageCount,
         serviceOptions: printingOptions.serviceOptions, // Store per-file service options
         serviceOption: printingOptions.serviceOption, // Legacy support
+        pageColors: printingOptions.pageColors, // Store per-file page colors
+        fileOptions: printingOptions.fileOptions, // Store per-file printing options
       },
       deliveryOption: enhancedDeliveryOption,
       expectedDate: expectedDate ? new Date(expectedDate) : undefined,

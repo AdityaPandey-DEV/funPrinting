@@ -1063,6 +1063,7 @@ export default function OrderPage() {
           serviceOptions: printingOptions.serviceOptions, // Include per-file service options
           serviceOption: printingOptions.serviceOption, // Legacy support
           pageColors: printingOptions.pageColors, // Include per-file page colors
+          fileOptions: printingOptions.fileOptions, // Include per-file printing options
         },
         deliveryOption,
         expectedDate,

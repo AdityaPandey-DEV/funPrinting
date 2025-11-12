@@ -41,6 +41,16 @@ export interface IOrder {
       colorPages: number[]; // Array of page numbers that should be printed in color
       bwPages: number[];    // Array of page numbers that should be printed in B&W
     }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }>;
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
@@ -151,6 +161,10 @@ const orderSchema = new mongoose.Schema<IOrder>({
       // Can be:
       // 1. Single object: { colorPages: [Number], bwPages: [Number] } (legacy)
       // 2. Array: [{ colorPages: [Number], bwPages: [Number] }, ...] (per-file)
+    },
+    fileOptions: {
+      type: mongoose.Schema.Types.Mixed, // Per-file printing options array
+      // Array of objects: [{ pageSize, color, sided, copies, pageColors? }, ...]
     },
   },
   paymentStatus: {
