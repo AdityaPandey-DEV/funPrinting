@@ -40,16 +40,51 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fetch the file from Cloudinary
-    const response = await fetch(pdfUrl);
+    // Fetch the file from Cloudinary with better error handling
+    let response: Response;
+    try {
+      response = await fetch(pdfUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+        },
+      });
+    } catch (fetchError: any) {
+      console.error('❌ File Viewer: Error fetching file from URL:', fetchError);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      return NextResponse.json({ 
+        error: 'Failed to fetch file from URL',
+        details: fetchError?.message || 'Unknown fetch error'
+      }, { status: 500 });
+    }
     
     if (!response.ok) {
-      console.log('❌ File Viewer: Failed to fetch file, status:', response.status);
-      return NextResponse.json({ error: 'Failed to fetch file' }, { status: 404 });
+      console.error('❌ File Viewer: Failed to fetch file, status:', response.status);
+      console.error('❌ File Viewer: Response status text:', response.statusText);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      const errorText = await response.text().catch(() => 'Could not read error response');
+      console.error('❌ File Viewer: Error response body:', errorText.substring(0, 200));
+      return NextResponse.json({ 
+        error: 'Failed to fetch file',
+        status: response.status,
+        details: response.statusText
+      }, { status: response.status >= 500 ? 500 : 404 });
     }
 
-    const fileBuffer = await response.arrayBuffer();
-    console.log('✅ File Viewer: Successfully fetched file, size:', fileBuffer.byteLength, 'bytes');
+    // Convert response to arrayBuffer with error handling
+    let fileBuffer: ArrayBuffer;
+    try {
+      fileBuffer = await response.arrayBuffer();
+      console.log('✅ File Viewer: Successfully fetched file, size:', fileBuffer.byteLength, 'bytes');
+    } catch (arrayBufferError: any) {
+      console.error('❌ File Viewer: Error converting response to arrayBuffer:', arrayBufferError);
+      console.error('❌ File Viewer: Response status was:', response.status);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      return NextResponse.json({ 
+        error: 'Failed to process file data',
+        details: arrayBufferError?.message || 'Unknown arrayBuffer error'
+      }, { status: 500 });
+    }
 
     // Determine if this is an image file that can be displayed inline
     const isImage = fileType.startsWith('image/');

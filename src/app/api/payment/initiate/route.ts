@@ -347,6 +347,63 @@ export async function POST(request: NextRequest) {
 
     console.log(`📋 Creating order with ${fileURLsArray?.length || 0} file(s)`);
 
+    // Determine global color based on file count and per-file options
+    // Multi-file orders = Multiple independent orders (each file can independently have mixed color)
+    // Each file can have: 'color', 'bw', or 'mixed' (some pages color, some B&W)
+    // Global color = Display field: 'mixed' if ANY file has mixed color, otherwise use first file's color
+    let finalColor = printingOptions.color || 'bw';
+    const totalFiles = (fileURLsArray && fileURLsArray.length > 0) ? fileURLsArray.length : 1;
+    
+    if (printingOptions.fileOptions && Array.isArray(printingOptions.fileOptions) && printingOptions.fileOptions.length > 0) {
+      if (totalFiles === 1) {
+        // Single file: use that file's color (can be 'mixed' if it has mixed pages)
+        const fileOpt = printingOptions.fileOptions[0];
+        if (fileOpt?.color) {
+          finalColor = fileOpt.color;
+          // Verify it's truly mixed (has both colorPages and bwPages)
+          if (fileOpt.color === 'mixed') {
+            const filePageColors = getFilePageColors(0, printingOptions.pageColors);
+            const hasColorPages = filePageColors.colorPages.length > 0;
+            const hasBwPages = filePageColors.bwPages.length > 0;
+            if (!hasColorPages || !hasBwPages) {
+              // Not truly mixed, default to B&W
+              finalColor = 'bw';
+              console.log('⚠️ File marked as mixed but missing colorPages or bwPages, defaulting to B&W');
+            } else {
+              console.log('✅ Single file with true mixed color (has both color and B&W pages)');
+            }
+          }
+        }
+      } else {
+        // Multiple files: Each file can independently have mixed color
+        // Check if ANY file has mixed color - if so, set global color to 'mixed' for display
+        const hasAnyMixedColor = printingOptions.fileOptions.some((fileOpt: any) => {
+          if (fileOpt?.color === 'mixed') {
+            // Verify it's truly mixed (has both colorPages and bwPages)
+            const fileIndex = printingOptions.fileOptions.indexOf(fileOpt);
+            const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
+            const hasColorPages = filePageColors.colorPages.length > 0;
+            const hasBwPages = filePageColors.bwPages.length > 0;
+            return hasColorPages && hasBwPages;
+          }
+          return false;
+        });
+        
+        if (hasAnyMixedColor) {
+          // At least one file has mixed color - set global color to 'mixed' for display
+          finalColor = 'mixed';
+          console.log('✅ Multi-file order: at least one file has mixed color, setting global color to "mixed"');
+        } else {
+          // No files have mixed color - use first file's color
+          const firstFileOpt = printingOptions.fileOptions[0];
+          if (firstFileOpt?.color) {
+            finalColor = firstFileOpt.color;
+            console.log(`✅ Multi-file order: using first file's color (${firstFileOpt.color})`);
+          }
+        }
+      }
+    }
+
     // Create pending order in database
     const orderData = {
       customerInfo,
@@ -359,6 +416,7 @@ export async function POST(request: NextRequest) {
       templateData,
       printingOptions: {
         ...printingOptions,
+        color: finalColor, // Use the updated color (mixed if any file has mixed)
         pageCount: pageCount,
         serviceOptions: printingOptions.serviceOptions, // Store per-file service options
         serviceOption: printingOptions.serviceOption, // Legacy support

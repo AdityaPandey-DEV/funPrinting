@@ -1557,7 +1557,25 @@ export default function OrderPage() {
                                               color: 'color',
                                               pageColors: undefined
                                             };
-                                            return { ...prev, fileOptions: newFileOptions };
+                                            
+                                            // Update global color: single file uses that color, multi-file uses first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            if (isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'color';
+                                            } else if (!isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'color'; // First file sets global color
+                                            } else if (!isSingleFile) {
+                                              // Not first file: keep first file's color
+                                              const firstFileColor = newFileOptions[0]?.color || 'color';
+                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                            }
+                                            
+                                            return { 
+                                              ...prev, 
+                                              color: updatedGlobalColor,
+                                              fileOptions: newFileOptions 
+                                            };
                                           });
                                         }}
                                         className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
@@ -1593,7 +1611,25 @@ export default function OrderPage() {
                                               color: 'bw',
                                               pageColors: undefined
                                             };
-                                            return { ...prev, fileOptions: newFileOptions };
+                                            
+                                            // Update global color: single file uses that color, multi-file uses first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            if (isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'bw';
+                                            } else if (!isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'bw'; // First file sets global color
+                                            } else if (!isSingleFile) {
+                                              // Not first file: keep first file's color
+                                              const firstFileColor = newFileOptions[0]?.color || 'bw';
+                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                            }
+                                            
+                                            return { 
+                                              ...prev, 
+                                              color: updatedGlobalColor,
+                                              fileOptions: newFileOptions 
+                                            };
                                           });
                                         }}
                                         className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
@@ -1643,8 +1679,36 @@ export default function OrderPage() {
                                                 : undefined
                                             };
                                             
+                                            // Multi-file orders = Multiple independent orders (each file can independently have mixed color)
+                                            // Each file can have: 'color', 'bw', or 'mixed' (some pages color, some B&W)
+                                            // Global color = Display field: 'mixed' if ANY file has mixed color, otherwise use first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            
+                                            if (isSingleFile && index === 0) {
+                                              // Single file with mixed color: set global color to 'mixed'
+                                              updatedGlobalColor = 'mixed';
+                                            } else if (!isSingleFile) {
+                                              // Multi-file order: Check if ANY file has mixed color
+                                              const hasAnyMixedColor = newFileOptions.some((opt: any) => opt?.color === 'mixed');
+                                              
+                                              if (hasAnyMixedColor) {
+                                                // At least one file has mixed color - set global color to 'mixed' for display
+                                                updatedGlobalColor = 'mixed';
+                                              } else {
+                                                // No files have mixed color - use first file's color
+                                                const firstFileColor = newFileOptions[0]?.color;
+                                                if (firstFileColor) {
+                                                  updatedGlobalColor = firstFileColor;
+                                                } else {
+                                                  updatedGlobalColor = 'bw'; // Default
+                                                }
+                                              }
+                                            }
+                                            
                                             return { 
                                               ...prev, 
+                                              color: updatedGlobalColor,
                                               fileOptions: newFileOptions,
                                               pageColors: newPageColors
                                             };
