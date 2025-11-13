@@ -377,16 +377,14 @@ export async function POST(request: NextRequest) {
       } else {
         // Multiple files: Each file can independently have mixed color
         // Check if ANY file has mixed color - if so, set global color to 'mixed' for display
-        const hasAnyMixedColor = printingOptions.fileOptions.some((fileOpt: any) => {
-          if (fileOpt?.color === 'mixed') {
-            // Verify it's truly mixed (has both colorPages and bwPages)
-            const fileIndex = printingOptions.fileOptions.indexOf(fileOpt);
-            const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
-            const hasColorPages = filePageColors.colorPages.length > 0;
-            const hasBwPages = filePageColors.bwPages.length > 0;
-            return hasColorPages && hasBwPages;
-          }
-          return false;
+        const fileOptionsArr = Array.isArray(printingOptions.fileOptions) ? printingOptions.fileOptions : [];
+        const hasAnyMixedColor = fileOptionsArr.some((fileOpt: any, fileIndex: number) => {
+          if (fileOpt?.color !== 'mixed') return false;
+          // Verify it's truly mixed (has both colorPages and bwPages)
+          const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors || []);
+          const hasColorPages = (filePageColors?.colorPages?.length || 0) > 0;
+          const hasBwPages = (filePageColors?.bwPages?.length || 0) > 0;
+          return hasColorPages && hasBwPages;
         });
         
         if (hasAnyMixedColor) {
@@ -395,7 +393,7 @@ export async function POST(request: NextRequest) {
           console.log('✅ Multi-file order: at least one file has mixed color, setting global color to "mixed"');
         } else {
           // No files have mixed color - use first file's color
-          const firstFileOpt = printingOptions.fileOptions[0];
+          const firstFileOpt = fileOptionsArr[0];
           if (firstFileOpt?.color) {
             finalColor = firstFileOpt.color;
             console.log(`✅ Multi-file order: using first file's color (${firstFileOpt.color})`);

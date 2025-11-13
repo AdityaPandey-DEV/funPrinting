@@ -164,37 +164,34 @@ function OrderDetailPageContent() {
       if (data.success) {
         const orderData = data.order;
         
-        // Normalize file data: ensure fileURLs and originalFileNames are properly set
+        // Normalize file data: ensure safe arrays and legacy compatibility
         if (orderData) {
-          // If fileURLs exists and has items, use it
-          if (orderData.fileURLs && Array.isArray(orderData.fileURLs) && orderData.fileURLs.length > 0) {
-            // Ensure originalFileNames array matches fileURLs length
-            if (!orderData.originalFileNames || !Array.isArray(orderData.originalFileNames)) {
+          // Ensure arrays are initialized
+          orderData.fileURLs = Array.isArray(orderData.fileURLs) ? orderData.fileURLs : [];
+          orderData.originalFileNames = Array.isArray(orderData.originalFileNames)
+            ? orderData.originalFileNames
+            : [];
+
+          // Convert legacy single fields, if present
+          if ((orderData.fileURLs?.length ?? 0) === 0 && orderData.fileURL) {
+            orderData.fileURLs = [orderData.fileURL];
+          }
+          if ((orderData.originalFileNames?.length ?? 0) === 0 && orderData.originalFileName) {
+            orderData.originalFileNames = [orderData.originalFileName];
+          }
+
+          // Ensure name list matches file list
+          if (orderData.fileURLs.length > 0) {
+            if (!Array.isArray(orderData.originalFileNames)) {
               orderData.originalFileNames = orderData.fileURLs.map((_: string, idx: number) => `File ${idx + 1}`);
-            } else if (orderData.originalFileNames.length !== orderData.fileURLs.length) {
-              // Pad or truncate to match length
+            }
+            if (orderData.originalFileNames.length !== orderData.fileURLs.length) {
               while (orderData.originalFileNames.length < orderData.fileURLs.length) {
                 orderData.originalFileNames.push(`File ${orderData.originalFileNames.length + 1}`);
               }
               orderData.originalFileNames = orderData.originalFileNames.slice(0, orderData.fileURLs.length);
             }
             console.log(`✅ Order has ${orderData.fileURLs.length} files:`, orderData.originalFileNames);
-          } 
-          // If fileURLs is empty/undefined but fileURL exists, convert to array format for consistency
-          else if (orderData.fileURL && !orderData.fileURLs) {
-            orderData.fileURLs = [orderData.fileURL];
-            orderData.originalFileNames = orderData.originalFileName 
-              ? [orderData.originalFileName] 
-              : ['document.pdf'];
-            console.log(`📄 Converted single file to array format`);
-          }
-          // If fileURLs exists but is empty, and fileURL exists, use fileURL
-          else if ((!orderData.fileURLs || orderData.fileURLs.length === 0) && orderData.fileURL) {
-            orderData.fileURLs = [orderData.fileURL];
-            orderData.originalFileNames = orderData.originalFileName 
-              ? [orderData.originalFileName] 
-              : ['document.pdf'];
-            console.log(`📄 Fallback: Using single fileURL as array`);
           }
         }
         
@@ -229,7 +226,7 @@ function OrderDetailPageContent() {
 
   // Add timeout to prevent stuck loading state
   useEffect(() => {
-    const currentFileURL = (order?.fileURLs && order.fileURLs.length > 0) 
+    const currentFileURL = (Array.isArray(order?.fileURLs) && order!.fileURLs.length > 0) 
       ? order.fileURLs[selectedFileIndex] 
       : order?.fileURL;
     if (order && currentFileURL && !pdfLoaded) {
@@ -645,6 +642,10 @@ function OrderDetailPageContent() {
                           const isImage = fileType.startsWith('image/');
                           const isPDF = fileType === 'application/pdf';
                           const isDoc = fileType.includes('word') || fileType.includes('document');
+                          const fileOpt = Array.isArray((order.printingOptions as any)?.fileOptions)
+                            ? (order.printingOptions as any).fileOptions[idx]
+                            : undefined;
+                          const mode = fileOpt?.color || order.printingOptions.color;
                           
                           // Get file type icon
                           const getFileIcon = () => {
@@ -671,9 +672,23 @@ function OrderDetailPageContent() {
                                 <span className="text-lg" title={fileType}>{getFileIcon()}</span>
                                 <div className="flex flex-col min-w-0 flex-1">
                                   <span className="text-sm font-medium text-gray-900 truncate">{fileName}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
-                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">
+                                      {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
+                                    </span>
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                        mode === 'mixed'
+                                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                          : mode === 'color'
+                                          ? 'bg-green-50 text-green-700 border-green-200'
+                                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                                      }`}
+                                      title={mode === 'mixed' ? 'Some pages color, some B&W' : mode === 'color' ? 'All pages color' : 'All pages B&W'}
+                                    >
+                                      {mode === 'mixed' ? 'Mixed' : mode === 'color' ? 'Color' : 'B&W'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                               <a

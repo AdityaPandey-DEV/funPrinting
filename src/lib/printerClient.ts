@@ -442,7 +442,7 @@ function getFileTypeFromURL(url: string, fileName: string): string {
  */
 export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number): Promise<PrintJobResponse> {
   // Check for multiple files first, then fall back to single file
-  const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+  const hasMultipleFiles = Array.isArray(order.fileURLs) && order.fileURLs.length > 0;
   const hasSingleFile = order.fileURL && !hasMultipleFiles;
   
   if (!hasMultipleFiles && !hasSingleFile) {
@@ -456,7 +456,9 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
   // If multiple files exist, send them as arrays
   if (hasMultipleFiles) {
     const fileURLs = order.fileURLs!;
-    const originalFileNames = order.originalFileNames || fileURLs.map((_, idx) => `File ${idx + 1}`);
+    const originalFileNames = Array.isArray(order.originalFileNames)
+      ? order.originalFileNames
+      : fileURLs.map((_, idx) => `File ${idx + 1}`);
     
     console.log(`📋 Preparing print job for ${fileURLs.length} files:`, {
       fileURLs,
