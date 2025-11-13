@@ -330,8 +330,16 @@ const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: numb
   
   // Handle array format (per-file) - show summary
   if (Array.isArray(pageColors)) {
-    const totalColor = pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
-    const totalBw = pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+    // Some entries may be undefined if a file has no explicit pageColors set
+    const safeEntries = pageColors.filter(Boolean) as Array<{ colorPages: number[]; bwPages: number[] }>;
+    const totalColor = safeEntries.reduce((sum, pc) => {
+      const colorLen = Array.isArray(pc?.colorPages) ? pc.colorPages.length : 0;
+      return sum + colorLen;
+    }, 0);
+    const totalBw = safeEntries.reduce((sum, pc) => {
+      const bwLen = Array.isArray(pc?.bwPages) ? pc.bwPages.length : 0;
+      return sum + bwLen;
+    }, 0);
     if (totalColor === 0) return 'All pages in Black & White';
     if (totalBw === 0) return 'All pages in Color';
     return `${totalColor} pages in Color, ${totalBw} pages in Black & White`;
