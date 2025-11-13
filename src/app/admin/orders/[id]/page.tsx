@@ -385,7 +385,45 @@ function OrderDetailPageContent() {
                      'Mixed'}
                   </span>
                 </div>
-                {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
+                
+                {/* Debug logging */}
+                {(() => {
+                  console.log('🔍 DEBUG - Order printingOptions:', order.printingOptions);
+                  console.log('🔍 DEBUG - pageColors:', order.printingOptions.pageColors);
+                  console.log('🔍 DEBUG - fileOptions:', (order.printingOptions as any).fileOptions);
+                  console.log('🔍 DEBUG - fileURLs length:', order.fileURLs?.length || 0);
+                  return null;
+                })()}
+                
+                {/* Helper function to get page colors for display */}
+                {(() => {
+                  const getDisplayPageColors = () => {
+                    // Check if we have per-file options with pageColors
+                    const fileOptions = (order.printingOptions as any).fileOptions;
+                    if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                      // For multi-file orders, get page colors from the first file or selected file
+                      const targetFileIndex = selectedFileIndex || 0;
+                      const targetFile = fileOptions[targetFileIndex];
+                      
+                      if (targetFile?.pageColors) {
+                        return targetFile.pageColors;
+                      }
+                    }
+                    
+                    // Fall back to legacy pageColors
+                    return order.printingOptions.pageColors;
+                  };
+                  
+                  const displayPageColors = getDisplayPageColors();
+                  const colorPages = displayPageColors?.colorPages || [];
+                  const bwPages = displayPageColors?.bwPages || [];
+                  
+                  console.log('🔍 DEBUG - Display page colors:', displayPageColors);
+                  console.log('🔍 DEBUG - Color pages:', colorPages);
+                  console.log('🔍 DEBUG - B&W pages:', bwPages);
+                  
+                  return displayPageColors && (colorPages.length > 0 || bwPages.length > 0);
+                })() && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
                     <div className="font-medium text-green-800 mb-3">🎨 Mixed Color Printing Details</div>
                     <div className="space-y-3">
@@ -393,21 +431,69 @@ function OrderDetailPageContent() {
                         <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                         <span className="text-gray-700">Color Pages:</span>
                         <span className="font-medium text-green-600">
-                          {order.printingOptions.pageColors.colorPages?.length || 0} pages
+                          {(() => {
+                            const fileOptions = (order.printingOptions as any).fileOptions;
+                            let colorPages = [];
+                            
+                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                              const targetFileIndex = selectedFileIndex || 0;
+                              colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                            } else {
+                              colorPages = order.printingOptions.pageColors?.colorPages || [];
+                            }
+                            
+                            return `${colorPages.length} pages`;
+                          })()}
                         </span>
                       </div>
                       <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.colorPages?.join(', ') || 'None'}]
+                        [{(() => {
+                          const fileOptions = (order.printingOptions as any).fileOptions;
+                          let colorPages = [];
+                          
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                          } else {
+                            colorPages = order.printingOptions.pageColors?.colorPages || [];
+                          }
+                          
+                          return colorPages.length > 0 ? colorPages.join(', ') : 'None';
+                        })()}]
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
                         <span className="text-gray-700">B&W Pages:</span>
                         <span className="font-medium text-gray-600">
-                          {order.printingOptions.pageColors.bwPages?.length || 0} pages
+                          {(() => {
+                            const fileOptions = (order.printingOptions as any).fileOptions;
+                            let bwPages = [];
+                            
+                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                              const targetFileIndex = selectedFileIndex || 0;
+                              bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                            } else {
+                              bwPages = order.printingOptions.pageColors?.bwPages || [];
+                            }
+                            
+                            return `${bwPages.length} pages`;
+                          })()}
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.bwPages?.join(', ') || 'None'}]
+                        [{(() => {
+                          const fileOptions = (order.printingOptions as any).fileOptions;
+                          let bwPages = [];
+                          
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                          } else {
+                            bwPages = order.printingOptions.pageColors?.bwPages || [];
+                          }
+                          
+                          return bwPages.length > 0 ? bwPages.join(', ') : 'None';
+                        })()}]
                       </div>
                       
                       {/* Visual Page Preview */}
@@ -418,8 +504,22 @@ function OrderDetailPageContent() {
                           </div>
                           <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
                             {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              const isColor = order.printingOptions.pageColors?.colorPages?.includes(pageNum) || false;
-                              const isBw = order.printingOptions.pageColors?.bwPages?.includes(pageNum) || false;
+                              // Get page colors using the same logic as the display
+                              const fileOptions = (order.printingOptions as any).fileOptions;
+                              let colorPages = [];
+                              let bwPages = [];
+                              
+                              if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                                const targetFileIndex = selectedFileIndex || 0;
+                                colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                                bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                              } else {
+                                colorPages = order.printingOptions.pageColors?.colorPages || [];
+                                bwPages = order.printingOptions.pageColors?.bwPages || [];
+                              }
+                              
+                              const isColor = colorPages.includes(pageNum);
+                              const isBw = bwPages.includes(pageNum);
                               return (
                                 <div
                                   key={pageNum}
