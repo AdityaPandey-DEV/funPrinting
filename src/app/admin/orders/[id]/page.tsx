@@ -393,21 +393,21 @@ function OrderDetailPageContent() {
                         <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                         <span className="text-gray-700">Color Pages:</span>
                         <span className="font-medium text-green-600">
-                          {order.printingOptions.pageColors.colorPages.length} pages
+                          {order.printingOptions.pageColors.colorPages?.length || 0} pages
                         </span>
                       </div>
                       <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.colorPages.join(', ')}]
+                        [{order.printingOptions.pageColors.colorPages?.join(', ') || 'None'}]
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
                         <span className="text-gray-700">B&W Pages:</span>
                         <span className="font-medium text-gray-600">
-                          {order.printingOptions.pageColors.bwPages.length} pages
+                          {order.printingOptions.pageColors.bwPages?.length || 0} pages
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.bwPages.join(', ')}]
+                        [{order.printingOptions.pageColors.bwPages?.join(', ') || 'None'}]
                       </div>
                       
                       {/* Visual Page Preview */}
@@ -418,8 +418,8 @@ function OrderDetailPageContent() {
                           </div>
                           <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
                             {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              const isColor = order.printingOptions.pageColors?.colorPages.includes(pageNum) || false;
-                              const isBw = order.printingOptions.pageColors?.bwPages.includes(pageNum) || false;
+                              const isColor = order.printingOptions.pageColors?.colorPages?.includes(pageNum) || false;
+                              const isBw = order.printingOptions.pageColors?.bwPages?.includes(pageNum) || false;
                               return (
                                 <div
                                   key={pageNum}
