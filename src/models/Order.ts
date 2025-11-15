@@ -11,7 +11,8 @@ export interface IOrder {
   orderType: 'file' | 'template';
   fileURL?: string; // Legacy: single file URL (for backward compatibility)
   fileURLs?: string[]; // Array of file URLs for multiple files
-  fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg')
+  fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg') - Legacy support
+  fileTypes?: string[]; // Array of file types for multiple files (MIME types)
   originalFileName?: string; // Store the original file name
   originalFileNames?: string[]; // Array of original file names for multiple files
   // Template-specific fields
@@ -108,7 +109,8 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   fileURL: String, // Legacy: single file URL (for backward compatibility)
   fileURLs: [String], // Array of file URLs for multiple files
-  fileType: String,
+  fileType: String, // Legacy support
+  fileTypes: [String], // Array of file types for multiple files (MIME types)
   originalFileName: String, // Legacy: single file name (for backward compatibility)
   originalFileNames: [String], // Array of original file names for multiple files
   // Template-specific fields

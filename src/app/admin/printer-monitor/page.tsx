@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showError } from '@/lib/adminNotifications';
 
 interface PrinterStatus {
   success: boolean;
@@ -323,11 +325,11 @@ function PrinterMonitorContent() {
                           if (data.success) {
                             fetchStatus();
                           } else {
-                            alert('Failed to resume queue: ' + (data.error || 'Unknown error'));
+                            showError('Failed to resume queue: ' + (data.error || 'Unknown error'));
                           }
                         } catch (error) {
                           console.error('Error resuming queue:', error);
-                          alert('Failed to resume queue');
+                          showError('Failed to resume queue');
                         }
                       }}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
@@ -346,11 +348,11 @@ function PrinterMonitorContent() {
                             if (data.success) {
                               fetchStatus();
                             } else {
-                              alert('Failed to pause queue: ' + (data.error || 'Unknown error'));
+                              showError('Failed to pause queue: ' + (data.error || 'Unknown error'));
                             }
                           } catch (error) {
                             console.error('Error pausing queue:', error);
-                            alert('Failed to pause queue');
+                            showError('Failed to pause queue');
                           }
                         }
                       }}
@@ -456,11 +458,11 @@ function PrinterMonitorContent() {
                                     if (data.success) {
                                       fetchStatus();
                                     } else {
-                                      alert('Failed to delete job: ' + (data.error || 'Unknown error'));
+                                      showError('Failed to delete job: ' + (data.error || 'Unknown error'));
                                     }
                                   } catch (error) {
                                     console.error('Error deleting job:', error);
-                                    alert('Failed to delete job');
+                                    showError('Failed to delete job');
                                   }
                                 }
                               }}
@@ -530,7 +532,9 @@ export default function PrinterMonitorPage() {
       title="Printer Monitor"
       subtitle="Monitor printer API status and print queue"
     >
-      <PrinterMonitorContent />
+      <NotificationProvider>
+        <PrinterMonitorContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

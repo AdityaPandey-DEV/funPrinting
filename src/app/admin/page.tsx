@@ -6,6 +6,8 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError, showInfo, showWarning } from '@/lib/adminNotifications';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -141,31 +143,29 @@ function AdminDashboardContent() {
       if (data.success) {
         const { processed, skipped, failed, orders } = data.results;
         if (processed > 0) {
-          alert(`✅ Successfully processed ${processed} orders - they are now in the print queue!`);
+          showSuccess(`Successfully processed ${processed} orders - they are now in the print queue!`);
         } else if (failed > 0) {
           // Build detailed error message
-          let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+          let errorMessage = `Failed to process ${failed} order(s).`;
           const failedOrders = orders?.filter((o: any) => o.status === 'failed' || o.status === 'error') || [];
           if (failedOrders.length > 0) {
-            errorMessage += 'Error details:\n';
-            failedOrders.forEach((failedOrder: { orderId: string; message: string }) => {
-              errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.message}\n`;
-            });
-          } else {
-            errorMessage += 'Check console for details.';
+            const details = failedOrders.map((failedOrder: { orderId: string; message: string }) => 
+              `Order ${failedOrder.orderId}: ${failedOrder.message}`
+            ).join('; ');
+            errorMessage += ` ${details}`;
           }
-          alert(errorMessage);
+          showError(errorMessage);
         } else {
-          alert(`ℹ️ ${data.message || 'No orders needed processing'}`);
+          showInfo(data.message || 'No orders needed processing');
         }
         // Refresh orders after processing
         await fetchOrders();
       } else {
-        alert(`❌ Failed to process orders: ${data.error || 'Unknown error'}`);
+        showError(`Failed to process orders: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error processing pending orders:', error);
-      alert('An error occurred while processing orders');
+      showError('An error occurred while processing orders');
     } finally {
       setIsLoading(false);
     }
@@ -216,20 +216,18 @@ function AdminDashboardContent() {
           const { processed, skipped, failed, failedOrders } = data.autoProcessed;
           if (processed > 0) {
             console.log(`✅ Auto-processed ${processed} orders`);
-            alert(`✅ Auto-processed ${processed} orders - they are now in the print queue!`);
+            showSuccess(`Auto-processed ${processed} orders - they are now in the print queue!`);
           } else if (failed > 0) {
             console.warn(`⚠️ Failed to process ${failed} orders`);
             // Build detailed error message
-            let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+            let errorMessage = `Failed to process ${failed} order(s).`;
             if (failedOrders && failedOrders.length > 0) {
-              errorMessage += 'Error details:\n';
-              failedOrders.forEach((failedOrder: { orderId: string; error: string }) => {
-                errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.error}\n`;
-              });
-            } else {
-              errorMessage += 'Check console for details.';
+              const details = failedOrders.map((failedOrder: { orderId: string; error: string }) => 
+                `Order ${failedOrder.orderId}: ${failedOrder.error}`
+              ).join('; ');
+              errorMessage += ` ${details}`;
             }
-            alert(errorMessage);
+            showError(errorMessage);
           } else if (skipped > 0) {
             console.log(`⏭️ Skipped ${skipped} orders (already processed)`);
           }
@@ -246,11 +244,11 @@ function AdminDashboardContent() {
           }
         }
       } else {
-        alert('Failed to fetch orders');
+        showError('Failed to fetch orders');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
-      alert('An error occurred while fetching orders');
+      showError('An error occurred while fetching orders');
     } finally {
       setIsLoading(false);
     }
@@ -279,14 +277,14 @@ function AdminDashboardContent() {
               : order
           )
         );
-        alert(`✅ Order status updated successfully to: ${newStatus}`);
+        showSuccess(`Order status updated successfully to: ${newStatus}`);
       } else {
         console.error('❌ API Error:', data.error);
-        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
+        showError(`Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Network Error updating order status:', error);
-      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
+      showError('Network error occurred while updating order status. Please check your connection and try again.');
     }
   };
 
@@ -750,7 +748,9 @@ export default function AdminDashboard() {
       title="Admin Dashboard"
       subtitle="Sign in with Google to manage all printing orders and track their status"
     >
-      <AdminDashboardContent />
+      <NotificationProvider>
+        <AdminDashboardContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

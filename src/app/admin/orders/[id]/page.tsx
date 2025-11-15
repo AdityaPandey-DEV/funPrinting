@@ -6,6 +6,8 @@ import Image from 'next/image';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError } from '@/lib/adminNotifications';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -34,7 +36,8 @@ interface Order {
   orderType: 'file' | 'template';
   fileURL?: string; // Legacy: single file URL (for backward compatibility)
   fileURLs?: string[]; // Array of file URLs for multiple files
-  fileType?: string;
+  fileType?: string; // Legacy support
+  fileTypes?: string[]; // Array of file types for multiple files (MIME types)
   originalFileName?: string; // Legacy: single file name (for backward compatibility)
   originalFileNames?: string[]; // Array of original file names for multiple files
   templateData?: {
@@ -62,10 +65,10 @@ interface Order {
       color: 'color' | 'bw' | 'mixed';
       sided: 'single' | 'double';
       copies: number;
-      pageColors?: {
-        colorPages: number[];
-        bwPages: number[];
-      };
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    };
     }>;
   };
   deliveryOption?: {
@@ -218,12 +221,12 @@ function OrderDetailPageContent() {
         
         setOrder(orderData);
       } else {
-        alert('Failed to fetch order details');
+        showError('Failed to fetch order details');
         router.push('/admin');
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      alert('Failed to fetch order details');
+      showError('Failed to fetch order details');
       router.push('/admin');
     } finally {
       setIsLoading(false);
@@ -273,14 +276,14 @@ function OrderDetailPageContent() {
       
       if (data.success) {
         setOrder({ ...order, orderStatus: newStatus as any });
-        alert(`✅ Order status updated successfully to: ${newStatus}`);
+        showSuccess(`Order status updated successfully to: ${newStatus}`);
       } else {
         console.error('❌ API Error:', data.error);
-        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
+        showError(`Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Network Error updating order status:', error);
-      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
+      showError('Network error occurred while updating order status. Please check your connection and try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -308,14 +311,14 @@ function OrderDetailPageContent() {
       const data = await response.json();
       
       if (data.success) {
-        alert('Order deleted successfully!');
+        showSuccess('Order deleted successfully!');
         router.push('/admin');
       } else {
-        alert('Failed to delete order');
+        showError('Failed to delete order');
       }
     } catch (error) {
       console.error('Error deleting order:', error);
-      alert('Failed to delete order');
+      showError('Failed to delete order');
     } finally {
       setIsUpdating(false);
     }
@@ -511,23 +514,23 @@ function OrderDetailPageContent() {
                       </div>
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
                         [                          {(() => {
-                            const fileOptions = (order.printingOptions as any).fileOptions;
-                            let bwPages = [];
-                            
-                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
-                              const targetFileIndex = selectedFileIndex || 0;
-                              bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
-                            } else {
+                          const fileOptions = (order.printingOptions as any).fileOptions;
+                          let bwPages = [];
+                          
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                          } else {
                               const pageColors = order.printingOptions.pageColors;
                               if (Array.isArray(pageColors)) {
                                 bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
                               } else if (pageColors) {
                                 bwPages = pageColors.bwPages || [];
                               }
-                            }
-                            
-                            return bwPages.length > 0 ? bwPages.join(', ') : 'None';
-                          })()}]
+                          }
+                          
+                          return bwPages.length > 0 ? bwPages.join(', ') : 'None';
+                        })()}]
                       </div>
                       
                       {/* Visual Page Preview */}
@@ -634,14 +637,14 @@ function OrderDetailPageContent() {
                     const serviceOption = serviceOptions?.[0] || legacyServiceOption;
                     if (serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1) {
                       return (
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Service Option:</span>
-                          <span className="font-medium">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Service Option:</span>
+                    <span className="font-medium">
                             {serviceOption === 'binding' ? '📎 Binding' :
                              serviceOption === 'file' ? '🗂️ File Handling' :
-                             '✅ Service Fee'}
-                          </span>
-                        </div>
+                       '✅ Service Fee'}
+                    </span>
+                  </div>
                       );
                     }
                   }
@@ -817,7 +820,8 @@ function OrderDetailPageContent() {
                       <div className="space-y-2 mb-4 max-h-64 overflow-y-auto border-2 border-gray-300 rounded-lg p-3 bg-white shadow-sm">
                         {order.fileURLs.map((fileURL, idx) => {
                           const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
-                          const fileType = getFileTypeFromURL(fileURL, fileName);
+                          // Use saved fileType from order, fallback to inferring from URL for legacy orders
+                          const fileType = order.fileTypes?.[idx] || (idx === 0 ? order.fileType : undefined) || getFileTypeFromURL(fileURL, fileName);
                           const isImage = fileType.startsWith('image/');
                           const isPDF = fileType === 'application/pdf';
                           const isDoc = fileType.includes('word') || fileType.includes('document');
@@ -970,10 +974,15 @@ function OrderDetailPageContent() {
                         const currentFileName = (order.originalFileNames && order.originalFileNames.length > 0)
                           ? order.originalFileNames[selectedFileIndex]
                           : order.originalFileName || 'document';
-                        // Use per-file type detection instead of single order.fileType
-                        const fileType = currentFileURL && currentFileName
-                          ? getFileTypeFromURL(currentFileURL, currentFileName)
-                          : (order.fileType || 'application/octet-stream');
+                        // Use saved fileType from order, fallback to inferring from URL for legacy orders
+                        let fileType: string;
+                        if (order.fileURLs && order.fileURLs.length > 0) {
+                          // Multiple files: use fileTypes array
+                          fileType = order.fileTypes?.[selectedFileIndex] || (currentFileURL && currentFileName ? getFileTypeFromURL(currentFileURL, currentFileName) : 'application/octet-stream');
+                        } else {
+                          // Single file: use fileType or infer from URL
+                          fileType = order.fileType || (currentFileURL && currentFileName ? getFileTypeFromURL(currentFileURL, currentFileName) : 'application/octet-stream');
+                        }
                         const isImage = fileType.startsWith('image/');
                         const isPDF = fileType === 'application/pdf';
                         
@@ -1173,7 +1182,9 @@ export default function OrderDetailPage() {
       title="Order Details"
       subtitle="Sign in with Google to view and manage order details"
     >
-      <OrderDetailPageContent />
+      <NotificationProvider>
+        <OrderDetailPageContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

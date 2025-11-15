@@ -998,6 +998,7 @@ export default function OrderPage() {
       // First, upload files if it's a file order
       const fileURLs: string[] = [];
       const originalFileNames: string[] = [];
+      const fileTypes: string[] = [];
       if (selectedFiles.length > 0 && orderType === 'file') {
         try {
           // Upload all files
@@ -1034,7 +1035,8 @@ export default function OrderPage() {
           if (uploadData.success) {
               fileURLs.push(uploadData.fileURL);
               originalFileNames.push(uploadData.originalFileName);
-              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}`);
+              fileTypes.push(file.type); // Collect file type (MIME type)
+              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type}`);
           } else {
             throw new Error(uploadData.error || 'Upload failed');
             }
@@ -1056,6 +1058,7 @@ export default function OrderPage() {
         fileURL: orderType === 'file' && fileURLs.length > 0 ? fileURLs[0] : undefined, // Legacy support
         originalFileNames: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames : undefined,
         originalFileName: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames[0] : undefined, // Legacy support
+        fileTypes: orderType === 'file' && fileTypes.length > 0 ? fileTypes : undefined, // File types array
         filePageCounts: orderType === 'file' && filePageCounts.length > 0 ? filePageCounts : undefined, // Per-file page counts
         templateData: orderType === 'template' ? {
           templateType: 'custom',
