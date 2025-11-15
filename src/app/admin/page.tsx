@@ -48,11 +48,25 @@ interface Order {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }>;
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -529,6 +543,55 @@ function AdminDashboardContent() {
                         <div className="text-sm font-medium text-gray-900">
                           ₹{order.amount}
                         </div>
+                        {/* Service Options Display */}
+                        {(() => {
+                          const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+                          const serviceOptions = order.printingOptions.serviceOptions;
+                          const legacyServiceOption = order.printingOptions.serviceOption;
+                          
+                          if (hasMultipleFiles && serviceOptions && serviceOptions.length > 0) {
+                            // Multiple files with per-file service options
+                            return (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-xs text-gray-600">Service Options:</div>
+                                {serviceOptions.slice(0, 2).map((serviceOption, idx) => {
+                                  const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                                  return (
+                                    <div key={idx} className="text-xs">
+                                      <span className="text-gray-600">{fileName.substring(0, 15)}:</span>
+                                      <span className="ml-1 font-medium">
+                                        {serviceOption === 'binding' ? '📎' :
+                                         serviceOption === 'file' ? '🗂️' :
+                                         '✅'}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                                {serviceOptions.length > 2 && (
+                                  <div className="text-xs text-gray-500">
+                                    +{serviceOptions.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            // Single file or legacy format
+                            const serviceOption = serviceOptions?.[0] || legacyServiceOption;
+                            if (serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1) {
+                              return (
+                                <div className="mt-1 text-xs">
+                                  <span className="text-gray-600">Service: </span>
+                                  <span className="font-medium">
+                                    {serviceOption === 'binding' ? '📎 Binding' :
+                                     serviceOption === 'file' ? '🗂️ File' :
+                                     '✅ Service'}
+                                  </span>
+                                </div>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

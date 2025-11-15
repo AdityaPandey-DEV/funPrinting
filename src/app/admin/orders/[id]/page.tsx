@@ -48,11 +48,25 @@ interface Order {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }>;
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -439,7 +453,12 @@ function OrderDetailPageContent() {
                               const targetFileIndex = selectedFileIndex || 0;
                               colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
                             } else {
-                              colorPages = order.printingOptions.pageColors?.colorPages || [];
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
+                              } else if (pageColors) {
+                                colorPages = pageColors.colorPages || [];
+                              }
                             }
                             
                             return `${colorPages.length} pages`;
@@ -455,7 +474,12 @@ function OrderDetailPageContent() {
                             const targetFileIndex = selectedFileIndex || 0;
                             colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
                           } else {
-                            colorPages = order.printingOptions.pageColors?.colorPages || [];
+                            const pageColors = order.printingOptions.pageColors;
+                            if (Array.isArray(pageColors)) {
+                              colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
+                            } else if (pageColors) {
+                              colorPages = pageColors.colorPages || [];
+                            }
                           }
                           
                           return colorPages.length > 0 ? colorPages.join(', ') : 'None';
@@ -473,7 +497,12 @@ function OrderDetailPageContent() {
                               const targetFileIndex = selectedFileIndex || 0;
                               bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
                             } else {
-                              bwPages = order.printingOptions.pageColors?.bwPages || [];
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
+                              } else if (pageColors) {
+                                bwPages = pageColors.bwPages || [];
+                              }
                             }
                             
                             return `${bwPages.length} pages`;
@@ -481,19 +510,24 @@ function OrderDetailPageContent() {
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
-                        [{(() => {
-                          const fileOptions = (order.printingOptions as any).fileOptions;
-                          let bwPages = [];
-                          
-                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
-                            const targetFileIndex = selectedFileIndex || 0;
-                            bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
-                          } else {
-                            bwPages = order.printingOptions.pageColors?.bwPages || [];
-                          }
-                          
-                          return bwPages.length > 0 ? bwPages.join(', ') : 'None';
-                        })()}]
+                        [                          {(() => {
+                            const fileOptions = (order.printingOptions as any).fileOptions;
+                            let bwPages = [];
+                            
+                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                              const targetFileIndex = selectedFileIndex || 0;
+                              bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                            } else {
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
+                              } else if (pageColors) {
+                                bwPages = pageColors.bwPages || [];
+                              }
+                            }
+                            
+                            return bwPages.length > 0 ? bwPages.join(', ') : 'None';
+                          })()}]
                       </div>
                       
                       {/* Visual Page Preview */}
@@ -514,8 +548,15 @@ function OrderDetailPageContent() {
                                 colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
                                 bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
                               } else {
-                                colorPages = order.printingOptions.pageColors?.colorPages || [];
-                                bwPages = order.printingOptions.pageColors?.bwPages || [];
+                                const pageColors = order.printingOptions.pageColors;
+                                if (Array.isArray(pageColors)) {
+                                  const targetPageColors = pageColors[selectedFileIndex || 0];
+                                  colorPages = targetPageColors?.colorPages || [];
+                                  bwPages = targetPageColors?.bwPages || [];
+                                } else if (pageColors) {
+                                  colorPages = pageColors.colorPages || [];
+                                  bwPages = pageColors.bwPages || [];
+                                }
                               }
                               
                               const isColor = colorPages.includes(pageNum);
@@ -558,16 +599,54 @@ function OrderDetailPageContent() {
                     <span className="font-medium">{order.printingOptions.pageCount}</span>
                   </div>
                 )}
-                {order.printingOptions.serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Service Option:</span>
-                    <span className="font-medium">
-                      {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
-                       order.printingOptions.serviceOption === 'file' ? '🗂️ File Handling' :
-                       '✅ Service Fee'}
-                    </span>
-                  </div>
-                )}
+                {(() => {
+                  // Check for service options - support both new array format and legacy format
+                  const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+                  const serviceOptions = order.printingOptions.serviceOptions;
+                  const legacyServiceOption = order.printingOptions.serviceOption;
+                  
+                  // Determine which service option(s) to display
+                  if (hasMultipleFiles && serviceOptions && serviceOptions.length > 0) {
+                    // Multiple files with per-file service options
+                    return (
+                      <div className="mt-2">
+                        <div className="text-gray-600 mb-2">Service Options:</div>
+                        <div className="space-y-2">
+                          {order.fileURLs?.map((_, idx) => {
+                            const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                            const serviceOption = serviceOptions[idx] || legacyServiceOption || 'service';
+                            return (
+                              <div key={idx} className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded border border-blue-200">
+                                <span className="text-sm text-gray-700">{fileName}:</span>
+                                <span className="font-medium text-sm">
+                                  {serviceOption === 'binding' ? '📎 Binding' :
+                                   serviceOption === 'file' ? '🗂️ File Handling' :
+                                   '✅ Service Fee'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Single file or legacy format
+                    const serviceOption = serviceOptions?.[0] || legacyServiceOption;
+                    if (serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1) {
+                      return (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Service Option:</span>
+                          <span className="font-medium">
+                            {serviceOption === 'binding' ? '📎 Binding' :
+                             serviceOption === 'file' ? '🗂️ File Handling' :
+                             '✅ Service Fee'}
+                          </span>
+                        </div>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Amount:</span>
                   <span className="text-xl font-bold text-gray-900">₹{order.amount}</span>
@@ -772,7 +851,7 @@ function OrderDetailPageContent() {
                                 <span className="text-lg" title={fileType}>{getFileIcon()}</span>
                                 <div className="flex flex-col min-w-0 flex-1">
                                   <span className="text-sm font-medium text-gray-900 truncate">{fileName}</span>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-xs text-gray-500">
                                       {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
                                     </span>
@@ -788,6 +867,36 @@ function OrderDetailPageContent() {
                                     >
                                       {mode === 'mixed' ? 'Mixed' : mode === 'color' ? 'Color' : 'B&W'}
                                     </span>
+                                    {/* Service Option Indicator */}
+                                    {(() => {
+                                      const serviceOptions = order.printingOptions.serviceOptions;
+                                      const legacyServiceOption = order.printingOptions.serviceOption;
+                                      const serviceOption = serviceOptions?.[idx] || (idx === 0 ? legacyServiceOption : null);
+                                      
+                                      if (serviceOption) {
+                                        return (
+                                          <span
+                                            className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                              serviceOption === 'binding'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                : serviceOption === 'file'
+                                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200'
+                                            }`}
+                                            title={
+                                              serviceOption === 'binding' ? 'Binding service selected' :
+                                              serviceOption === 'file' ? 'File handling selected' :
+                                              'Service fee selected'
+                                            }
+                                          >
+                                            {serviceOption === 'binding' ? '📎 Binding' :
+                                             serviceOption === 'file' ? '🗂️ File' :
+                                             '✅ Service'}
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </div>
                               </div>
