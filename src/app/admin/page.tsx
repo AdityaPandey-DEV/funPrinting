@@ -210,39 +210,6 @@ function AdminDashboardContent() {
 
       if (data.success) {
         setOrders(data.orders);
-        
-        // Show auto-processing results if any
-        if (data.autoProcessed) {
-          const { processed, skipped, failed, failedOrders } = data.autoProcessed;
-          if (processed > 0) {
-            console.log(`✅ Auto-processed ${processed} orders`);
-            showSuccess(`Auto-processed ${processed} orders - they are now in the print queue!`);
-          } else if (failed > 0) {
-            console.warn(`⚠️ Failed to process ${failed} orders`);
-            // Build detailed error message
-            let errorMessage = `Failed to process ${failed} order(s).`;
-            if (failedOrders && failedOrders.length > 0) {
-              const details = failedOrders.map((failedOrder: { orderId: string; error: string }) => 
-                `Order ${failedOrder.orderId}: ${failedOrder.error}`
-              ).join('; ');
-              errorMessage += ` ${details}`;
-            }
-            showError(errorMessage);
-          } else if (skipped > 0) {
-            console.log(`⏭️ Skipped ${skipped} orders (already processed)`);
-          }
-        }
-        
-        if (data.message) {
-          console.log('📋 Processing message:', data.message);
-          // Only show message alert if it's not already shown above
-          if (!data.autoProcessed || (data.autoProcessed.processed === 0 && data.autoProcessed.failed === 0 && data.autoProcessed.skipped === 0)) {
-            // Only show "No orders needed processing" in console, not as alert
-            if (data.message !== 'No orders needed processing') {
-              console.log('ℹ️', data.message);
-            }
-          }
-        }
       } else {
         showError('Failed to fetch orders');
       }

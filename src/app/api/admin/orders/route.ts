@@ -187,47 +187,19 @@ export async function GET() {
   try {
     await connectDB();
     
-    console.log(`🔄 ADMIN API - Starting auto-processing at ${new Date().toISOString()}`);
+    console.log(`🔍 ADMIN API - Fetching orders at ${new Date().toISOString()}`);
     
-    // Automatically process orders with completed payment but pending status
-    const processResult = await processCompletedPaymentOrders();
-    
-    console.log(`🔄 Auto-processed orders: ${processResult.processed} processed, ${processResult.skipped} skipped, ${processResult.failed} failed`);
-    
-    if (processResult.processed > 0) {
-      console.log(`✅ Successfully processed ${processResult.processed} orders - they should now be in the print queue`);
-    }
-    
+    // Just fetch orders - no automatic processing
+    // Processing should only happen when "Process Pending Orders" button is clicked
     const orders = await Order.find({}).sort({ createdAt: -1 });
     
     console.log(`🔍 ADMIN API - Fetched ${orders.length} orders from database at ${new Date().toISOString()}`);
-    console.log('🔍 ADMIN API - Latest orders:', orders.slice(0, 3).map(o => ({
-      orderId: o.orderId,
-      paymentStatus: o.paymentStatus,
-      orderStatus: o.orderStatus,
-      createdAt: o.createdAt,
-      serviceOption: o.printingOptions?.serviceOption,
-      expectedDate: o.expectedDate,
-      amount: o.amount
-    })));
-
-    let message = 'No orders needed processing';
-    if (processResult.processed > 0) {
-      message = `✅ Auto-processed ${processResult.processed} orders - they are now in the print queue`;
-    } else if (processResult.skipped > 0) {
-      message = `⏭️ Skipped ${processResult.skipped} orders (already processed)`;
-    } else if (processResult.failed > 0) {
-      const failedDetails = processResult.failedOrders?.map(f => `Order ${f.orderId}: ${f.error}`).join('; ') || 'Unknown error';
-      message = `⚠️ Failed to process ${processResult.failed} order(s). ${failedDetails}`;
-    }
 
     return NextResponse.json({
       success: true,
       orders,
       timestamp: new Date().toISOString(),
-      count: orders.length,
-      autoProcessed: processResult,
-      message
+      count: orders.length
     });
   } catch (error) {
     console.error('Error fetching orders:', error);
