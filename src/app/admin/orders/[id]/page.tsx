@@ -241,16 +241,16 @@ function OrderDetailPageContent() {
     }
   }, [params.id, fetchOrder]);
 
-  // Add timeout to prevent stuck loading state
+  // Add timeout to prevent stuck loading state (onLoad may not fire for PDFs)
   useEffect(() => {
     const currentFileURL = (Array.isArray(order?.fileURLs) && order!.fileURLs.length > 0) 
       ? order.fileURLs[selectedFileIndex] 
       : order?.fileURL;
     if (order && currentFileURL && !pdfLoaded) {
       const timeout = setTimeout(() => {
-        console.log('PDF loading timeout, showing iframe anyway');
+        console.log('⏱️ Showing PDF preview after 3 seconds (onLoad may not fire for PDFs)');
         setPdfLoaded(true);
-      }, 5000); // 5 second timeout
+      }, 3000); // 3 second timeout as fallback
       
       return () => clearTimeout(timeout);
     }
@@ -1011,21 +1011,42 @@ function OrderDetailPageContent() {
                           );
                         } else if (isPDF) {
                           // PDF files - use iframe
+                          const iframeSrc = `/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${encodeURIComponent(currentFileName)}`;
+                          console.log('📄 Rendering PDF iframe:', { iframeSrc, currentFileName, fileType });
+                          
                           return (
-                            <iframe
-                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
-                              className="w-full h-96"
-                              onLoad={() => {
-                                console.log('PDF iframe loaded successfully');
-                                setPdfLoaded(true);
-                              }}
-                              onError={() => {
-                                console.error('PDF iframe failed to load');
-                                setPdfLoaded(true);
-                              }}
-                              style={{ display: pdfLoaded ? 'block' : 'none' }}
-                              title="PDF Preview"
-                            />
+                            <div className="relative w-full h-96">
+                              <iframe
+                                key={`${currentFileURL}-${selectedFileIndex}`}
+                                src={iframeSrc}
+                                className="w-full h-96 border-0"
+                                onLoad={() => {
+                                  console.log('✅ PDF iframe onLoad event fired');
+                                  setPdfLoaded(true);
+                                }}
+                                onError={(e) => {
+                                  console.error('❌ PDF iframe failed to load:', e);
+                                  setPdfLoaded(true);
+                                }}
+                                style={{ 
+                                  opacity: pdfLoaded ? 1 : 0, 
+                                  transition: 'opacity 0.3s',
+                                  position: 'relative',
+                                  zIndex: pdfLoaded ? 1 : 0
+                                }}
+                                title="PDF Preview"
+                                allow="fullscreen"
+                              />
+                              {!pdfLoaded && (
+                                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+                                  <div className="text-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Loading PDF preview...</p>
+                                    <p className="text-xs text-gray-500 mt-2">{currentFileName}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           );
                         } else {
                           // Other files - show file info card

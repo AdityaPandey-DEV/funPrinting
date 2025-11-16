@@ -3,6 +3,7 @@ import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import { getFileTypeFromFilename, getFileTypeFromFileNames } from '@/lib/fileTypeDetection';
 
 /**
  * Get page colors for a specific file (handles both array and legacy single object formats)
@@ -402,13 +403,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Detect fileType from filenames if not provided
+    let detectedFileType = fileType;
+    if (orderType === 'file' && !detectedFileType) {
+      if (originalFileNamesArray && originalFileNamesArray.length > 0) {
+        // Multi-file: detect from array
+        detectedFileType = getFileTypeFromFileNames(originalFileNamesArray, fileURLsArray);
+        console.log(`🔍 Detected fileType from filenames array: ${detectedFileType}`);
+      } else if (singleOriginalFileName) {
+        // Single file: detect from filename
+        detectedFileType = getFileTypeFromFilename(singleOriginalFileName, singleFileURL);
+        console.log(`🔍 Detected fileType from filename: ${detectedFileType}`);
+      }
+    }
+    
+    console.log(`📋 Creating order with ${fileURLsArray?.length || 0} file(s), fileType: ${detectedFileType || 'not set'}`);
+
     // Create pending order in database
     const orderData = {
       customerInfo,
       orderType,
       fileURL: orderType === 'file' ? singleFileURL : undefined, // Legacy support
       fileURLs: orderType === 'file' && fileURLsArray && fileURLsArray.length > 0 ? fileURLsArray : undefined,
-      fileType,
+      fileType: orderType === 'file' ? detectedFileType : undefined,
       originalFileName: orderType === 'file' ? singleOriginalFileName : undefined, // Legacy support
       originalFileNames: orderType === 'file' && originalFileNamesArray && originalFileNamesArray.length > 0 ? originalFileNamesArray : undefined,
       templateData,

@@ -4,6 +4,7 @@ import Order from '@/models/Order';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { validateOrderData, sanitizeOrderData, handleOrderError, logOrderEvent } from '@/lib/orderUtils';
 import { sendNewOrderNotification, sendCustomerOrderConfirmation } from '@/lib/notificationService';
+import { getFileTypeFromFilename } from '@/lib/fileTypeDetection';
 
 export async function POST(request: NextRequest) {
   try {
@@ -318,11 +319,40 @@ export async function POST(request: NextRequest) {
       fileTypesArray = [fileType];
     }
     
+    // Detect fileType from filenames if not provided
+    if (orderType === 'file' && fileURLsArray.length > 0) {
+      // Detect fileType for each file if missing
+      for (let i = 0; i < fileURLsArray.length; i++) {
+        if (!fileTypesArray[i] || fileTypesArray[i] === 'application/octet-stream') {
+          const detectedType = originalFileNamesArray[i] 
+            ? getFileTypeFromFilename(originalFileNamesArray[i], fileURLsArray[i])
+            : getFileTypeFromFilename('', fileURLsArray[i]);
+          
+          if (fileTypesArray[i]) {
+            fileTypesArray[i] = detectedType;
+          } else {
+            fileTypesArray.push(detectedType);
+          }
+          console.log(`🔍 Detected fileType for file ${i + 1}: ${detectedType}`);
+        }
+      }
+      
+      // Also set legacy fileType if not set
+      if (!fileType && fileTypesArray.length > 0) {
+        fileType = fileTypesArray[0];
+        console.log(`🔍 Set legacy fileType: ${fileType}`);
+      }
+    }
+
     // Ensure fileTypes array matches fileURLs array length
     if (fileTypesArray.length !== fileURLsArray.length && fileURLsArray.length > 0) {
-      // If fileTypes array is shorter, pad with 'application/octet-stream' for missing entries
+      // If fileTypes array is shorter, pad with detected types or 'application/octet-stream'
       while (fileTypesArray.length < fileURLsArray.length) {
-        fileTypesArray.push('application/octet-stream');
+        const idx = fileTypesArray.length;
+        const detectedType = originalFileNamesArray[idx]
+          ? getFileTypeFromFilename(originalFileNamesArray[idx], fileURLsArray[idx])
+          : 'application/octet-stream';
+        fileTypesArray.push(detectedType);
       }
       // If fileTypes array is longer, trim it
       fileTypesArray = fileTypesArray.slice(0, fileURLsArray.length);
