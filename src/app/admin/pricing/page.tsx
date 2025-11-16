@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError } from '@/lib/adminNotifications';
 import { formInputClasses, buttonClasses } from '@/lib/adminUtils';
 
 interface PricingData {
@@ -90,11 +92,11 @@ function AdminPricingPageContent() {
         const validatedPricing = ensureDeliveryCharges(data.pricing);
         setPricing(validatedPricing);
       } else {
-        alert('Failed to fetch pricing');
+        showError('Failed to fetch pricing');
       }
     } catch (error) {
       console.error('Error fetching pricing:', error);
-      alert('An error occurred while fetching pricing');
+      showError('An error occurred while fetching pricing');
     } finally {
       setIsLoading(false);
     }
@@ -145,13 +147,13 @@ function AdminPricingPageContent() {
       const data = await response.json();
 
       if (data.success) {
-        alert('Pricing updated successfully!');
+        showSuccess('Pricing updated successfully!');
       } else {
-        alert(`Failed to update pricing: ${data.error}`);
+        showError(`Failed to update pricing: ${data.error}`);
       }
     } catch (error) {
       console.error('Error updating pricing:', error);
-      alert('An error occurred while updating pricing');
+      showError('An error occurred while updating pricing');
     } finally {
       setIsSaving(false);
     }
@@ -387,7 +389,9 @@ export default function AdminPricingPage() {
       title="Admin Pricing"
       subtitle="Sign in with Google to manage service pricing and rates"
     >
-      <AdminPricingPageContent />
+      <NotificationProvider>
+        <AdminPricingPageContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

@@ -6,16 +6,34 @@ import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 
-interface PrintingOptions {
+interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
   color: 'color' | 'bw' | 'mixed';
   sided: 'single' | 'double';
   copies: number;
-  serviceOption: 'binding' | 'file' | 'service';
   pageColors?: {
     colorPages: number[];
     bwPages: number[];
   };
+}
+
+interface PrintingOptions {
+  // Legacy: single printing options (for backward compatibility)
+  pageSize?: 'A4' | 'A3';
+  color?: 'color' | 'bw' | 'mixed';
+  sided?: 'single' | 'double';
+  copies?: number;
+  serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+  serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
+  pageColors?: {
+    colorPages: number[];
+    bwPages: number[];
+  } | Array<{ // Per-file page colors (new format)
+    colorPages: number[];
+    bwPages: number[];
+  }>;
+  // Per-file printing options (new format)
+  fileOptions?: FilePrintingOptions[];
 }
 
 interface CustomerInfo {
@@ -180,9 +198,154 @@ const generateBwPages = (totalPages: number, colorPages: number[]): number[] => 
   return allPages.filter(page => !colorPages.includes(page));
 };
 
-const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] }): string => {
+/**
+ * Truncate file name to maintain length of ~10 characters
+ * Example: "adityapandey.pdf" -> "adi..ya.pdf"
+ * Keeps first 3-4 chars, then "..", then last 2-3 chars before extension
+ */
+const truncateFileName = (fileName: string, maxLength: number = 10): string => {
+  if (fileName.length <= maxLength) {
+    return fileName;
+  }
+  
+  // Extract extension
+  const lastDotIndex = fileName.lastIndexOf('.');
+  if (lastDotIndex === -1) {
+    // No extension, just truncate with ellipsis
+    return fileName.substring(0, maxLength - 3) + '...';
+  }
+  
+  const nameWithoutExt = fileName.substring(0, lastDotIndex);
+  const extension = fileName.substring(lastDotIndex);
+  
+  // If name without extension is short enough, return as is
+  if (nameWithoutExt.length + extension.length <= maxLength) {
+    return fileName;
+  }
+  
+  // Calculate how much space we have for the name (excluding extension and "..")
+  const availableLength = maxLength - extension.length - 2; // 2 for ".."
+  
+  if (availableLength < 2) {
+    // Very short, just show extension
+    return '..' + extension;
+  }
+  
+  // For better readability: first part gets slightly more (3-4 chars), last part gets 2-3 chars
+  // This creates patterns like "adi..ya.pdf" (3+2=5) or "very..me.pdf" (4+2=6)
+  const firstPartLength = Math.min(4, Math.ceil(availableLength * 0.6)); // Prefer 3-4 chars for first part
+  const lastPartLength = Math.max(2, availableLength - firstPartLength); // At least 2 chars for last part
+  
+  const firstPart = nameWithoutExt.substring(0, firstPartLength);
+  const lastPart = nameWithoutExt.substring(nameWithoutExt.length - lastPartLength);
+  
+  return firstPart + '..' + lastPart + extension;
+};
+
+/**
+ * Get printing options for a specific file (handles both per-file and legacy formats)
+ */
+const getFilePrintingOptions = (
+  fileIndex: number,
+  printingOptions: PrintingOptions
+): FilePrintingOptions => {
+  // Check if we have per-file options
+  if (printingOptions.fileOptions && printingOptions.fileOptions.length > fileIndex) {
+    return printingOptions.fileOptions[fileIndex];
+  }
+  
+  // Fall back to legacy single options
+  return {
+    pageSize: printingOptions.pageSize || 'A4',
+    color: printingOptions.color || 'bw',
+    sided: printingOptions.sided || 'single',
+    copies: printingOptions.copies || 1,
+    pageColors: (() => {
+      const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
+      return filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
+        ? filePageColors 
+        : undefined;
+    })()
+  };
+};
+
+/**
+ * Get page colors for a specific file (handles both array and legacy single object formats)
+ */
+const getFilePageColors = (
+  fileIndex: number,
+  pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>
+): { colorPages: number[]; bwPages: number[] } => {
+  if (!pageColors) {
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle array format (per-file)
+  if (Array.isArray(pageColors)) {
+    if (fileIndex >= 0 && fileIndex < pageColors.length) {
+      return pageColors[fileIndex];
+    }
+    return { colorPages: [], bwPages: [] };
+  }
+  
+  // Handle legacy single object format (backward compatibility)
+  // For legacy format, we'd need to distribute pages across files, but that's complex
+  // For now, return empty for files beyond the first one
+  if (fileIndex === 0) {
+    return pageColors;
+  }
+  
+  return { colorPages: [], bwPages: [] };
+};
+
+/**
+ * Calculate cost for a single file
+ */
+const calculateFileCost = (
+  filePageCount: number,
+  fileColorPages: number,
+  fileBwPages: number,
+  basePrice: number,
+  colorMultiplier: number,
+  sidedMultiplier: number,
+  copies: number,
+  colorMode: 'color' | 'bw' | 'mixed'
+): number => {
+  if (colorMode === 'mixed') {
+    // Mixed: calculate color and B&W pages separately
+    const colorCost = fileColorPages * basePrice * colorMultiplier;
+    const bwCost = fileBwPages * basePrice;
+    return (colorCost + bwCost) * sidedMultiplier * copies;
+  } else if (colorMode === 'color') {
+    // All color: apply multiplier to all pages
+    return filePageCount * basePrice * colorMultiplier * sidedMultiplier * copies;
+  } else {
+    // All B&W: no multiplier
+    return filePageCount * basePrice * sidedMultiplier * copies;
+  }
+};
+
+const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>): string => {
   if (!pageColors) return 'All pages in Black & White';
   
+  // Handle array format (per-file) - show summary
+  if (Array.isArray(pageColors)) {
+    // Some entries may be undefined if a file has no explicit pageColors set
+    const safeEntries = pageColors.filter(Boolean) as Array<{ colorPages: number[]; bwPages: number[] }>;
+    const totalColor = safeEntries.reduce((sum, pc) => {
+      const colorLen = Array.isArray(pc?.colorPages) ? pc.colorPages.length : 0;
+      return sum + colorLen;
+    }, 0);
+    const totalBw = safeEntries.reduce((sum, pc) => {
+      const bwLen = Array.isArray(pc?.bwPages) ? pc.bwPages.length : 0;
+      return sum + bwLen;
+    }, 0);
+    if (totalColor === 0) return 'All pages in Black & White';
+    if (totalBw === 0) return 'All pages in Color';
+    return `${totalColor} pages in Color, ${totalBw} pages in Black & White`;
+  }
+  
+  // Handle legacy single object format
   const colorCount = pageColors.colorPages.length;
   const bwCount = pageColors.bwPages.length;
   
@@ -269,11 +432,9 @@ export default function OrderPage() {
     color: 'bw',
     sided: 'single',
     copies: 1,
-    serviceOption: 'service',
-    pageColors: {
-      colorPages: [],
-      bwPages: [],
-    },
+    serviceOption: 'service', // Legacy support
+    serviceOptions: [], // Per-file service options
+    pageColors: [], // Per-file page colors array
   });
   const [expectedDate, setExpectedDate] = useState<string>('');
   const [pageCount, setPageCount] = useState(1);
@@ -292,8 +453,10 @@ export default function OrderPage() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
-  const [colorPagesInput, setColorPagesInput] = useState<string>('');
+  const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
+  const [colorPagesInputs, setColorPagesInputs] = useState<string[]>([]); // Per-file color pages input
   const [colorPagesValidation, setColorPagesValidation] = useState<{ errors: string[]; warnings: string[] }>({ errors: [], warnings: [] });
+  const [colorPagesValidations, setColorPagesValidations] = useState<Array<{ errors: string[]; warnings: string[] }>>([]); // Per-file validations
 
   // Update customer info when user authentication changes
   useEffect(() => {
@@ -374,6 +537,24 @@ export default function OrderPage() {
     return () => clearTimeout(timeoutId);
   }, [customerInfo.phone, isAuthenticated]);
 
+  // Ensure serviceOptions array matches selectedFiles length
+  useEffect(() => {
+    if (selectedFiles.length > 0) {
+      const currentServiceOptions = printingOptions.serviceOptions || [];
+      if (currentServiceOptions.length < selectedFiles.length) {
+        const updatedOptions = [...currentServiceOptions];
+        while (updatedOptions.length < selectedFiles.length) {
+          updatedOptions.push('service');
+        }
+        setPrintingOptions(prev => ({ ...prev, serviceOptions: updatedOptions }));
+        console.log(`📋 Synchronized serviceOptions: ${updatedOptions.length} options for ${selectedFiles.length} files`);
+      }
+    } else if (selectedFiles.length === 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0) {
+      // Clear service options when no files are selected
+      setPrintingOptions(prev => ({ ...prev, serviceOptions: [] }));
+    }
+  }, [selectedFiles.length]);
+
   // Check for pending payment verification on page load (iPhone Safari recovery)
   useEffect(() => {
     checkPendingPaymentVerification().then((result) => {
@@ -423,7 +604,7 @@ export default function OrderPage() {
         // Set the PDF URL for preview
         if (orderData.pdfUrl) {
           setPdfUrls([orderData.pdfUrl]);
-          setPdfLoaded(true);
+        setPdfLoaded(true);
         }
         
         // Set customer info from the form data
@@ -480,9 +661,9 @@ export default function OrderPage() {
   // Calculate amount based on printing options and delivery
   useEffect(() => {
     const calculateAmount = async () => {
-      console.log('🔄 Pricing calculation triggered:', { pageCount, copies: printingOptions.copies });
+      console.log('🔄 Pricing calculation triggered:', { pageCount, copies: printingOptions.copies || 1 });
       // Always run pricing calculation to show base prices, even with default values
-      if (printingOptions.copies > 0) {
+      if ((printingOptions.copies || 1) > 0) {
         try {
           setPricingLoading(true);
           // Fetch pricing from API
@@ -497,41 +678,50 @@ export default function OrderPage() {
             setPricingData(pricing); // Store pricing data for UI display
             setPricingLoading(false);
             
-            // Base price per page
-            const basePrice = pricing.basePrices[printingOptions.pageSize];
-            console.log(`💰 Base price for ${printingOptions.pageSize}: ₹${basePrice}`);
-            
-            // Calculate color costs for mixed pages
+            // Calculate pricing per file
             let total = 0;
-            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-              // Mixed color pricing: calculate separately for color and B&W pages
-              const colorPages = printingOptions.pageColors.colorPages.length;
-              const bwPages = printingOptions.pageColors.bwPages.length;
-              
-              // If not all pages are specified, treat unspecified pages as B&W
-              const unspecifiedPages = pageCount - (colorPages + bwPages);
-              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-              
-              const colorCost = basePrice * colorPages * pricing.multipliers.color;
-              const bwCost = basePrice * totalBwPages;
-              
-              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1) * printingOptions.copies;
-            } else {
-              // Standard pricing for all color or all B&W
-              const colorMultiplier = printingOptions.color === 'color' ? pricing.multipliers.color : 1;
-              const sidedMultiplier = printingOptions.sided === 'double' ? pricing.multipliers.doubleSided : 1;
-              
-              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
-            }
+            const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
+            const colorMultiplier = pricing.multipliers.color;
             
-            // Add compulsory service option cost (only for multi-page jobs)
-            if (pageCount > pricing.additionalServices.minServiceFeePageLimit) {
-              if (printingOptions.serviceOption === 'binding') {
+            // Calculate cost for each file
+            for (let i = 0; i < selectedFiles.length; i++) {
+              const filePageCount = filePageCounts[i] || 1;
+              
+              // Get per-file printing options
+              const fileOpts = getFilePrintingOptions(i, printingOptions);
+              const fileBasePrice = pricing.basePrices[fileOpts.pageSize];
+              const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+              
+              // Get page colors for this file
+              const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+              // Use file-specific pageColors if available in fileOpts, otherwise use global
+              const effectivePageColors = fileOpts.pageColors || filePageColors;
+              const fileColorPages = effectivePageColors.colorPages.length;
+              const fileBwPages = effectivePageColors.bwPages.length;
+              
+              // Calculate base cost for this file using helper function
+              const fileBaseCost = calculateFileCost(
+                filePageCount,
+                fileColorPages,
+                fileBwPages,
+                fileBasePrice,
+                colorMultiplier,
+                fileSidedMultiplier,
+                fileOpts.copies,
+                fileOpts.color
+              );
+              total += fileBaseCost;
+              
+              // Add service option cost for this file if it exceeds limit
+              if (filePageCount > minServiceFeePageLimit) {
+                const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+                if (fileServiceOption === 'binding') {
                 total += pricing.additionalServices.binding;
-              } else if (printingOptions.serviceOption === 'file') {
-                total += 10; // Plastic file fee (keep pages inside file)
-              } else if (printingOptions.serviceOption === 'service') {
-                total += pricing.additionalServices.minServiceFee; // Configurable minimal service fee
+                } else if (fileServiceOption === 'file') {
+                  total += 10; // Plastic file fee
+                } else if (fileServiceOption === 'service') {
+                  total += pricing.additionalServices.minServiceFee;
+                }
               }
             }
             
@@ -542,12 +732,42 @@ export default function OrderPage() {
             
             console.log(`💰 Frontend pricing calculation:`, {
               pageCount,
-              basePrice,
               color: printingOptions.color,
               sided: printingOptions.sided,
               copies: printingOptions.copies,
-              serviceOption: printingOptions.serviceOption,
-              total
+              serviceOptions: printingOptions.serviceOptions,
+              total,
+              perFileBreakdown: selectedFiles.map((_, i) => {
+                const filePageCount = filePageCounts[i] || 1;
+                const fileOpts = getFilePrintingOptions(i, printingOptions);
+                const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+                const effectivePageColors = fileOpts.pageColors || filePageColors;
+                const fileColorPages = effectivePageColors.colorPages.length;
+                const fileBwPages = effectivePageColors.bwPages.length;
+                const fileBasePrice = pricing.basePrices[fileOpts.pageSize];
+                const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
+                const fileCost = calculateFileCost(
+                  filePageCount,
+                  fileColorPages,
+                  fileBwPages,
+                  fileBasePrice,
+                  colorMultiplier,
+                  fileSidedMultiplier,
+                  fileOpts.copies,
+                  fileOpts.color
+                );
+                return {
+                  fileIndex: i + 1,
+                  filePageCount,
+                  filePageSize: fileOpts.pageSize,
+                  fileColor: fileOpts.color,
+                  fileSided: fileOpts.sided,
+                  fileCopies: fileOpts.copies,
+                  fileColorPages,
+                  fileBwPages,
+                  fileCost
+                };
+              })
             });
             
             setAmount(total);
@@ -559,36 +779,48 @@ export default function OrderPage() {
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
             console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
             
+            // Calculate pricing per file (fallback)
             let total = 0;
-            if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-              // Mixed color pricing fallback
-              const colorPages = printingOptions.pageColors.colorPages.length;
-              const bwPages = printingOptions.pageColors.bwPages.length;
-              
-              // If not all pages are specified, treat unspecified pages as B&W
-              const unspecifiedPages = pageCount - (colorPages + bwPages);
-              const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
-              
-              const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-              const bwCost = basePrice * totalBwPages;
-              
-              total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
-            } else {
-              // Standard pricing fallback
-              const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-              const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
-              
-              total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
-            }
+            const colorMultiplier = 2; // Default fallback color multiplier
             
-            // Add compulsory service option cost (fallback amounts, only if page count exceeds limit)
-            if (pageCount > 1) {
-              if (printingOptions.serviceOption === 'binding') {
+            // Calculate cost for each file
+            for (let i = 0; i < selectedFiles.length; i++) {
+              const filePageCount = filePageCounts[i] || 1;
+              
+              // Get per-file printing options
+              const fileOpts = getFilePrintingOptions(i, printingOptions);
+              const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
+              const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
+              
+              // Get page colors for this file
+              const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+              const effectivePageColors = fileOpts.pageColors || filePageColors;
+              const fileColorPages = effectivePageColors.colorPages.length;
+              const fileBwPages = effectivePageColors.bwPages.length;
+              
+              // Calculate base cost for this file using helper function
+              const fileBaseCost = calculateFileCost(
+                filePageCount,
+                fileColorPages,
+                fileBwPages,
+                fileBasePrice,
+                colorMultiplier,
+                fileSidedMultiplier,
+                fileOpts.copies,
+                fileOpts.color
+              );
+              total += fileBaseCost;
+              
+              // Add service option cost for this file if it exceeds limit
+              if (filePageCount > 1) {
+                const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+                if (fileServiceOption === 'binding') {
                 total += 20; // Default binding cost
-              } else if (printingOptions.serviceOption === 'file') {
+                } else if (fileServiceOption === 'file') {
                 total += 10;
-              } else if (printingOptions.serviceOption === 'service') {
-                total += 5; // Default minimal service fee (fallback)
+                } else if (fileServiceOption === 'service') {
+                  total += 5; // Default minimal service fee
+                }
               }
             }
             
@@ -602,7 +834,7 @@ export default function OrderPage() {
               color: printingOptions.color,
               sided: printingOptions.sided,
               copies: printingOptions.copies,
-              serviceOption: printingOptions.serviceOption,
+              serviceOptions: printingOptions.serviceOptions,
               total
             });
             
@@ -615,26 +847,49 @@ export default function OrderPage() {
           const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
           console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
           
+          // Calculate pricing per file (error fallback)
           let total = 0;
-          if (printingOptions.color === 'mixed' && printingOptions.pageColors) {
-            // Mixed color pricing fallback
-            const colorPages = printingOptions.pageColors.colorPages.length;
-            const bwPages = printingOptions.pageColors.bwPages.length;
+          const colorMultiplier = 2; // Default fallback color multiplier
+          
+          // Calculate cost for each file
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const filePageCount = filePageCounts[i] || 1;
             
-            // If not all pages are specified, treat unspecified pages as B&W
-            const unspecifiedPages = pageCount - (colorPages + bwPages);
-            const totalBwPages = bwPages + (unspecifiedPages > 0 ? unspecifiedPages : 0);
+            // Get per-file printing options
+            const fileOpts = getFilePrintingOptions(i, printingOptions);
+            const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
+            const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
             
-            const colorCost = basePrice * colorPages * 2; // 2x multiplier for color
-            const bwCost = basePrice * totalBwPages;
+            // Get page colors for this file
+            const filePageColors = getFilePageColors(i, printingOptions.pageColors);
+            const effectivePageColors = fileOpts.pageColors || filePageColors;
+            const fileColorPages = effectivePageColors.colorPages.length;
+            const fileBwPages = effectivePageColors.bwPages.length;
             
-            total = (colorCost + bwCost) * (printingOptions.sided === 'double' ? 1.5 : 1) * printingOptions.copies;
-          } else {
-            // Standard pricing fallback
-            const colorMultiplier = printingOptions.color === 'color' ? 2 : 1;
-            const sidedMultiplier = printingOptions.sided === 'double' ? 1.5 : 1;
+            // Calculate base cost for this file using helper function
+            const fileBaseCost = calculateFileCost(
+              filePageCount,
+              fileColorPages,
+              fileBwPages,
+              fileBasePrice,
+              colorMultiplier,
+              fileSidedMultiplier,
+              fileOpts.copies,
+              fileOpts.color
+            );
+            total += fileBaseCost;
             
-            total = basePrice * pageCount * colorMultiplier * sidedMultiplier * printingOptions.copies;
+            // Add service option cost for this file if it exceeds limit
+            if (filePageCount > 1) {
+              const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
+              if (fileServiceOption === 'binding') {
+                total += 20; // Default binding cost
+              } else if (fileServiceOption === 'file') {
+                total += 10;
+              } else if (fileServiceOption === 'service') {
+                total += 5; // Default minimal service fee
+              }
+            }
           }
           
           if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
@@ -647,7 +902,7 @@ export default function OrderPage() {
             color: printingOptions.color,
             sided: printingOptions.sided,
             copies: printingOptions.copies,
-            serviceOption: printingOptions.serviceOption,
+            serviceOptions: printingOptions.serviceOptions,
             total
           });
           
@@ -661,7 +916,7 @@ export default function OrderPage() {
     };
 
     calculateAmount();
-  }, [pageCount, printingOptions, deliveryOption]);
+  }, [pageCount, printingOptions, deliveryOption, selectedFiles, filePageCounts]);
 
 
   // Payment function
@@ -683,38 +938,45 @@ export default function OrderPage() {
       return;
     }
 
-    // Validate service option for orders exceeding minimum service fee page limit
-    if (pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && !printingOptions.serviceOption) {
-      alert('Please select a service option (Binding, Plastic file, or Service fee) for orders with more than ' + (pricingData?.additionalServices?.minServiceFeePageLimit || 1) + ' page(s)');
+    // Validate service options for each file exceeding minimum service fee page limit
+    const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const filePageCount = filePageCounts[i] || 1;
+      if (filePageCount > minServiceFeePageLimit) {
+        const fileServiceOption = printingOptions.serviceOptions?.[i];
+        if (!fileServiceOption) {
+          alert(`Please select a service option for File ${i + 1} (${selectedFiles[i].name}) which has more than ${minServiceFeePageLimit} page(s)`);
       return;
+        }
+      }
     }
 
-    // Validate mixed color page selection
+    // Validate mixed color page selection (per-file)
     if (printingOptions.color === 'mixed') {
       if (!printingOptions.pageColors) {
-        alert('Please select which pages should be printed in color');
+        alert('Please select which pages should be printed in color for each file');
         return;
       }
       
-      const { colorPages, bwPages } = printingOptions.pageColors;
-      const totalSpecifiedPages = colorPages.length + bwPages.length;
-      
-      if (totalSpecifiedPages === 0) {
-        alert('Please select which pages should be printed in color');
+      // Validate per-file page colors
+      const pageColorsArray = Array.isArray(printingOptions.pageColors) ? printingOptions.pageColors : (printingOptions.pageColors ? [printingOptions.pageColors] : []);
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const filePageCount = filePageCounts[i] || 1;
+        const filePageColors = pageColorsArray[i] || { colorPages: [], bwPages: [] };
+        const totalSpecifiedPages = filePageColors.colorPages.length + filePageColors.bwPages.length;
+        
+        if (filePageCount > 1 && totalSpecifiedPages === 0) {
+          alert(`Please select which pages should be printed in color for File ${i + 1}`);
         return;
       }
       
-      if (totalSpecifiedPages !== pageCount) {
-        alert(`Please specify colors for all ${pageCount} pages. Currently specified: ${totalSpecifiedPages} pages`);
-        return;
-      }
-      
-      // Check for duplicate pages
-      const allPages = [...colorPages, ...bwPages];
+        // Check for duplicate pages in this file
+        const allPages = [...filePageColors.colorPages, ...filePageColors.bwPages];
       const uniquePages = [...new Set(allPages)];
       if (allPages.length !== uniquePages.length) {
-        alert('Pages cannot be specified as both color and B&W. Please check your selection.');
+          alert(`Pages cannot be specified as both color and B&W for File ${i + 1}. Please check your selection.`);
         return;
+        }
       }
     }
 
@@ -736,45 +998,47 @@ export default function OrderPage() {
       // First, upload files if it's a file order
       const fileURLs: string[] = [];
       const originalFileNames: string[] = [];
+      const fileTypes: string[] = [];
       if (selectedFiles.length > 0 && orderType === 'file') {
         try {
           // Upload all files
           for (const file of selectedFiles) {
-            const uploadFormData = new FormData();
+          const uploadFormData = new FormData();
             uploadFormData.append('file', file);
-            
-            const uploadResponse = await fetch('/api/upload-file', {
-              method: 'POST',
-              body: uploadFormData,
-            });
-            
-            // Check if response is ok before trying to parse JSON
-            if (!uploadResponse.ok) {
-              let errorMessage = 'Upload failed';
-              try {
-                const errorData = await uploadResponse.json();
-                errorMessage = errorData.error || errorMessage;
-              } catch (parseError) {
-                // If we can't parse JSON, it might be an HTML error page from Vercel
-                if (uploadResponse.status === 413) {
-                  errorMessage = 'File size too large. Please try a smaller file.';
-                } else if (uploadResponse.status >= 500) {
-                  errorMessage = 'Server error. Please try again later.';
-                } else {
-                  errorMessage = `Upload failed with status ${uploadResponse.status}`;
-                }
+          
+          const uploadResponse = await fetch('/api/upload-file', {
+            method: 'POST',
+            body: uploadFormData,
+          });
+          
+          // Check if response is ok before trying to parse JSON
+          if (!uploadResponse.ok) {
+            let errorMessage = 'Upload failed';
+            try {
+              const errorData = await uploadResponse.json();
+              errorMessage = errorData.error || errorMessage;
+            } catch (parseError) {
+              // If we can't parse JSON, it might be an HTML error page from Vercel
+              if (uploadResponse.status === 413) {
+                errorMessage = 'File size too large. Please try a smaller file.';
+              } else if (uploadResponse.status >= 500) {
+                errorMessage = 'Server error. Please try again later.';
+              } else {
+                errorMessage = `Upload failed with status ${uploadResponse.status}`;
               }
-              throw new Error(errorMessage);
             }
-            
-            const uploadData = await uploadResponse.json();
-            
-            if (uploadData.success) {
+            throw new Error(errorMessage);
+          }
+          
+          const uploadData = await uploadResponse.json();
+          
+          if (uploadData.success) {
               fileURLs.push(uploadData.fileURL);
               originalFileNames.push(uploadData.originalFileName);
-              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}`);
-            } else {
-              throw new Error(uploadData.error || 'Upload failed');
+              fileTypes.push(file.type); // Collect file type (MIME type)
+              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type}`);
+          } else {
+            throw new Error(uploadData.error || 'Upload failed');
             }
           }
         } catch (error) {
@@ -794,6 +1058,8 @@ export default function OrderPage() {
         fileURL: orderType === 'file' && fileURLs.length > 0 ? fileURLs[0] : undefined, // Legacy support
         originalFileNames: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames : undefined,
         originalFileName: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames[0] : undefined, // Legacy support
+        fileTypes: orderType === 'file' && fileTypes.length > 0 ? fileTypes : undefined, // File types array
+        filePageCounts: orderType === 'file' && filePageCounts.length > 0 ? filePageCounts : undefined, // Per-file page counts
         templateData: orderType === 'template' ? {
           templateType: 'custom',
           formData: {
@@ -805,6 +1071,10 @@ export default function OrderPage() {
         printingOptions: {
           ...printingOptions,
           pageCount,
+          serviceOptions: printingOptions.serviceOptions, // Include per-file service options
+          serviceOption: printingOptions.serviceOption, // Legacy support
+          pageColors: printingOptions.pageColors, // Include per-file page colors
+          fileOptions: printingOptions.fileOptions, // Include per-file printing options
         },
         deliveryOption,
         expectedDate,
@@ -927,7 +1197,7 @@ export default function OrderPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
             {/* File Upload & Options Section */}
             <div className="space-y-8">
               <div className="text-center mb-6">
@@ -1001,11 +1271,44 @@ export default function OrderPage() {
                           // Update page counts
                           setFilePageCounts(prev => [...prev, ...newPageCounts]);
                           
+                          // Initialize service options for new files (default to 'service')
+                          setPrintingOptions(prev => {
+                            const currentServiceOptions = prev.serviceOptions || [];
+                            const newServiceOptions = [...currentServiceOptions, ...files.map(() => 'service' as const)];
+                            console.log(`📋 Initializing service options: ${currentServiceOptions.length} existing + ${files.length} new = ${newServiceOptions.length} total`);
+                            
+                            // Initialize per-file pageColors array if mixed color is selected
+                            let updatedPageColors = prev.pageColors;
+                            if (prev.color === 'mixed') {
+                              const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : (prev.pageColors ? [prev.pageColors] : []);
+                              const newPageColors = [...currentPageColors, ...files.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }))];
+                              updatedPageColors = newPageColors;
+                              console.log(`📋 Initializing per-file pageColors: ${currentPageColors.length} existing + ${files.length} new = ${newPageColors.length} total`);
+                            }
+                            
+                            // Initialize per-file printing options
+                            const currentFileOptions = prev.fileOptions || [];
+                            const newFileOptions = [...currentFileOptions, ...files.map(() => ({
+                              pageSize: prev.pageSize || 'A4',
+                              color: prev.color || 'bw',
+                              sided: prev.sided || 'single',
+                              copies: prev.copies || 1,
+                            }))];
+                            console.log(`📋 Initializing per-file printing options: ${currentFileOptions.length} existing + ${files.length} new = ${newFileOptions.length} total`);
+                            
+                            return {
+                              ...prev,
+                              serviceOptions: newServiceOptions,
+                              pageColors: updatedPageColors,
+                              fileOptions: newFileOptions
+                            };
+                          });
+                          
                           // Calculate total page count
                           const totalPages = [...filePageCounts, ...newPageCounts].reduce((sum, count) => sum + count, 0);
                           setPageCount(totalPages);
                           
-                          setIsCountingPages(false);
+                                setIsCountingPages(false);
                           setPdfLoaded(true);
                         }
                       }}
@@ -1026,7 +1329,7 @@ export default function OrderPage() {
                         <div className="space-y-1">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <span className="text-sm text-gray-600 truncate flex-1">{file.name}</span>
+                              <span className="text-sm text-gray-600 truncate flex-1">{truncateFileName(file.name)}</span>
                               <span className="text-xs text-gray-500 ml-2">
                                 {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
                               </span>
@@ -1039,59 +1342,704 @@ export default function OrderPage() {
                 </div>
               )}
 
-              {/* File Preview */}
+              {/* File Preview with Service Options */}
               {pdfUrls.length > 0 && (
                 <div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
-                  <div className="space-y-4">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
-                        <div className="p-2 bg-gray-100 border-b">
-                          <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                  <div className="space-y-6">
+                    {selectedFiles.map((file, index) => {
+                      const filePageCount = filePageCounts[index] || 1;
+                      const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit ?? 1;
+                      // Show service option if file has more pages than the limit (default to 1, so files with 2+ pages show options)
+                      const needsServiceOption = filePageCount > minServiceFeePageLimit;
+                      // Ensure serviceOptions array has an entry for this file index
+                      const currentServiceOptions = printingOptions.serviceOptions || [];
+                      // Initialize if needed (but don't setState during render - use useEffect)
+                      const currentServiceOption = currentServiceOptions[index] || 'service';
+                      
+                      console.log(`📄 File ${index + 1}: ${filePageCount} pages, needsServiceOption: ${needsServiceOption}, currentOption: ${currentServiceOption}`);
+                      
+                      return (
+                        <div key={index} className="space-y-4 mb-6">
+                          {/* File Preview */}
+                  <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
+                            <div className="p-2 bg-gray-100 border-b">
+                              <p className="text-sm font-medium text-gray-700">
+                                File {index + 1}: {truncateFileName(file.name)} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
+                              </p>
                         </div>
-                        <div className="h-64">
-                          {/* Image files - show directly */}
-                          {file.type.startsWith('image/') && (
-                            <img
-                              src={pdfUrls[index]}
-                              alt={`Preview ${file.name}`}
-                              className="w-full h-full object-contain"
-                              onLoad={() => setPdfLoaded(true)}
-                            />
-                          )}
+                            <div className="h-64">
+                        {/* Image files - show directly */}
+                              {file.type.startsWith('image/') && (
+                                <img
+                                  src={pdfUrls[index]}
+                                  alt={`Preview ${file.name}`}
+                                  className="w-full h-full object-contain"
+                            onLoad={() => setPdfLoaded(true)}
+                          />
+                        )}
+                        
+                        {/* PDF files - use iframe */}
+                              {file.type === 'application/pdf' && (
+                          <iframe
+                                  src={pdfUrls[index]}
+                                  className="w-full h-full"
+                            onLoad={() => setPdfLoaded(true)}
+                                />
+                              )}
+                              
+                              {/* Other files - show file info */}
+                              {!file.type.startsWith('image/') && 
+                               file.type !== 'application/pdf' && (
+                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                  <div className="text-center">
+                                    <div className="text-4xl mb-2">📄</div>
+                                    <p className="text-sm text-gray-600">
+                                      {file.type}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {(file.size / 1024).toFixed(1)} KB
+                                    </p>
+                              </div>
+                          </div>
+                        )}
+                            </div>
+                          </div>
                           
-                          {/* PDF files - use iframe */}
-                          {file.type === 'application/pdf' && (
-                            <iframe
-                              src={pdfUrls[index]}
-                              className="w-full h-full"
-                              onLoad={() => setPdfLoaded(true)}
-                            />
-                          )}
-                          
-                          {/* Other files - show file info */}
-                          {!file.type.startsWith('image/') && 
-                           file.type !== 'application/pdf' && (
-                            <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                              <div className="text-center">
-                                <div className="text-4xl mb-2">📄</div>
-                                <p className="text-sm text-gray-600">
-                                  {file.type}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {(file.size / 1024).toFixed(1)} KB
+                          {/* Service Option for this file - Always show for files with more than 1 page */}
+                          {needsServiceOption ? (
+                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                              <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                Service Option for File {index + 1} (required)
+                              </label>
+                              <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'binding' ? '#3b82f6' : '#e5e7eb' }}>
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'binding'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
+                                          newServiceOptions[index] = 'binding';
+                                          console.log(`✅ File ${index + 1} service option set to: binding`);
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      📎 Binding (+₹{pricingData?.additionalServices?.binding || 40})
+                                    </span>
+                                  </label>
+
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'file' ? '#3b82f6' : '#e5e7eb' }}>
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'file'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
+                                          newServiceOptions[index] = 'file';
+                                          console.log(`✅ File ${index + 1} service option set to: file`);
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      🗂️ Plastic file (₹10)
+                                    </span>
+                                  </label>
+
+                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'service' ? '#3b82f6' : '#e5e7eb' }}>
+                                    <input
+                                      type="radio"
+                                      name={`serviceOption-${index}`}
+                                      checked={currentServiceOption === 'service'}
+                                      onChange={() => {
+                                        setPrintingOptions(prev => {
+                                          const currentOptions = prev.serviceOptions || [];
+                                          const newServiceOptions = [...currentOptions];
+                                          // Ensure array is long enough
+                                          while (newServiceOptions.length <= index) {
+                                            newServiceOptions.push('service');
+                                          }
+                                          newServiceOptions[index] = 'service';
+                                          console.log(`✅ File ${index + 1} service option set to: service`);
+                                          return { ...prev, serviceOptions: newServiceOptions };
+                                        });
+                                      }}
+                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    />
+                                    <span className="ml-3 text-sm font-medium text-gray-700">
+                                      ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
+                                    </span>
+                                  </label>
+                                </div>
+                                <p className="text-xs text-gray-600 mt-3 font-medium">
+                                  💡 Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
                                 </p>
                               </div>
                             </div>
+                          ) : (
+                            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                              Service option not required for single-page files
+                            </div>
                           )}
+
+                          {/* Per-File Printing Options - After Service Option */}
+                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                            <label className="block text-sm font-semibold text-gray-900 mb-3">
+                              Printing Options for File {index + 1}
+                            </label>
+                            {(() => {
+                              const fileOpts = getFilePrintingOptions(index, printingOptions);
+                              return (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {/* Page Size */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Page Size
+                                    </label>
+                                    <select
+                                      value={fileOpts.pageSize}
+                                      onChange={(e) => {
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          newFileOptions[index] = {
+                                            ...newFileOptions[index],
+                                            pageSize: e.target.value as 'A4' | 'A3'
+                                          };
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    >
+                                      <option value="A4">A4</option>
+                                      <option value="A3">A3</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Color */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Color
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      {/* Colorful Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'color',
+                                              pageColors: undefined
+                                            };
+                                            
+                                            // Update global color: single file uses that color, multi-file uses first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            if (isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'color';
+                                            } else if (!isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'color'; // First file sets global color
+                                            } else if (!isSingleFile) {
+                                              // Not first file: keep first file's color
+                                              const firstFileColor = newFileOptions[0]?.color || 'color';
+                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                            }
+                                            
+                                            return { 
+                                              ...prev, 
+                                              color: updatedGlobalColor,
+                                              fileOptions: newFileOptions 
+                                            };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'color'
+                                            ? 'ring-2 ring-blue-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
+                                          color: 'white'
+                                        }}
+                                      >
+                                        Color
+                                      </button>
+                                      
+                                      {/* B&W Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'bw',
+                                              pageColors: undefined
+                                            };
+                                            
+                                            // Update global color: single file uses that color, multi-file uses first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            if (isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'bw';
+                                            } else if (!isSingleFile && index === 0) {
+                                              updatedGlobalColor = 'bw'; // First file sets global color
+                                            } else if (!isSingleFile) {
+                                              // Not first file: keep first file's color
+                                              const firstFileColor = newFileOptions[0]?.color || 'bw';
+                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                            }
+                                            
+                                            return { 
+                                              ...prev, 
+                                              color: updatedGlobalColor,
+                                              fileOptions: newFileOptions 
+                                            };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'bw'
+                                            ? 'ring-2 ring-gray-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
+                                          color: fileOpts.color === 'bw' ? 'white' : 'black',
+                                          border: '1px solid #333'
+                                        }}
+                                      >
+                                        B&W
+                                      </button>
+                                      
+                                      {/* Mixed Button */}
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setPrintingOptions(prev => {
+                                            const currentFileOptions = prev.fileOptions || [];
+                                            const newFileOptions = [...currentFileOptions];
+                                            while (newFileOptions.length <= index) {
+                                              newFileOptions.push({
+                                                pageSize: prev.pageSize || 'A4',
+                                                color: prev.color || 'bw',
+                                                sided: prev.sided || 'single',
+                                                copies: prev.copies || 1,
+                                              });
+                                            }
+                                            // Initialize pageColors for this file if not exists
+                                            const filePageColors = getFilePageColors(index, prev.pageColors);
+                                            
+                                            // Ensure pageColors array exists and is long enough
+                                            const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
+                                            const newPageColors = [...currentPageColors];
+                                            while (newPageColors.length <= index) {
+                                              newPageColors.push({ colorPages: [], bwPages: [] });
+                                            }
+                                            
+                                            newFileOptions[index] = {
+                                              ...newFileOptions[index],
+                                              color: 'mixed',
+                                              pageColors: filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
+                                                ? filePageColors 
+                                                : undefined
+                                            };
+                                            
+                                            // Multi-file orders = Multiple independent orders (each file can independently have mixed color)
+                                            // Each file can have: 'color', 'bw', or 'mixed' (some pages color, some B&W)
+                                            // Global color = Display field: 'mixed' if ANY file has mixed color, otherwise use first file's color
+                                            const isSingleFile = selectedFiles.length === 1;
+                                            let updatedGlobalColor = prev.color;
+                                            
+                                            if (isSingleFile && index === 0) {
+                                              // Single file with mixed color: set global color to 'mixed'
+                                              updatedGlobalColor = 'mixed';
+                                            } else if (!isSingleFile) {
+                                              // Multi-file order: Check if ANY file has mixed color
+                                              const hasAnyMixedColor = newFileOptions.some((opt: any) => opt?.color === 'mixed');
+                                              
+                                              if (hasAnyMixedColor) {
+                                                // At least one file has mixed color - set global color to 'mixed' for display
+                                                updatedGlobalColor = 'mixed';
+                                              } else {
+                                                // No files have mixed color - use first file's color
+                                                const firstFileColor = newFileOptions[0]?.color;
+                                                if (firstFileColor) {
+                                                  updatedGlobalColor = firstFileColor;
+                                                } else {
+                                                  updatedGlobalColor = 'bw'; // Default
+                                                }
+                                              }
+                                            }
+                                            
+                                            return { 
+                                              ...prev, 
+                                              color: updatedGlobalColor,
+                                              fileOptions: newFileOptions,
+                                              pageColors: newPageColors
+                                            };
+                                          });
+                                        }}
+                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                          fileOpts.color === 'mixed'
+                                            ? 'ring-2 ring-purple-500 shadow-md'
+                                            : 'hover:shadow-sm'
+                                        }`}
+                                        style={{
+                                          background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
+                                          color: 'white',
+                                          border: '1px solid #333'
+                                        }}
+                                      >
+                                        Mixed
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Per-File Mixed Color Selection - Show when Mixed is selected for this file */}
+                                  {fileOpts.color === 'mixed' && filePageCount > 1 && (
+                                    <div className="md:col-span-2 mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                      <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                        Select Page Colors for File {index + 1} ({filePageCount} pages)
+                                      </label>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                          <label className="block text-sm font-medium text-green-700 mb-2">
+                                            Color Pages (1-{filePageCount})
+                                          </label>
+                                          <input
+                                            type="text"
+                                            placeholder={`e.g., 1-3 or 2,4 or 1-3,5 for pages 1-${filePageCount}`}
+                                            value={colorPagesInputs[index] || ''}
+                                            onChange={(e) => {
+                                              const inputValue = e.target.value;
+                                              // Update per-file input
+                                              const newInputs = [...colorPagesInputs];
+                                              while (newInputs.length <= index) {
+                                                newInputs.push('');
+                                              }
+                                              newInputs[index] = inputValue;
+                                              setColorPagesInputs(newInputs);
+                                              
+                                              // Parse and update page colors with validation (per-file)
+                                              const parseResult = parsePageRange(inputValue, filePageCount);
+                                              const newValidations = [...colorPagesValidations];
+                                              while (newValidations.length <= index) {
+                                                newValidations.push({ errors: [], warnings: [] });
+                                              }
+                                              newValidations[index] = {
+                                                errors: parseResult.errors,
+                                                warnings: parseResult.warnings
+                                              };
+                                              setColorPagesValidations(newValidations);
+                                              
+                                              // Update per-file pageColors in array
+                                              setPrintingOptions(prev => {
+                                                const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
+                                                const newPageColors = [...currentPageColors];
+                                                while (newPageColors.length <= index) {
+                                                  newPageColors.push({ colorPages: [], bwPages: [] });
+                                                }
+                                                newPageColors[index] = {
+                                                  colorPages: parseResult.pages,
+                                                  bwPages: generateBwPages(filePageCount, parseResult.pages)
+                                                };
+                                                
+                                                // Also update fileOptions pageColors for this file
+                                                const currentFileOptions = prev.fileOptions || [];
+                                                const newFileOptions = [...currentFileOptions];
+                                                while (newFileOptions.length <= index) {
+                                                  newFileOptions.push({
+                                                    pageSize: prev.pageSize || 'A4',
+                                                    color: prev.color || 'bw',
+                                                    sided: prev.sided || 'single',
+                                                    copies: prev.copies || 1,
+                                                  });
+                                                }
+                                                newFileOptions[index] = {
+                                                  ...newFileOptions[index],
+                                                  pageColors: {
+                                                    colorPages: parseResult.pages,
+                                                    bwPages: generateBwPages(filePageCount, parseResult.pages)
+                                                  }
+                                                };
+                                                
+                                                return {
+                                                  ...prev,
+                                                  pageColors: newPageColors,
+                                                  fileOptions: newFileOptions
+                                                };
+                                              });
+                                            }}
+                                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+                                              (colorPagesValidations[index]?.errors?.length || 0) > 0
+                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                : 'border-green-300 focus:ring-green-500 focus:border-green-500'
+                                            }`}
+                                          />
+                                          
+                                          {/* Validation Messages */}
+                                          {colorPagesValidations[index]?.errors && colorPagesValidations[index].errors.length > 0 && (
+                                            <div className="mt-2 space-y-1">
+                                              {colorPagesValidations[index].errors.map((error, idx) => (
+                                                <p key={idx} className="text-xs text-red-600">
+                                                  ⚠️ {error}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          )}
+                                          
+                                          {colorPagesValidations[index]?.warnings && colorPagesValidations[index].warnings.length > 0 && colorPagesValidations[index].errors.length === 0 && (
+                                            <div className="mt-2 space-y-1">
+                                              {colorPagesValidations[index].warnings.map((warning, idx) => (
+                                                <p key={idx} className="text-xs text-yellow-600">
+                                                  ℹ️ {warning}
+                                                </p>
+                                              ))}
+                                            </div>
+                                          )}
+                                          
+                                          {/* Helper Text */}
+                                          <p className="text-xs text-green-600 mt-2">
+                                            <strong>Examples:</strong> 1-3 (pages 1 to 3), 2,4 (pages 2 and 4), 1-3,5 (pages 1-3 and 5)
+                                          </p>
+                                        </div>
+                                        <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Black & White Pages
+                                          </label>
+                                          <input
+                                            type="text"
+                                            placeholder="Auto-generated"
+                                            value={(() => {
+                                              const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                              return filePageColors.bwPages.join(',') || '';
+                                            })()}
+                                            readOnly
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                                          />
+                                          <p className="text-xs text-gray-500 mt-1">
+                                            Automatically calculated from remaining pages
+                                          </p>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Visual Page Preview for this file */}
+                                      {filePageCount > 0 && (
+                                        <div className="mt-4">
+                                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                                            Page Preview for File {index + 1} ({filePageCount} total pages)
+                                          </label>
+                                          <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                            {Array.from({ length: filePageCount }, (_, i) => i + 1).map((pageNum) => {
+                                              const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                              const isColor = filePageColors.colorPages.includes(pageNum);
+                                              const isBw = filePageColors.bwPages.includes(pageNum);
+                                              return (
+                                                <div
+                                                  key={pageNum}
+                                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                                                    isColor
+                                                      ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                                      : isBw
+                                                      ? 'bg-gray-300 text-gray-800'
+                                                      : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                                  }`}
+                                                  title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
+                                                >
+                                                  {pageNum}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                          {(() => {
+                                            const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                            const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                            if (totalSpecified < filePageCount) {
+                                              return (
+                                                <p className="text-xs text-yellow-600 mt-2">
+                                                  ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                                </p>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                        </div>
+                                      )}
+                                      
+                                      {/* Summary for this file */}
+                                      <div className="mt-3 p-2 bg-white rounded border border-purple-200">
+                                        <div className="text-sm text-purple-700">
+                                          <strong>Summary for File {index + 1}:</strong> {(() => {
+                                            const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                            const colorCount = filePageColors.colorPages.length;
+                                            const bwCount = filePageColors.bwPages.length;
+                                            if (colorCount === 0) return 'All pages in Black & White';
+                                            if (bwCount === 0) return 'All pages in Color';
+                                            return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
+                                          })()}
+                                        </div>
+                                        {(() => {
+                                          const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                          const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                          return (
+                                            <div className="text-xs text-gray-600 mt-1">
+                                              Color: {filePageColors.colorPages.length} pages | 
+                                              B&W: {filePageColors.bwPages.length} pages | 
+                                              Unspecified: {filePageCount - totalSpecified} pages
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Sided */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Sided
+                                    </label>
+                                    <select
+                                      value={fileOpts.sided}
+                                      onChange={(e) => {
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          newFileOptions[index] = {
+                                            ...newFileOptions[index],
+                                            sided: e.target.value as 'single' | 'double'
+                                          };
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    >
+                                      <option value="single">Single-sided</option>
+                                      <option value="double">Double-sided</option>
+                                    </select>
+                                  </div>
+
+                                  {/* Copies */}
+                                  <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                      Number of Copies
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={fileOpts.copies || ''}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          if (value === '') {
+                                            newFileOptions[index] = { ...newFileOptions[index], copies: 0 };
+                                          } else {
+                                            const numValue = parseInt(value);
+                                            if (!isNaN(numValue) && numValue >= 1) {
+                                              newFileOptions[index] = { ...newFileOptions[index], copies: numValue };
+                                            }
+                                          }
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      onBlur={(e) => {
+                                        const value = parseInt(e.target.value);
+                                        setPrintingOptions(prev => {
+                                          const currentFileOptions = prev.fileOptions || [];
+                                          const newFileOptions = [...currentFileOptions];
+                                          while (newFileOptions.length <= index) {
+                                            newFileOptions.push({
+                                              pageSize: prev.pageSize || 'A4',
+                                              color: prev.color || 'bw',
+                                              sided: prev.sided || 'single',
+                                              copies: prev.copies || 1,
+                                            });
+                                          }
+                                          if (isNaN(value) || value < 1) {
+                                            newFileOptions[index] = { ...newFileOptions[index], copies: 1 };
+                                          }
+                                          return { ...prev, fileOptions: newFileOptions };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {/* Printing Options */}
+              {/* Legacy Printing Options - Hidden when files are selected (for backward compatibility) */}
+              {selectedFiles.length === 0 && (
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Printing Options</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1118,8 +2066,8 @@ export default function OrderPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setPrintingOptions(prev => ({ 
-                            ...prev, 
+                        setPrintingOptions(prev => ({ 
+                          ...prev, 
                             color: 'color',
                             pageColors: undefined
                           }));
@@ -1165,11 +2113,30 @@ export default function OrderPage() {
                       <button
                         type="button"
                         onClick={() => {
-                          setPrintingOptions(prev => ({ 
-                            ...prev, 
-                            color: 'mixed',
-                            pageColors: prev.pageColors || { colorPages: [], bwPages: [] }
-                          }));
+                          setPrintingOptions(prev => {
+                            // Initialize per-file pageColors array if not already an array
+                            let updatedPageColors = prev.pageColors;
+                            if (!Array.isArray(updatedPageColors)) {
+                              // Convert legacy format to array or initialize new array
+                              if (selectedFiles.length > 0) {
+                                updatedPageColors = selectedFiles.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }));
+                              } else {
+                                updatedPageColors = [];
+                              }
+                            } else if (updatedPageColors.length < selectedFiles.length) {
+                              // Ensure array matches file count
+                              const newPageColors = [...updatedPageColors];
+                              while (newPageColors.length < selectedFiles.length) {
+                                newPageColors.push({ colorPages: [], bwPages: [] });
+                              }
+                              updatedPageColors = newPageColors;
+                            }
+                            return { 
+                              ...prev, 
+                              color: 'mixed',
+                              pageColors: updatedPageColors
+                            };
+                          });
                           setColorPagesInput('');
                           setColorPagesValidation({ errors: [], warnings: [] });
                         }}
@@ -1263,7 +2230,15 @@ export default function OrderPage() {
                           <input
                             type="text"
                             placeholder="Auto-generated"
-                            value={printingOptions.pageColors?.bwPages.join(',') || ''}
+                            value={(() => {
+                              if (!printingOptions.pageColors) return '';
+                              if (Array.isArray(printingOptions.pageColors)) {
+                                // For array format, show summary (legacy UI - should be removed)
+                                const totalBw = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                                return totalBw > 0 ? `${totalBw} pages total` : '';
+                              }
+                              return printingOptions.pageColors.bwPages.join(',') || '';
+                            })()}
                             readOnly
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
                           />
@@ -1281,8 +2256,19 @@ export default function OrderPage() {
                           </label>
                           <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
                             {Array.from({ length: pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              const isColor = printingOptions.pageColors?.colorPages.includes(pageNum) || false;
-                              const isBw = printingOptions.pageColors?.bwPages.includes(pageNum) || false;
+                              // Legacy: handle both array and single object format
+                              let isColor = false;
+                              let isBw = false;
+                              if (printingOptions.pageColors) {
+                                if (Array.isArray(printingOptions.pageColors)) {
+                                  // For array format, check all files (legacy UI - should be removed)
+                                  isColor = printingOptions.pageColors.some(pc => pc.colorPages.includes(pageNum));
+                                  isBw = printingOptions.pageColors.some(pc => pc.bwPages.includes(pageNum));
+                                } else {
+                                  isColor = printingOptions.pageColors.colorPages.includes(pageNum);
+                                  isBw = printingOptions.pageColors.bwPages.includes(pageNum);
+                                }
+                              }
                               return (
                                 <div
                                   key={pageNum}
@@ -1296,16 +2282,27 @@ export default function OrderPage() {
                                   title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
                                 >
                                   {pageNum}
-                                </div>
+                      </div>
                               );
                             })}
                           </div>
-                          {printingOptions.pageColors && 
-                           printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length < pageCount && (
-                            <p className="text-xs text-yellow-600 mt-2">
-                              ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
-                            </p>
-                          )}
+                          {(() => {
+                            if (!printingOptions.pageColors) return null;
+                            let totalSpecified = 0;
+                            if (Array.isArray(printingOptions.pageColors)) {
+                              totalSpecified = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length + pc.bwPages.length, 0);
+                            } else {
+                              totalSpecified = printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length;
+                            }
+                            if (totalSpecified < pageCount) {
+                              return (
+                                <p className="text-xs text-yellow-600 mt-2">
+                                  ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       )}
                       
@@ -1314,13 +2311,24 @@ export default function OrderPage() {
                         <div className="text-sm text-blue-700">
                           <strong>Summary:</strong> {getPageColorPreview(pageCount, printingOptions.pageColors)}
                         </div>
-                        {printingOptions.pageColors && (
-                          <div className="text-xs text-gray-600 mt-1">
-                            Color: {printingOptions.pageColors.colorPages.length} pages | 
-                            B&W: {printingOptions.pageColors.bwPages.length} pages | 
-                            Unspecified: {pageCount - (printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length)} pages
-                          </div>
-                        )}
+                        {printingOptions.pageColors && (() => {
+                          let colorCount = 0;
+                          let bwCount = 0;
+                          if (Array.isArray(printingOptions.pageColors)) {
+                            colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                            bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                          } else {
+                            colorCount = printingOptions.pageColors.colorPages.length;
+                            bwCount = printingOptions.pageColors.bwPages.length;
+                          }
+                          return (
+                            <div className="text-xs text-gray-600 mt-1">
+                              Color: {colorCount} pages | 
+                              B&W: {bwCount} pages | 
+                              Unspecified: {pageCount - (colorCount + bwCount)} pages
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -1369,63 +2377,11 @@ export default function OrderPage() {
                     />
                   </div>
                 </div>
+              </div>
+              )}
 
-                {/* Service Option (only if page count exceeds minimum service fee limit) */}
-                {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && (
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Service Option (one is required)
-                  </label>
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'binding'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'binding' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          📎 Binding (+₹{pricingData?.additionalServices?.binding || 20})
-                        </span>
-                      </label>
-
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'file'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'file' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          🗂️ Plastic file (₹10)
-                        </span>
-                      </label>
-
-                      <label className="flex items-center cursor-pointer p-3 rounded border transition-colors hover:bg-white">
-                        <input
-                          type="radio"
-                          name="serviceOption"
-                          checked={printingOptions.serviceOption === 'service'}
-                          onChange={() => setPrintingOptions(prev => ({ ...prev, serviceOption: 'service' }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        />
-                        <span className="ml-3 text-sm font-medium text-gray-700">
-                          ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
-                        </span>
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
-                    </p>
-                  </div>
-                </div>
-                )}
-
-                {/* Expected Delivery Date */}
-                <div className="mt-6">
+              {/* Expected Delivery Date */}
+              <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Expected Delivery Date
                   </label>
@@ -1440,7 +2396,6 @@ export default function OrderPage() {
                   <p className="mt-1 text-sm text-gray-500">
                     Please select a date at least 1 day from today
                   </p>
-                </div>
               </div>
 
               {/* Order Summary */}
@@ -1454,10 +2409,10 @@ export default function OrderPage() {
                         <div className="space-y-1">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="text-sm">
-                              <span className="font-medium text-gray-800 truncate block">{file.name}</span>
+                              <span className="font-medium text-gray-800 truncate block">{truncateFileName(file.name)}</span>
                               <span className="text-xs text-gray-500">
                                 {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
-                              </span>
+                    </span>
                             </div>
                           ))}
                         </div>
@@ -1479,57 +2434,141 @@ export default function OrderPage() {
                       )}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Size:</span>
-                    <span className="font-medium text-gray-800">{printingOptions.pageSize}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Color:</span>
-                    <span className="font-medium text-gray-800">
-                      {printingOptions.color === 'color' ? 'Color' : 
-                       printingOptions.color === 'bw' ? 'Black & White' : 
-                       'Mixed'}
-                    </span>
-                  </div>
-                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
+                  {/* Per-File Printing Options Summary */}
+                  {selectedFiles.length > 0 && printingOptions.fileOptions && printingOptions.fileOptions.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedFiles.map((file, index) => {
+                        const fileOpts = getFilePrintingOptions(index, printingOptions);
+                        return (
+                          <div key={index} className="p-2 bg-white rounded border border-gray-200">
+                            <div className="text-xs font-semibold text-gray-700 mb-1">
+                              {truncateFileName(file.name)}:
+                            </div>
+                            <div className="text-xs space-y-1 text-gray-600">
+                              <div className="flex justify-between">
+                                <span>Size:</span>
+                                <span className="font-medium">{fileOpts.pageSize}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Color:</span>
+                                <span className="font-medium">
+                                  {fileOpts.color === 'color' ? 'Color' : 
+                                   fileOpts.color === 'bw' ? 'B&W' : 
+                                   'Mixed'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Sided:</span>
+                                <span className="font-medium">
+                                  {fileOpts.sided === 'double' ? 'Double' : 'Single'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Copies:</span>
+                                <span className="font-medium">{fileOpts.copies}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Size:</span>
+                        <span className="font-medium text-gray-800">{printingOptions.pageSize || 'A4'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Color:</span>
+                        <span className="font-medium text-gray-800">
+                          {printingOptions.color === 'color' ? 'Color' : 
+                           printingOptions.color === 'bw' ? 'Black & White' : 
+                           printingOptions.color === 'mixed' ? 'Mixed' : 'B&W'}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (() => {
+                    let colorCount = 0;
+                    let bwCount = 0;
+                    if (Array.isArray(printingOptions.pageColors)) {
+                      colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                      bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                    } else {
+                      colorCount = printingOptions.pageColors.colorPages.length;
+                      bwCount = printingOptions.pageColors.bwPages.length;
+                    }
+                    return (
+                      <>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Color Pages:</span>
                       <span className="font-medium text-green-600">
-                        {printingOptions.pageColors.colorPages.length} pages
+                            {colorCount} pages
                       </span>
                     </div>
-                  )}
-                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">B&W Pages:</span>
                       <span className="font-medium text-gray-600">
-                        {printingOptions.pageColors.bwPages.length} pages
+                            {bwCount} pages
                       </span>
                     </div>
+                      </>
+                    );
+                  })()}
+                  {(!printingOptions.fileOptions || printingOptions.fileOptions.length === 0) && (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Sided:</span>
+                        <span className="font-medium text-gray-800">
+                          {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Copies:</span>
+                        <span className="font-medium text-gray-800">{printingOptions.copies || 1}</span>
+                      </div>
+                    </>
                   )}
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Sided:</span>
-                    <span className="font-medium text-gray-800">
-                      {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Copies:</span>
-                    <span className="font-medium text-gray-800">{printingOptions.copies}</span>
-                  </div>
-                  {pageCount > 1 && printingOptions.serviceOption === 'binding' && (
+                  {/* Service Options per File */}
+                  {selectedFiles.length > 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0 && (
+                    <div className="space-y-2">
+                      {selectedFiles.map((file, index) => {
+                        const filePageCount = filePageCounts[index] || 1;
+                        const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+                        const fileServiceOption = printingOptions.serviceOptions?.[index];
+                        
+                        if (filePageCount > minServiceFeePageLimit && fileServiceOption) {
+                          return (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                              <span className="text-gray-600">
+                                {truncateFileName(file.name)}:
+                              </span>
+                              <span className="font-medium text-gray-800">
+                                {fileServiceOption === 'binding' && `Binding (+₹${pricingData?.additionalServices?.binding || 20})`}
+                                {fileServiceOption === 'file' && 'Plastic file (₹10)'}
+                                {fileServiceOption === 'service' && `Service fee (₹${pricingData?.additionalServices?.minServiceFee || 5})`}
+                              </span>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+                  )}
+                  {/* Legacy support for single serviceOption */}
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'binding' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Binding:</span>
                       <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
                     </div>
                   )}
-                  {pageCount > 1 && printingOptions.serviceOption === 'file' && (
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'file' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Plastic file:</span>
                       <span className="font-medium text-gray-800">₹10</span>
                     </div>
                   )}
-                  {pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
+                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Service fee:</span>
                       <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
@@ -1546,18 +2585,18 @@ export default function OrderPage() {
 
               {/* Upload More Button */}
               {selectedFiles.length > 0 && (
-                <div className="text-center">
-                  <button
-                    type="button"
+              <div className="text-center">
+                <button
+                  type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                  >
+                >
                     + Upload More Files
-                  </button>
-                </div>
+                </button>
+              </div>
               )}
 
-            </div>
+              </div>
 
             {/* Delivery Options Section - Inline after file upload */}
             {selectedFiles.length > 0 && (
@@ -1570,24 +2609,24 @@ export default function OrderPage() {
                     <p className="text-sm text-blue-800 mb-3">
                       <strong>Quick Info:</strong> {!customerInfo.phone && 'Add phone number'} {!customerInfo.phone && !selectedPickupLocation && 'and'} {!selectedPickupLocation && 'select pickup location'} to auto-fill next time!
                     </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {!customerInfo.phone && (
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Phone Number *
-                          </label>
-                          <input
-                            type="tel"
-                            required
-                            value={customerInfo.phone}
-                            onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
-                            placeholder="Enter your phone number"
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={customerInfo.phone}
+                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="Enter your phone number"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      )}
-                    </div>
+                    />
                   </div>
+                      )}
+                </div>
+              </div>
                 )}
 
                 {!isAuthenticated && (
@@ -1599,7 +2638,7 @@ export default function OrderPage() {
                     </p>
                   </div>
                 )}
-
+                
                 <div className="space-y-4">
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
@@ -1674,37 +2713,37 @@ export default function OrderPage() {
                   {deliveryOption.type === 'delivery' && (
                     <div className="ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                       <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Complete Address *
-                          </label>
-                          <textarea
-                            required
-                            value={deliveryOption.address || ''}
-                            onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
-                            rows={3}
-                            placeholder="Enter your complete delivery address"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                            <input
-                              type="text"
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Complete Address *
+                            </label>
+                            <textarea
                               required
-                              value={deliveryOption.city || ''}
+                              value={deliveryOption.address || ''}
+                            onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
+                              rows={3}
+                              placeholder="Enter your complete delivery address"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                              <input
+                                type="text"
+                                required
+                                value={deliveryOption.city || ''}
                               onChange={(e) => setDeliveryOption(prev => ({ ...prev, city: e.target.value }))}
                               placeholder="City"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
+                              />
+                            </div>
+                            <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
-                            <input
-                              type="text"
-                              required
-                              value={deliveryOption.pinCode || ''}
+                              <input
+                                type="text"
+                                required
+                                value={deliveryOption.pinCode || ''}
                               onChange={(e) => setDeliveryOption(prev => ({ ...prev, pinCode: e.target.value }))}
                               placeholder="PIN Code"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1720,7 +2759,7 @@ export default function OrderPage() {
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Expected Delivery Date *
-                  </label>
+                            </label>
                   <input
                     type="date"
                     value={expectedDate}
@@ -1729,11 +2768,11 @@ export default function OrderPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                              </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            </div>
-          </div>
 
           {/* Right Column - Sticky Order Summary & Payment */}
           <div className="lg:col-span-1">
@@ -1746,33 +2785,33 @@ export default function OrderPage() {
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Files:</span>
                     <span className="font-medium">{selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'No files'}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Pages:</span>
+                          <span className="text-gray-600">Pages:</span>
                     <span className="font-medium">{isCountingPages ? '...' : pageCount}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Size:</span>
+                          <span className="text-gray-600">Size:</span>
                     <span className="font-medium">{printingOptions.pageSize}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Color:</span>
+                          <span className="text-gray-600">Color:</span>
                     <span className="font-medium">
-                      {printingOptions.color === 'color' ? 'Color' : 
+                            {printingOptions.color === 'color' ? 'Color' : 
                        printingOptions.color === 'bw' ? 'B&W' : 'Mixed'}
-                    </span>
-                  </div>
+                          </span>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Copies:</span>
+                          <span className="text-gray-600">Copies:</span>
                     <span className="font-medium">{printingOptions.copies}</span>
-                  </div>
+                        </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Delivery:</span>
+                          <span className="text-gray-600">Delivery:</span>
                     <span className="font-medium text-xs">
                       {deliveryOption.type === 'pickup' ? '🏫 Pickup' : '🚚 Delivery'}
-                    </span>
+                          </span>
+                    </div>
                   </div>
-                </div>
 
                 {/* Total Amount */}
                 <div className="border-t pt-4 mb-6">
@@ -1783,16 +2822,16 @@ export default function OrderPage() {
                 </div>
 
                 {/* Payment Button */}
-                <button
-                  onClick={handlePayment}
+                  <button
+                    onClick={handlePayment}
                   disabled={isProcessingPayment || !isRazorpayLoaded || !isAuthenticated || selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))}
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                >
-                  {!isAuthenticated ? '🔒 Sign In to Place Order' :
+                  >
+                    {!isAuthenticated ? '🔒 Sign In to Place Order' :
                    !isRazorpayLoaded ? '⏳ Loading...' : 
-                   isProcessingPayment ? '🔄 Processing...' : 
+                     isProcessingPayment ? '🔄 Processing...' : 
                    `💳 Pay ₹${amount.toFixed(2)}`}
-                </button>
+                  </button>
 
                 {!isAuthenticated && (
                   <div className="mt-4 text-center">
@@ -1807,22 +2846,22 @@ export default function OrderPage() {
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">🔒</span>
                     <span>Secure Payment</span>
-                  </div>
+                </div>
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">🚀</span>
                     <span>Fast Delivery</span>
-                  </div>
+              </div>
                   <div className="flex items-center text-xs text-gray-600">
                     <span className="mr-2">⭐</span>
                     <span>1000+ Happy Customers</span>
-                  </div>
+            </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-        </div>
       </div>
+    </div>
     </>
   );
 }

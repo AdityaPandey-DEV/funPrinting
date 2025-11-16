@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
+import { getFileTypeFromFilename } from '@/lib/fileTypeDetection';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,32 +25,94 @@ export async function GET(request: NextRequest) {
         await connectDB();
         const order = await Order.findOne({ orderId });
         
-        if (order && order.fileType) {
-          fileType = order.fileType;
-          originalFileName = order.originalFileName || filename;
-          console.log('📄 File Viewer: Found file type from database:', fileType);
-          console.log('📄 File Viewer: Original filename from database:', order.originalFileName);
+        if (order) {
+          // Try to get fileType from database
+          if (order.fileType) {
+            fileType = order.fileType;
+            originalFileName = order.originalFileName || filename;
+            console.log('📄 File Viewer: Found file type from database:', fileType);
+          } else {
+            // Fallback: detect from filename or originalFileNames
+            if (order.originalFileNames && Array.isArray(order.originalFileNames) && order.originalFileNames.length > 0) {
+              // Multi-file: detect from first file or find matching file
+              const fileIndex = order.fileURLs?.findIndex((url: string) => url === pdfUrl) ?? 0;
+              const detectedFileName = order.originalFileNames[fileIndex] || order.originalFileNames[0];
+              fileType = getFileTypeFromFilename(detectedFileName, pdfUrl);
+              originalFileName = detectedFileName;
+              console.log('📄 File Viewer: Detected file type from originalFileNames:', fileType);
+            } else if (order.originalFileName) {
+              fileType = getFileTypeFromFilename(order.originalFileName, pdfUrl);
+              originalFileName = order.originalFileName;
+              console.log('📄 File Viewer: Detected file type from originalFileName:', fileType);
+            } else {
+              // Last resort: detect from filename parameter
+              fileType = getFileTypeFromFilename(filename, pdfUrl);
+              console.log('📄 File Viewer: Detected file type from filename parameter:', fileType);
+            }
+          }
           console.log('📄 File Viewer: Using filename:', originalFileName);
         } else {
-          console.log('📄 File Viewer: No file type found in database, using default:', fileType);
-          console.log('📄 File Viewer: Using filename:', originalFileName);
+          // No order found, detect from filename parameter
+          fileType = getFileTypeFromFilename(filename, pdfUrl);
+          console.log('📄 File Viewer: Order not found, detected file type from filename:', fileType);
         }
       } catch (dbError) {
         console.error('📄 File Viewer: Error fetching order from database:', dbError);
-        // Continue with default file type
+        // Fallback: detect from filename parameter
+        fileType = getFileTypeFromFilename(filename, pdfUrl);
+        console.log('📄 File Viewer: Detected file type from filename (fallback):', fileType);
       }
+    } else {
+      // No orderId, detect from filename parameter
+      fileType = getFileTypeFromFilename(filename, pdfUrl);
+      console.log('📄 File Viewer: No orderId, detected file type from filename:', fileType);
     }
 
-    // Fetch the file from Cloudinary
-    const response = await fetch(pdfUrl);
+    // Fetch the file from Cloudinary with better error handling
+    let response: Response;
+    try {
+      response = await fetch(pdfUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+        },
+      });
+    } catch (fetchError: any) {
+      console.error('❌ File Viewer: Error fetching file from URL:', fetchError);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      return NextResponse.json({ 
+        error: 'Failed to fetch file from URL',
+        details: fetchError?.message || 'Unknown fetch error'
+      }, { status: 500 });
+    }
     
     if (!response.ok) {
-      console.log('❌ File Viewer: Failed to fetch file, status:', response.status);
-      return NextResponse.json({ error: 'Failed to fetch file' }, { status: 404 });
+      console.error('❌ File Viewer: Failed to fetch file, status:', response.status);
+      console.error('❌ File Viewer: Response status text:', response.statusText);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      const errorText = await response.text().catch(() => 'Could not read error response');
+      console.error('❌ File Viewer: Error response body:', errorText.substring(0, 200));
+      return NextResponse.json({ 
+        error: 'Failed to fetch file',
+        status: response.status,
+        details: response.statusText
+      }, { status: response.status >= 500 ? 500 : 404 });
     }
 
-    const fileBuffer = await response.arrayBuffer();
-    console.log('✅ File Viewer: Successfully fetched file, size:', fileBuffer.byteLength, 'bytes');
+    // Convert response to arrayBuffer with error handling
+    let fileBuffer: ArrayBuffer;
+    try {
+      fileBuffer = await response.arrayBuffer();
+      console.log('✅ File Viewer: Successfully fetched file, size:', fileBuffer.byteLength, 'bytes');
+    } catch (arrayBufferError: any) {
+      console.error('❌ File Viewer: Error converting response to arrayBuffer:', arrayBufferError);
+      console.error('❌ File Viewer: Response status was:', response.status);
+      console.error('❌ File Viewer: URL was:', pdfUrl);
+      return NextResponse.json({ 
+        error: 'Failed to process file data',
+        details: arrayBufferError?.message || 'Unknown arrayBuffer error'
+      }, { status: 500 });
+    }
 
     // Determine if this is an image file that can be displayed inline
     const isImage = fileType.startsWith('image/');

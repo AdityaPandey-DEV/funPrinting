@@ -21,6 +21,10 @@ export async function GET(
     // Convert Mongoose document to plain object to ensure all fields are serialized
     const orderData = order.toObject ? order.toObject() : order;
     
+    // Ensure array fields are always present to avoid client-side crashes
+    orderData.fileURLs = Array.isArray(orderData.fileURLs) ? orderData.fileURLs : [];
+    orderData.originalFileNames = Array.isArray(orderData.originalFileNames) ? orderData.originalFileNames : [];
+    
     // Log file data for debugging
     console.log('📋 Admin API - Order file data:', {
       orderId: orderData.orderId,

@@ -11,7 +11,8 @@ export interface IOrder {
   orderType: 'file' | 'template';
   fileURL?: string; // Legacy: single file URL (for backward compatibility)
   fileURLs?: string[]; // Array of file URLs for multiple files
-  fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg')
+  fileType?: string; // Store the original file type (e.g., 'application/pdf', 'image/jpeg') - Legacy support
+  fileTypes?: string[]; // Array of file types for multiple files (MIME types)
   originalFileName?: string; // Store the original file name
   originalFileNames?: string[]; // Array of original file names for multiple files
   // Template-specific fields
@@ -32,11 +33,25 @@ export interface IOrder {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
     pageColors?: {
       colorPages: number[]; // Array of page numbers that should be printed in color
       bwPages: number[];    // Array of page numbers that should be printed in B&W
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[]; // Array of page numbers that should be printed in color
+      bwPages: number[];    // Array of page numbers that should be printed in B&W
+    }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }>;
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
@@ -94,7 +109,8 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   fileURL: String, // Legacy: single file URL (for backward compatibility)
   fileURLs: [String], // Array of file URLs for multiple files
-  fileType: String,
+  fileType: String, // Legacy support
+  fileTypes: [String], // Array of file types for multiple files (MIME types)
   originalFileName: String, // Legacy: single file name (for backward compatibility)
   originalFileNames: [String], // Array of original file names for multiple files
   // Template-specific fields
@@ -138,25 +154,19 @@ const orderSchema = new mongoose.Schema<IOrder>({
       type: String,
       enum: ['binding', 'file', 'service'],
     },
+    serviceOptions: {
+      type: [String],
+      enum: ['binding', 'file', 'service'],
+    },
     pageColors: {
-      colorPages: {
-        type: [Number],
-        validate: {
-          validator: function(v: number[]) {
-            return v.every(page => page >= 1 && page <= 1000);
-          },
-          message: 'Color page numbers must be between 1 and 1000'
-        }
-      },
-      bwPages: {
-        type: [Number],
-        validate: {
-          validator: function(v: number[]) {
-            return v.every(page => page >= 1 && page <= 1000);
-          },
-          message: 'B&W page numbers must be between 1 and 1000'
-        }
-      }
+      type: mongoose.Schema.Types.Mixed, // Support both single object and array format
+      // Can be:
+      // 1. Single object: { colorPages: [Number], bwPages: [Number] } (legacy)
+      // 2. Array: [{ colorPages: [Number], bwPages: [Number] }, ...] (per-file)
+    },
+    fileOptions: {
+      type: mongoose.Schema.Types.Mixed, // Per-file printing options array
+      // Array of objects: [{ pageSize, color, sided, copies, pageColors? }, ...]
     },
   },
   paymentStatus: {

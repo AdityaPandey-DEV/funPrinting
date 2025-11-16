@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError } from '@/lib/adminNotifications';
 
 interface PickupLocation {
   _id: string;
@@ -113,13 +115,13 @@ function PickupLocationsPageContent() {
         setShowAddModal(false);
         resetForm();
         fetchLocations();
-        alert('Pickup location added successfully!');
+        showSuccess('Pickup location added successfully!');
       } else {
-        alert(`Failed to add location: ${data.error}`);
+        showError(`Failed to add location: ${data.error}`);
       }
     } catch (error) {
       console.error('Error adding location:', error);
-      alert('Failed to add pickup location');
+      showError('Failed to add pickup location');
     }
   };
 
@@ -148,13 +150,13 @@ function PickupLocationsPageContent() {
         setEditingLocation(null);
         resetForm();
         fetchLocations();
-        alert('Pickup location updated successfully!');
+        showSuccess('Pickup location updated successfully!');
       } else {
-        alert(`Failed to update location: ${data.error}`);
+        showError(`Failed to update location: ${data.error}`);
       }
     } catch (error) {
       console.error('Error updating location:', error);
-      alert('Failed to update pickup location');
+      showError('Failed to update pickup location');
     }
   };
 
@@ -171,13 +173,13 @@ function PickupLocationsPageContent() {
       
       if (data.success) {
         fetchLocations();
-        alert('Pickup location deleted successfully!');
+        showSuccess('Pickup location deleted successfully!');
       } else {
-        alert(`Failed to delete location: ${data.error}`);
+        showError(`Failed to delete location: ${data.error}`);
       }
     } catch (error) {
       console.error('Error deleting location:', error);
-      alert('Failed to delete pickup location');
+      showError('Failed to delete pickup location');
     }
   };
 
@@ -199,13 +201,13 @@ function PickupLocationsPageContent() {
       
       if (data.success) {
         fetchLocations();
-        alert('Default pickup location updated successfully!');
+        showSuccess('Default pickup location updated successfully!');
       } else {
-        alert(`Failed to update default location: ${data.error}`);
+        showError(`Failed to update default location: ${data.error}`);
       }
     } catch (error) {
       console.error('Error updating default location:', error);
-      alert('Failed to update default pickup location');
+      showError('Failed to update default pickup location');
     }
   };
 
@@ -227,13 +229,13 @@ function PickupLocationsPageContent() {
       
       if (data.success) {
         fetchLocations();
-        alert(`Location ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
+        showSuccess(`Location ${!currentStatus ? 'activated' : 'deactivated'} successfully!`);
       } else {
-        alert(`Failed to update location status: ${data.error}`);
+        showError(`Failed to update location status: ${data.error}`);
       }
     } catch (error) {
       console.error('Error updating location status:', error);
-      alert('Failed to update location status');
+      showError('Failed to update location status');
     }
   };
 
@@ -737,7 +739,9 @@ export default function PickupLocationsPage() {
       title="Pickup Locations"
       subtitle="Sign in with Google to manage pickup locations for orders"
     >
-      <PickupLocationsPageContent />
+      <NotificationProvider>
+        <PickupLocationsPageContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

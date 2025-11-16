@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showError } from '@/lib/adminNotifications';
 
 interface PrinterStatus {
   success: boolean;
@@ -26,11 +28,18 @@ interface PrinterStatus {
     queue: {
       total: number;
       pending: number;
+      isPaused?: boolean;
       jobs: Array<{
         id: string;
         job: {
           fileName: string;
           deliveryNumber: string;
+          orderId?: string;
+          customerInfo?: {
+            name: string;
+            email: string;
+            phone: string;
+          };
         };
         attempts: number;
         createdAt: string;
@@ -295,10 +304,64 @@ function PrinterMonitorContent() {
 
             {/* Print Queue */}
             <div className="bg-white rounded-lg shadow border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                <div>
                 <h2 className="text-xl font-semibold text-gray-900">
                   Print Queue ({status.printerApi?.queue?.pending || 0} pending)
                 </h2>
+                  {status.printerApi?.queue?.isPaused && (
+                    <p className="text-sm text-yellow-600 mt-1">⏸️ Queue is paused</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {status.printerApi?.queue?.isPaused ? (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const response = await fetch('/api/admin/printer-queue/resume', {
+                            method: 'POST'
+                          });
+                          const data = await response.json();
+                          if (data.success) {
+                            fetchStatus();
+                          } else {
+                            showError('Failed to resume queue: ' + (data.error || 'Unknown error'));
+                          }
+                        } catch (error) {
+                          console.error('Error resuming queue:', error);
+                          showError('Failed to resume queue');
+                        }
+                      }}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
+                    >
+                      ▶️ Resume
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        if (confirm('Are you sure you want to pause the queue?')) {
+                          try {
+                            const response = await fetch('/api/admin/printer-queue/pause', {
+                              method: 'POST'
+                            });
+                            const data = await response.json();
+                            if (data.success) {
+                              fetchStatus();
+                            } else {
+                              showError('Failed to pause queue: ' + (data.error || 'Unknown error'));
+                            }
+                          } catch (error) {
+                            console.error('Error pausing queue:', error);
+                            showError('Failed to pause queue');
+                          }
+                        }
+                      }}
+                      className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm"
+                    >
+                      ⏸️ Pause
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 {status.printerApi?.queue?.jobs && status.printerApi.queue.jobs.length > 0 ? (
@@ -307,6 +370,12 @@ function PrinterMonitorContent() {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Job ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Order ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Customer
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           File Name
@@ -323,6 +392,9 @@ function PrinterMonitorContent() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Last Attempt
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Actions
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -330,6 +402,30 @@ function PrinterMonitorContent() {
                         <tr key={job.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
                             {job.id.substring(0, 20)}...
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {job.job.orderId ? (
+                              <a 
+                                href={`/admin/orders/${job.job.orderId}`}
+                                className="text-blue-600 hover:text-blue-800 underline font-medium"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                {job.job.orderId}
+                              </a>
+                            ) : (
+                              <span className="text-gray-400">N/A</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {job.job.customerInfo ? (
+                              <div>
+                                <div className="font-medium">{job.job.customerInfo.name}</div>
+                                <div className="text-xs text-gray-500">{job.job.customerInfo.email}</div>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">N/A</span>
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {job.job.fileName}
@@ -349,6 +445,31 @@ function PrinterMonitorContent() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {job.lastAttemptAt ? formatDate(job.lastAttemptAt) : 'Never'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <button
+                              onClick={async () => {
+                                if (confirm(`Are you sure you want to delete job ${job.id}?\n\nFile: ${job.job.fileName}\nOrder: ${job.job.orderId || 'N/A'}`)) {
+                                  try {
+                                    const response = await fetch(`/api/admin/printer-queue/job/${job.id}`, {
+                                      method: 'DELETE'
+                                    });
+                                    const data = await response.json();
+                                    if (data.success) {
+                                      fetchStatus();
+                                    } else {
+                                      showError('Failed to delete job: ' + (data.error || 'Unknown error'));
+                                    }
+                                  } catch (error) {
+                                    console.error('Error deleting job:', error);
+                                    showError('Failed to delete job');
+                                  }
+                                }
+                              }}
+                              className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors text-xs"
+                            >
+                              🗑️ Delete
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -411,7 +532,9 @@ export default function PrinterMonitorPage() {
       title="Printer Monitor"
       subtitle="Monitor printer API status and print queue"
     >
-      <PrinterMonitorContent />
+      <NotificationProvider>
+        <PrinterMonitorContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

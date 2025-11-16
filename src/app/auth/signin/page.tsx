@@ -49,7 +49,7 @@ export default function SignInPage() {
             }
           } catch (error) {
             console.error('Error checking profile:', error);
-            router.push('/my-orders');
+          router.push('/my-orders');
           }
         }
       }

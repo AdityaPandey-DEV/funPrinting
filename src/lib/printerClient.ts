@@ -19,7 +19,10 @@ export interface PrintJobRequest {
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
   };
   printerIndex: number;
   orderId?: string;
@@ -287,15 +290,29 @@ export class PrinterClient {
 
       for (const { request } of jobs) {
         try {
+          // Check if job was already successfully sent (prevent duplicates)
+          // If orderId exists, we can check if it's already in the printer queue
           const result = await this.sendPrintJob(request);
-          if (!result.success) {
-            // Add back to queue if still failing
+          if (result.success) {
+            // Job sent successfully, don't add back to retry queue
+            console.log(`✅ Retry successful for job: ${request.orderId || 'unknown'}`);
+          } else {
+            // Only add back to queue if it's a genuine failure
+            // Check if error indicates job is already in queue
+            const errorMsg = result.error?.toLowerCase() || '';
+            if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
             this.addToRetryQueue(request);
+            } else {
+              console.log(`⏭️ Skipping duplicate job in retry queue: ${request.orderId || 'unknown'}`);
+            }
           }
         } catch (error) {
           console.error('Error processing retry queue job:', error);
-          // Add back to queue
+          // Only add back if it's not a duplicate error
+          const errorMsg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+          if (!errorMsg.includes('duplicate') && !errorMsg.includes('already')) {
           this.addToRetryQueue(request);
+          }
         }
 
         // Small delay between retries
@@ -425,7 +442,7 @@ function getFileTypeFromURL(url: string, fileName: string): string {
  */
 export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number): Promise<PrintJobResponse> {
   // Check for multiple files first, then fall back to single file
-  const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+  const hasMultipleFiles = Array.isArray(order.fileURLs) && order.fileURLs.length > 0;
   const hasSingleFile = order.fileURL && !hasMultipleFiles;
   
   if (!hasMultipleFiles && !hasSingleFile) {
@@ -439,7 +456,9 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
   // If multiple files exist, send them as arrays
   if (hasMultipleFiles) {
     const fileURLs = order.fileURLs!;
-    const originalFileNames = order.originalFileNames || fileURLs.map((_, idx) => `File ${idx + 1}`);
+    const originalFileNames = Array.isArray(order.originalFileNames)
+      ? order.originalFileNames
+      : fileURLs.map((_, idx) => `File ${idx + 1}`);
     
     console.log(`📋 Preparing print job for ${fileURLs.length} files:`, {
       fileURLs,

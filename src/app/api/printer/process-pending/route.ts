@@ -8,7 +8,7 @@ import { sendPrintJobFromOrder, generateDeliveryNumber } from '@/lib/printerClie
  * POST /api/printer/process-pending
  * Process all orders with completed payment but no print job sent
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   try {
     await connectDB();
 
@@ -82,8 +82,22 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        // Send print job
+        // Check if print job was already sent (prevent duplicates)
+        // The printer-api deduplication should handle this, but we check here too
         console.log(`🖨️ Processing print job for order: ${order.orderId}`);
+        
+        // Only send if order hasn't been processed yet
+        if (existingPrintJob && existingPrintJob.status === 'completed') {
+          console.log(`⏭️ Skipping order ${order.orderId} - already completed`);
+          results.skipped++;
+          results.orders.push({
+            orderId: order.orderId,
+            status: 'skipped',
+            message: 'Print job already completed'
+          });
+          continue;
+        }
+
         const printJobResult = await sendPrintJobFromOrder(order, printerIndex);
 
         if (printJobResult.success) {

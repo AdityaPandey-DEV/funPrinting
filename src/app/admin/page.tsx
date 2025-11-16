@@ -6,6 +6,8 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError, showInfo, showWarning } from '@/lib/adminNotifications';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -48,11 +50,25 @@ interface Order {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
-    };
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }>;
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -127,31 +143,29 @@ function AdminDashboardContent() {
       if (data.success) {
         const { processed, skipped, failed, orders } = data.results;
         if (processed > 0) {
-          alert(`✅ Successfully processed ${processed} orders - they are now in the print queue!`);
+          showSuccess(`Successfully processed ${processed} orders - they are now in the print queue!`);
         } else if (failed > 0) {
           // Build detailed error message
-          let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+          let errorMessage = `Failed to process ${failed} order(s).`;
           const failedOrders = orders?.filter((o: any) => o.status === 'failed' || o.status === 'error') || [];
           if (failedOrders.length > 0) {
-            errorMessage += 'Error details:\n';
-            failedOrders.forEach((failedOrder: { orderId: string; message: string }) => {
-              errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.message}\n`;
-            });
-          } else {
-            errorMessage += 'Check console for details.';
+            const details = failedOrders.map((failedOrder: { orderId: string; message: string }) => 
+              `Order ${failedOrder.orderId}: ${failedOrder.message}`
+            ).join('; ');
+            errorMessage += ` ${details}`;
           }
-          alert(errorMessage);
+          showError(errorMessage);
         } else {
-          alert(`ℹ️ ${data.message || 'No orders needed processing'}`);
+          showInfo(data.message || 'No orders needed processing');
         }
         // Refresh orders after processing
         await fetchOrders();
       } else {
-        alert(`❌ Failed to process orders: ${data.error || 'Unknown error'}`);
+        showError(`Failed to process orders: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error processing pending orders:', error);
-      alert('An error occurred while processing orders');
+      showError('An error occurred while processing orders');
     } finally {
       setIsLoading(false);
     }
@@ -202,20 +216,18 @@ function AdminDashboardContent() {
           const { processed, skipped, failed, failedOrders } = data.autoProcessed;
           if (processed > 0) {
             console.log(`✅ Auto-processed ${processed} orders`);
-            alert(`✅ Auto-processed ${processed} orders - they are now in the print queue!`);
+            showSuccess(`Auto-processed ${processed} orders - they are now in the print queue!`);
           } else if (failed > 0) {
             console.warn(`⚠️ Failed to process ${failed} orders`);
             // Build detailed error message
-            let errorMessage = `⚠️ Failed to process ${failed} order(s).\n\n`;
+            let errorMessage = `Failed to process ${failed} order(s).`;
             if (failedOrders && failedOrders.length > 0) {
-              errorMessage += 'Error details:\n';
-              failedOrders.forEach((failedOrder: { orderId: string; error: string }) => {
-                errorMessage += `• Order ${failedOrder.orderId}: ${failedOrder.error}\n`;
-              });
-            } else {
-              errorMessage += 'Check console for details.';
+              const details = failedOrders.map((failedOrder: { orderId: string; error: string }) => 
+                `Order ${failedOrder.orderId}: ${failedOrder.error}`
+              ).join('; ');
+              errorMessage += ` ${details}`;
             }
-            alert(errorMessage);
+            showError(errorMessage);
           } else if (skipped > 0) {
             console.log(`⏭️ Skipped ${skipped} orders (already processed)`);
           }
@@ -232,11 +244,11 @@ function AdminDashboardContent() {
           }
         }
       } else {
-        alert('Failed to fetch orders');
+        showError('Failed to fetch orders');
       }
     } catch (error) {
       console.error('Error fetching orders:', error);
-      alert('An error occurred while fetching orders');
+      showError('An error occurred while fetching orders');
     } finally {
       setIsLoading(false);
     }
@@ -265,14 +277,14 @@ function AdminDashboardContent() {
               : order
           )
         );
-        alert(`✅ Order status updated successfully to: ${newStatus}`);
+        showSuccess(`Order status updated successfully to: ${newStatus}`);
       } else {
         console.error('❌ API Error:', data.error);
-        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
+        showError(`Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Network Error updating order status:', error);
-      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
+      showError('Network error occurred while updating order status. Please check your connection and try again.');
     }
   };
 
@@ -529,6 +541,55 @@ function AdminDashboardContent() {
                         <div className="text-sm font-medium text-gray-900">
                           ₹{order.amount}
                         </div>
+                        {/* Service Options Display */}
+                        {(() => {
+                          const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+                          const serviceOptions = order.printingOptions.serviceOptions;
+                          const legacyServiceOption = order.printingOptions.serviceOption;
+                          
+                          if (hasMultipleFiles && serviceOptions && serviceOptions.length > 0) {
+                            // Multiple files with per-file service options
+                            return (
+                              <div className="mt-2 space-y-1">
+                                <div className="text-xs text-gray-600">Service Options:</div>
+                                {serviceOptions.slice(0, 2).map((serviceOption, idx) => {
+                                  const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                                  return (
+                                    <div key={idx} className="text-xs">
+                                      <span className="text-gray-600">{fileName.substring(0, 15)}:</span>
+                                      <span className="ml-1 font-medium">
+                                        {serviceOption === 'binding' ? '📎' :
+                                         serviceOption === 'file' ? '🗂️' :
+                                         '✅'}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                                {serviceOptions.length > 2 && (
+                                  <div className="text-xs text-gray-500">
+                                    +{serviceOptions.length - 2} more
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            // Single file or legacy format
+                            const serviceOption = serviceOptions?.[0] || legacyServiceOption;
+                            if (serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1) {
+                              return (
+                                <div className="mt-1 text-xs">
+                                  <span className="text-gray-600">Service: </span>
+                                  <span className="font-medium">
+                                    {serviceOption === 'binding' ? '📎 Binding' :
+                                     serviceOption === 'file' ? '🗂️ File' :
+                                     '✅ Service'}
+                                  </span>
+                                </div>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -635,16 +696,16 @@ function AdminDashboardContent() {
                               </>
                             ) : order.fileURL ? (
                               // Legacy: single file
-                              <a
-                                href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
-                                title={`Download ${order.originalFileName || 'File'}`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
-                              </a>
+                          <a
+                            href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
+                            title={`Download ${order.originalFileName || 'File'}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Download {order.originalFileName ? order.originalFileName.substring(0, 20) + '...' : 'File'}
+                          </a>
                             ) : null}
                           </div>
                         )}
@@ -687,7 +748,9 @@ export default function AdminDashboard() {
       title="Admin Dashboard"
       subtitle="Sign in with Google to manage all printing orders and track their status"
     >
-      <AdminDashboardContent />
+      <NotificationProvider>
+        <AdminDashboardContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }

@@ -28,30 +28,28 @@ export async function POST(request: NextRequest) {
 
     console.log(`Saving template: ${name}`);
 
-    // Download DOCX from Cloudinary to extract placeholders
+    // Prioritize manually extracted placeholders from frontend (more accurate)
     let placeholders: string[] = [];
     let formSchema: any[] = [];
     const normalizedDocxUrl = docxUrl;
 
-    try {
-      // Fetch DOCX content from Cloudinary
-      const response = await fetch(docxUrl);
-      if (!response.ok) {
-        throw new Error('Failed to fetch DOCX from Cloudinary');
-      }
+    // Check if manual placeholders are provided from frontend (preferred source)
+    if (manualPlaceholders && Array.isArray(manualPlaceholders) && manualPlaceholders.length > 0) {
+      console.log('Using manual placeholders from frontend:', manualPlaceholders);
+      placeholders = manualPlaceholders;
       
-      const docxBuffer = Buffer.from(await response.arrayBuffer());
-      
-      // Extract placeholders from the DOCX buffer
-      placeholders = await extractPlaceholders(docxBuffer);
-      
-      // If no placeholders found in content, use manual placeholders if provided
-      if (placeholders.length === 0 && manualPlaceholders && manualPlaceholders.length > 0) {
-        placeholders = manualPlaceholders;
-      }
-      
-      // Generate form schema from placeholders
-      if (placeholders.length > 0) {
+      // Use manual formSchema if provided, otherwise generate from placeholders
+      if (manualFormSchema && Array.isArray(manualFormSchema) && manualFormSchema.length > 0) {
+        console.log('Using manual formSchema from frontend');
+        // Ensure defaultPlaceholder is set for manual formSchema
+        formSchema = manualFormSchema.map((field: any) => ({
+          ...field,
+          key: field.key || field.name,
+          defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
+        }));
+      } else {
+        console.log('Generating formSchema from manual placeholders');
+        // Generate form schema from placeholders
         const schemaObject = generateFormSchema(placeholders);
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
@@ -60,26 +58,38 @@ export async function POST(request: NextRequest) {
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
       }
-      
-    } catch (error) {
-      console.error('Error processing DOCX:', error);
-      // If we can't process the DOCX, use manual data if provided
-      if (manualPlaceholders && manualPlaceholders.length > 0) {
-        placeholders = manualPlaceholders;
-        if (manualFormSchema) {
-          // Ensure defaultPlaceholder is set for manual formSchema
-          formSchema = manualFormSchema.map((field: any) => ({
-            ...field,
-            defaultPlaceholder: field.defaultPlaceholder || field.placeholder || `Enter ${field.key || field.label || ''}`
-          }));
-        } else {
+    } else {
+      // Fallback: Extract placeholders from DOCX if manual placeholders not provided
+      console.log('Manual placeholders not provided, extracting from DOCX...');
+      try {
+        // Fetch DOCX content from Cloudinary
+        const response = await fetch(docxUrl);
+        if (!response.ok) {
+          throw new Error('Failed to fetch DOCX from Cloudinary');
+        }
+        
+        const docxBuffer = Buffer.from(await response.arrayBuffer());
+        
+        // Extract placeholders from the DOCX buffer
+        placeholders = await extractPlaceholders(docxBuffer);
+        console.log('Extracted placeholders from DOCX:', placeholders);
+        
+        // Generate form schema from placeholders
+        if (placeholders.length > 0) {
           const schemaObject = generateFormSchema(placeholders);
           formSchema = Object.entries(schemaObject).map(([key, value]) => ({
             key,
             ...value,
+            // Ensure defaultPlaceholder is set if not already present
             defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
           }));
         }
+        
+      } catch (error) {
+        console.error('Error processing DOCX:', error);
+        // If extraction fails and no manual data provided, use empty arrays
+        placeholders = [];
+        formSchema = [];
       }
     }
 
@@ -178,8 +188,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Generate form schema from placeholders
-    const formSchema = generateFormSchema(template.placeholders);
+    // Use stored formSchema from database if available (preferred)
+    // Only regenerate if formSchema is missing or empty
+    let formSchema: any[] = [];
+    if (template.formSchema && Array.isArray(template.formSchema) && template.formSchema.length > 0) {
+      console.log('Using stored formSchema from database');
+      formSchema = template.formSchema;
+    } else {
+      // Fallback: Generate form schema from placeholders if stored schema not available
+      console.log('Generating formSchema from placeholders (stored schema not available)');
+      if (template.placeholders && Array.isArray(template.placeholders) && template.placeholders.length > 0) {
+        const schemaObject = generateFormSchema(template.placeholders);
+        formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+          key,
+          ...value,
+          defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+        }));
+      }
+    }
 
     return NextResponse.json({
       success: true,

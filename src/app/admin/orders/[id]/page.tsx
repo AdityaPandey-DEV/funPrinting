@@ -6,6 +6,8 @@ import Image from 'next/image';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import NotificationProvider from '@/components/admin/NotificationProvider';
+import { showSuccess, showError } from '@/lib/adminNotifications';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
 
 interface Order {
@@ -34,7 +36,8 @@ interface Order {
   orderType: 'file' | 'template';
   fileURL?: string; // Legacy: single file URL (for backward compatibility)
   fileURLs?: string[]; // Array of file URLs for multiple files
-  fileType?: string;
+  fileType?: string; // Legacy support
+  fileTypes?: string[]; // Array of file types for multiple files (MIME types)
   originalFileName?: string; // Legacy: single file name (for backward compatibility)
   originalFileNames?: string[]; // Array of original file names for multiple files
   templateData?: {
@@ -48,11 +51,25 @@ interface Order {
     sided: 'single' | 'double';
     copies: number;
     pageCount?: number;
-    serviceOption?: 'binding' | 'file' | 'service';
+    serviceOption?: 'binding' | 'file' | 'service'; // Legacy support
+    serviceOptions?: ('binding' | 'file' | 'service')[]; // Per-file service options
+    pageColors?: {
+      colorPages: number[];
+      bwPages: number[];
+    } | Array<{ // Per-file page colors (new format)
+      colorPages: number[];
+      bwPages: number[];
+    }>;
+    fileOptions?: Array<{ // Per-file printing options (new format)
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
     };
+    }>;
   };
   deliveryOption?: {
     type: 'pickup' | 'delivery';
@@ -164,37 +181,34 @@ function OrderDetailPageContent() {
       if (data.success) {
         const orderData = data.order;
         
-        // Normalize file data: ensure fileURLs and originalFileNames are properly set
+        // Normalize file data: ensure safe arrays and legacy compatibility
         if (orderData) {
-          // If fileURLs exists and has items, use it
-          if (orderData.fileURLs && Array.isArray(orderData.fileURLs) && orderData.fileURLs.length > 0) {
-            // Ensure originalFileNames array matches fileURLs length
-            if (!orderData.originalFileNames || !Array.isArray(orderData.originalFileNames)) {
+          // Ensure arrays are initialized
+          orderData.fileURLs = Array.isArray(orderData.fileURLs) ? orderData.fileURLs : [];
+          orderData.originalFileNames = Array.isArray(orderData.originalFileNames)
+            ? orderData.originalFileNames
+            : [];
+
+          // Convert legacy single fields, if present
+          if ((orderData.fileURLs?.length ?? 0) === 0 && orderData.fileURL) {
+            orderData.fileURLs = [orderData.fileURL];
+          }
+          if ((orderData.originalFileNames?.length ?? 0) === 0 && orderData.originalFileName) {
+            orderData.originalFileNames = [orderData.originalFileName];
+          }
+
+          // Ensure name list matches file list
+          if (orderData.fileURLs.length > 0) {
+            if (!Array.isArray(orderData.originalFileNames)) {
               orderData.originalFileNames = orderData.fileURLs.map((_: string, idx: number) => `File ${idx + 1}`);
-            } else if (orderData.originalFileNames.length !== orderData.fileURLs.length) {
-              // Pad or truncate to match length
+            }
+            if (orderData.originalFileNames.length !== orderData.fileURLs.length) {
               while (orderData.originalFileNames.length < orderData.fileURLs.length) {
                 orderData.originalFileNames.push(`File ${orderData.originalFileNames.length + 1}`);
               }
               orderData.originalFileNames = orderData.originalFileNames.slice(0, orderData.fileURLs.length);
             }
             console.log(`✅ Order has ${orderData.fileURLs.length} files:`, orderData.originalFileNames);
-          } 
-          // If fileURLs is empty/undefined but fileURL exists, convert to array format for consistency
-          else if (orderData.fileURL && !orderData.fileURLs) {
-            orderData.fileURLs = [orderData.fileURL];
-            orderData.originalFileNames = orderData.originalFileName 
-              ? [orderData.originalFileName] 
-              : ['document.pdf'];
-            console.log(`📄 Converted single file to array format`);
-          }
-          // If fileURLs exists but is empty, and fileURL exists, use fileURL
-          else if ((!orderData.fileURLs || orderData.fileURLs.length === 0) && orderData.fileURL) {
-            orderData.fileURLs = [orderData.fileURL];
-            orderData.originalFileNames = orderData.originalFileName 
-              ? [orderData.originalFileName] 
-              : ['document.pdf'];
-            console.log(`📄 Fallback: Using single fileURL as array`);
           }
         }
         
@@ -207,12 +221,12 @@ function OrderDetailPageContent() {
         
         setOrder(orderData);
       } else {
-        alert('Failed to fetch order details');
+        showError('Failed to fetch order details');
         router.push('/admin');
       }
     } catch (error) {
       console.error('Error fetching order:', error);
-      alert('Failed to fetch order details');
+      showError('Failed to fetch order details');
       router.push('/admin');
     } finally {
       setIsLoading(false);
@@ -227,16 +241,16 @@ function OrderDetailPageContent() {
     }
   }, [params.id, fetchOrder]);
 
-  // Add timeout to prevent stuck loading state
+  // Add timeout to prevent stuck loading state (onLoad may not fire for PDFs)
   useEffect(() => {
-    const currentFileURL = (order?.fileURLs && order.fileURLs.length > 0) 
+    const currentFileURL = (Array.isArray(order?.fileURLs) && order!.fileURLs.length > 0) 
       ? order.fileURLs[selectedFileIndex] 
       : order?.fileURL;
     if (order && currentFileURL && !pdfLoaded) {
       const timeout = setTimeout(() => {
-        console.log('PDF loading timeout, showing iframe anyway');
+        console.log('⏱️ Showing PDF preview after 3 seconds (onLoad may not fire for PDFs)');
         setPdfLoaded(true);
-      }, 5000); // 5 second timeout
+      }, 3000); // 3 second timeout as fallback
       
       return () => clearTimeout(timeout);
     }
@@ -262,14 +276,14 @@ function OrderDetailPageContent() {
       
       if (data.success) {
         setOrder({ ...order, orderStatus: newStatus as any });
-        alert(`✅ Order status updated successfully to: ${newStatus}`);
+        showSuccess(`Order status updated successfully to: ${newStatus}`);
       } else {
         console.error('❌ API Error:', data.error);
-        alert(`❌ Failed to update order status: ${data.error || 'Unknown error'}`);
+        showError(`Failed to update order status: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('❌ Network Error updating order status:', error);
-      alert('❌ Network error occurred while updating order status. Please check your connection and try again.');
+      showError('Network error occurred while updating order status. Please check your connection and try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -297,14 +311,14 @@ function OrderDetailPageContent() {
       const data = await response.json();
       
       if (data.success) {
-        alert('Order deleted successfully!');
+        showSuccess('Order deleted successfully!');
         router.push('/admin');
       } else {
-        alert('Failed to delete order');
+        showError('Failed to delete order');
       }
     } catch (error) {
       console.error('Error deleting order:', error);
-      alert('Failed to delete order');
+      showError('Failed to delete order');
     } finally {
       setIsUpdating(false);
     }
@@ -388,7 +402,45 @@ function OrderDetailPageContent() {
                      'Mixed'}
                   </span>
                 </div>
-                {order.printingOptions.color === 'mixed' && order.printingOptions.pageColors && (
+                
+                {/* Debug logging */}
+                {(() => {
+                  console.log('🔍 DEBUG - Order printingOptions:', order.printingOptions);
+                  console.log('🔍 DEBUG - pageColors:', order.printingOptions.pageColors);
+                  console.log('🔍 DEBUG - fileOptions:', (order.printingOptions as any).fileOptions);
+                  console.log('🔍 DEBUG - fileURLs length:', order.fileURLs?.length || 0);
+                  return null;
+                })()}
+                
+                {/* Helper function to get page colors for display */}
+                {(() => {
+                  const getDisplayPageColors = () => {
+                    // Check if we have per-file options with pageColors
+                    const fileOptions = (order.printingOptions as any).fileOptions;
+                    if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                      // For multi-file orders, get page colors from the first file or selected file
+                      const targetFileIndex = selectedFileIndex || 0;
+                      const targetFile = fileOptions[targetFileIndex];
+                      
+                      if (targetFile?.pageColors) {
+                        return targetFile.pageColors;
+                      }
+                    }
+                    
+                    // Fall back to legacy pageColors
+                    return order.printingOptions.pageColors;
+                  };
+                  
+                  const displayPageColors = getDisplayPageColors();
+                  const colorPages = displayPageColors?.colorPages || [];
+                  const bwPages = displayPageColors?.bwPages || [];
+                  
+                  console.log('🔍 DEBUG - Display page colors:', displayPageColors);
+                  console.log('🔍 DEBUG - Color pages:', colorPages);
+                  console.log('🔍 DEBUG - B&W pages:', bwPages);
+                  
+                  return displayPageColors && (colorPages.length > 0 || bwPages.length > 0);
+                })() && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
                     <div className="font-medium text-green-800 mb-3">🎨 Mixed Color Printing Details</div>
                     <div className="space-y-3">
@@ -396,21 +448,89 @@ function OrderDetailPageContent() {
                         <span className="w-3 h-3 bg-green-500 rounded-full"></span>
                         <span className="text-gray-700">Color Pages:</span>
                         <span className="font-medium text-green-600">
-                          {order.printingOptions.pageColors.colorPages.length} pages
+                          {(() => {
+                            const fileOptions = (order.printingOptions as any).fileOptions;
+                            let colorPages = [];
+                            
+                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                              const targetFileIndex = selectedFileIndex || 0;
+                              colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                            } else {
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
+                              } else if (pageColors) {
+                                colorPages = pageColors.colorPages || [];
+                              }
+                            }
+                            
+                            return `${colorPages.length} pages`;
+                          })()}
                         </span>
                       </div>
                       <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.colorPages.join(', ')}]
+                        [{(() => {
+                          const fileOptions = (order.printingOptions as any).fileOptions;
+                          let colorPages = [];
+                          
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                          } else {
+                            const pageColors = order.printingOptions.pageColors;
+                            if (Array.isArray(pageColors)) {
+                              colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
+                            } else if (pageColors) {
+                              colorPages = pageColors.colorPages || [];
+                            }
+                          }
+                          
+                          return colorPages.length > 0 ? colorPages.join(', ') : 'None';
+                        })()}]
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
                         <span className="text-gray-700">B&W Pages:</span>
                         <span className="font-medium text-gray-600">
-                          {order.printingOptions.pageColors.bwPages.length} pages
+                          {(() => {
+                            const fileOptions = (order.printingOptions as any).fileOptions;
+                            let bwPages = [];
+                            
+                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                              const targetFileIndex = selectedFileIndex || 0;
+                              bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                            } else {
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
+                              } else if (pageColors) {
+                                bwPages = pageColors.bwPages || [];
+                              }
+                            }
+                            
+                            return `${bwPages.length} pages`;
+                          })()}
                         </span>
                       </div>
                       <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
-                        [{order.printingOptions.pageColors.bwPages.join(', ')}]
+                        [                          {(() => {
+                          const fileOptions = (order.printingOptions as any).fileOptions;
+                          let bwPages = [];
+                          
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                          } else {
+                              const pageColors = order.printingOptions.pageColors;
+                              if (Array.isArray(pageColors)) {
+                                bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
+                              } else if (pageColors) {
+                                bwPages = pageColors.bwPages || [];
+                              }
+                          }
+                          
+                          return bwPages.length > 0 ? bwPages.join(', ') : 'None';
+                        })()}]
                       </div>
                       
                       {/* Visual Page Preview */}
@@ -421,8 +541,29 @@ function OrderDetailPageContent() {
                           </div>
                           <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
                             {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              const isColor = order.printingOptions.pageColors?.colorPages.includes(pageNum) || false;
-                              const isBw = order.printingOptions.pageColors?.bwPages.includes(pageNum) || false;
+                              // Get page colors using the same logic as the display
+                              const fileOptions = (order.printingOptions as any).fileOptions;
+                              let colorPages = [];
+                              let bwPages = [];
+                              
+                              if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                                const targetFileIndex = selectedFileIndex || 0;
+                                colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                                bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                              } else {
+                                const pageColors = order.printingOptions.pageColors;
+                                if (Array.isArray(pageColors)) {
+                                  const targetPageColors = pageColors[selectedFileIndex || 0];
+                                  colorPages = targetPageColors?.colorPages || [];
+                                  bwPages = targetPageColors?.bwPages || [];
+                                } else if (pageColors) {
+                                  colorPages = pageColors.colorPages || [];
+                                  bwPages = pageColors.bwPages || [];
+                                }
+                              }
+                              
+                              const isColor = colorPages.includes(pageNum);
+                              const isBw = bwPages.includes(pageNum);
                               return (
                                 <div
                                   key={pageNum}
@@ -461,16 +602,54 @@ function OrderDetailPageContent() {
                     <span className="font-medium">{order.printingOptions.pageCount}</span>
                   </div>
                 )}
-                {order.printingOptions.serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1 && (
+                {(() => {
+                  // Check for service options - support both new array format and legacy format
+                  const hasMultipleFiles = order.fileURLs && order.fileURLs.length > 0;
+                  const serviceOptions = order.printingOptions.serviceOptions;
+                  const legacyServiceOption = order.printingOptions.serviceOption;
+                  
+                  // Determine which service option(s) to display
+                  if (hasMultipleFiles && serviceOptions && serviceOptions.length > 0) {
+                    // Multiple files with per-file service options
+                    return (
+                      <div className="mt-2">
+                        <div className="text-gray-600 mb-2">Service Options:</div>
+                        <div className="space-y-2">
+                          {order.fileURLs?.map((_, idx) => {
+                            const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
+                            const serviceOption = serviceOptions[idx] || legacyServiceOption || 'service';
+                            return (
+                              <div key={idx} className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded border border-blue-200">
+                                <span className="text-sm text-gray-700">{fileName}:</span>
+                                <span className="font-medium text-sm">
+                                  {serviceOption === 'binding' ? '📎 Binding' :
+                                   serviceOption === 'file' ? '🗂️ File Handling' :
+                                   '✅ Service Fee'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    // Single file or legacy format
+                    const serviceOption = serviceOptions?.[0] || legacyServiceOption;
+                    if (serviceOption && order.printingOptions.pageCount && order.printingOptions.pageCount > 1) {
+                      return (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Service Option:</span>
                     <span className="font-medium">
-                      {order.printingOptions.serviceOption === 'binding' ? '📎 Binding' :
-                       order.printingOptions.serviceOption === 'file' ? '🗂️ File Handling' :
+                            {serviceOption === 'binding' ? '📎 Binding' :
+                             serviceOption === 'file' ? '🗂️ File Handling' :
                        '✅ Service Fee'}
                     </span>
                   </div>
-                )}
+                      );
+                    }
+                  }
+                  return null;
+                })()}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Amount:</span>
                   <span className="text-xl font-bold text-gray-900">₹{order.amount}</span>
@@ -641,10 +820,15 @@ function OrderDetailPageContent() {
                       <div className="space-y-2 mb-4 max-h-64 overflow-y-auto border-2 border-gray-300 rounded-lg p-3 bg-white shadow-sm">
                         {order.fileURLs.map((fileURL, idx) => {
                           const fileName = order.originalFileNames?.[idx] || `File ${idx + 1}`;
-                          const fileType = getFileTypeFromURL(fileURL, fileName);
+                          // Use saved fileType from order, fallback to inferring from URL for legacy orders
+                          const fileType = order.fileTypes?.[idx] || (idx === 0 ? order.fileType : undefined) || getFileTypeFromURL(fileURL, fileName);
                           const isImage = fileType.startsWith('image/');
                           const isPDF = fileType === 'application/pdf';
                           const isDoc = fileType.includes('word') || fileType.includes('document');
+                          const fileOpt = Array.isArray((order.printingOptions as any)?.fileOptions)
+                            ? (order.printingOptions as any).fileOptions[idx]
+                            : undefined;
+                          const mode = fileOpt?.color || order.printingOptions.color;
                           
                           // Get file type icon
                           const getFileIcon = () => {
@@ -671,9 +855,53 @@ function OrderDetailPageContent() {
                                 <span className="text-lg" title={fileType}>{getFileIcon()}</span>
                                 <div className="flex flex-col min-w-0 flex-1">
                                   <span className="text-sm font-medium text-gray-900 truncate">{fileName}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
-                                  </span>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-xs text-gray-500">
+                                      {isImage ? 'Image' : isPDF ? 'PDF' : isDoc ? 'Document' : 'File'} • #{idx + 1}
+                                    </span>
+                                    <span
+                                      className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                        mode === 'mixed'
+                                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                          : mode === 'color'
+                                          ? 'bg-green-50 text-green-700 border-green-200'
+                                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                                      }`}
+                                      title={mode === 'mixed' ? 'Some pages color, some B&W' : mode === 'color' ? 'All pages color' : 'All pages B&W'}
+                                    >
+                                      {mode === 'mixed' ? 'Mixed' : mode === 'color' ? 'Color' : 'B&W'}
+                                    </span>
+                                    {/* Service Option Indicator */}
+                                    {(() => {
+                                      const serviceOptions = order.printingOptions.serviceOptions;
+                                      const legacyServiceOption = order.printingOptions.serviceOption;
+                                      const serviceOption = serviceOptions?.[idx] || (idx === 0 ? legacyServiceOption : null);
+                                      
+                                      if (serviceOption) {
+                                        return (
+                                          <span
+                                            className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                                              serviceOption === 'binding'
+                                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                                : serviceOption === 'file'
+                                                ? 'bg-orange-50 text-orange-700 border-orange-200'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200'
+                                            }`}
+                                            title={
+                                              serviceOption === 'binding' ? 'Binding service selected' :
+                                              serviceOption === 'file' ? 'File handling selected' :
+                                              'Service fee selected'
+                                            }
+                                          >
+                                            {serviceOption === 'binding' ? '📎 Binding' :
+                                             serviceOption === 'file' ? '🗂️ File' :
+                                             '✅ Service'}
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
+                                  </div>
                                 </div>
                               </div>
                               <a
@@ -702,17 +930,17 @@ function OrderDetailPageContent() {
                     </>
                   ) : (
                     // Legacy: Single file
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Original File</span>
-                      <a
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Original File</span>
+                    <a
                         href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL!)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
-                      >
-                        Download File
-                      </a>
-                    </div>
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
+                    >
+                      Download File
+                    </a>
+                  </div>
                   )}
                   
                   {/* File Preview - Smart preview based on file type */}
@@ -746,10 +974,15 @@ function OrderDetailPageContent() {
                         const currentFileName = (order.originalFileNames && order.originalFileNames.length > 0)
                           ? order.originalFileNames[selectedFileIndex]
                           : order.originalFileName || 'document';
-                        // Use per-file type detection instead of single order.fileType
-                        const fileType = currentFileURL && currentFileName
-                          ? getFileTypeFromURL(currentFileURL, currentFileName)
-                          : (order.fileType || 'application/octet-stream');
+                        // Use saved fileType from order, fallback to inferring from URL for legacy orders
+                        let fileType: string;
+                        if (order.fileURLs && order.fileURLs.length > 0) {
+                          // Multiple files: use fileTypes array
+                          fileType = order.fileTypes?.[selectedFileIndex] || (currentFileURL && currentFileName ? getFileTypeFromURL(currentFileURL, currentFileName) : 'application/octet-stream');
+                        } else {
+                          // Single file: use fileType or infer from URL
+                          fileType = order.fileType || (currentFileURL && currentFileName ? getFileTypeFromURL(currentFileURL, currentFileName) : 'application/octet-stream');
+                        }
                         const isImage = fileType.startsWith('image/');
                         const isPDF = fileType === 'application/pdf';
                         
@@ -778,21 +1011,42 @@ function OrderDetailPageContent() {
                           );
                         } else if (isPDF) {
                           // PDF files - use iframe
+                          const iframeSrc = `/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${encodeURIComponent(currentFileName)}`;
+                          console.log('📄 Rendering PDF iframe:', { iframeSrc, currentFileName, fileType });
+                          
                           return (
-                            <iframe
-                              src={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
-                              className="w-full h-96"
-                              onLoad={() => {
-                                console.log('PDF iframe loaded successfully');
-                                setPdfLoaded(true);
-                              }}
-                              onError={() => {
-                                console.error('PDF iframe failed to load');
-                                setPdfLoaded(true);
-                              }}
-                              style={{ display: pdfLoaded ? 'block' : 'none' }}
-                              title="PDF Preview"
-                            />
+                            <div className="relative w-full h-96">
+                              <iframe
+                                key={`${currentFileURL}-${selectedFileIndex}`}
+                                src={iframeSrc}
+                                className="w-full h-96 border-0"
+                                onLoad={() => {
+                                  console.log('✅ PDF iframe onLoad event fired');
+                                  setPdfLoaded(true);
+                                }}
+                                onError={(e) => {
+                                  console.error('❌ PDF iframe failed to load:', e);
+                                  setPdfLoaded(true);
+                                }}
+                                style={{ 
+                                  opacity: pdfLoaded ? 1 : 0, 
+                                  transition: 'opacity 0.3s',
+                                  position: 'relative',
+                                  zIndex: pdfLoaded ? 1 : 0
+                                }}
+                                title="PDF Preview"
+                                allow="fullscreen"
+                              />
+                              {!pdfLoaded && (
+                                <div className="absolute inset-0 bg-gray-100 flex items-center justify-center z-10">
+                                  <div className="text-center">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+                                    <p className="text-gray-600">Loading PDF preview...</p>
+                                    <p className="text-xs text-gray-500 mt-2">{currentFileName}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           );
                         } else {
                           // Other files - show file info card
@@ -949,7 +1203,9 @@ export default function OrderDetailPage() {
       title="Order Details"
       subtitle="Sign in with Google to view and manage order details"
     >
-      <OrderDetailPageContent />
+      <NotificationProvider>
+        <OrderDetailPageContent />
+      </NotificationProvider>
     </AdminGoogleAuth>
   );
 }
