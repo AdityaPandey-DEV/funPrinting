@@ -95,7 +95,7 @@ interface Order {
     };
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
-  orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
+  orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'cancelled';
   amount: number;
   expectedDate?: string | Date;
   createdAt: string;
@@ -170,6 +170,7 @@ function OrderDetailPageContent() {
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multiple file preview
 
@@ -289,6 +290,60 @@ function OrderDetailPageContent() {
     }
   };
 
+  const sendToPrintQueue = async () => {
+    if (!order) return;
+    
+    // Check if order has files to print
+    const hasFiles = (order.fileURLs && order.fileURLs.length > 0) || order.fileURL;
+    if (!hasFiles) {
+      showError('Order has no files to print');
+      return;
+    }
+    
+    // Check if payment is completed
+    if (order.paymentStatus !== 'completed') {
+      showError('Order payment must be completed before printing');
+      return;
+    }
+    
+    setIsPrinting(true);
+    try {
+      console.log(`🖨️ Sending order ${order.orderId} to print queue`);
+      
+      const response = await fetch('/api/printer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderId: order.orderId,
+          printerIndex: 1 // Default to printer 1, can be made configurable
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        showSuccess(`Order #${order.orderId} sent to print queue successfully!`);
+        // Optionally update order status to 'printing'
+        if (order.orderStatus !== 'printing') {
+          await updateOrderStatus('printing');
+        }
+        // Refresh order data to get updated delivery number
+        if (params.id) {
+          await fetchOrder(params.id as string);
+        }
+      } else {
+        showError(`Failed to send to print queue: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error sending to print queue:', error);
+      showError('Failed to send order to print queue. Please check printer API connection.');
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
   const deleteOrder = async () => {
     if (!order) return;
     
@@ -365,6 +420,7 @@ function OrderDetailPageContent() {
                 <option value="printing">Printing</option>
                 <option value="dispatched">Dispatched</option>
                 <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
               </select>
               
               <button
@@ -1153,6 +1209,18 @@ function OrderDetailPageContent() {
                   {isUpdating ? 'Updating...' : 'Mark as Processing'}
                 </button>
                 
+                {/* Print Button - Send to Print Queue */}
+                <button
+                  onClick={sendToPrintQueue}
+                  disabled={isPrinting || isUpdating || order.paymentStatus !== 'completed' || (!order.fileURL && (!order.fileURLs || order.fileURLs.length === 0))}
+                  className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                  </svg>
+                  {isPrinting ? 'Sending to Print Queue...' : '🖨️ Send to Print Queue'}
+                </button>
+                
                 <button
                   onClick={() => updateOrderStatus('printing')}
                   disabled={order.orderStatus === 'printing' || isUpdating}
@@ -1175,6 +1243,22 @@ function OrderDetailPageContent() {
                   className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Updating...' : 'Mark as Delivered'}
+                </button>
+                
+                {/* Cancel Order Button */}
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to cancel order #${order.orderId}? This action may require a refund if payment was completed.`)) {
+                      updateOrderStatus('cancelled');
+                    }
+                  }}
+                  disabled={order.orderStatus === 'cancelled' || isUpdating}
+                  className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  {isUpdating ? 'Cancelling...' : 'Cancel Order'}
                 </button>
                 
                 {/* Delete Order Button */}

@@ -103,6 +103,7 @@ function AdminDashboardContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [printingOrders, setPrintingOrders] = useState<Set<string>>(new Set());
 
   // Fetch orders on component mount
   useEffect(() => {
@@ -688,6 +689,48 @@ function AdminDashboardContent() {
                           >
                             View PDF
                           </a>
+                        )}
+
+                        {/* Print Button - Send to Print Queue */}
+                        {order.paymentStatus === 'completed' && ((order.fileURLs && order.fileURLs.length > 0) || order.fileURL) && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              setPrintingOrders(prev => new Set(prev).add(order._id));
+                              try {
+                                const response = await fetch('/api/printer', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ orderId: order.orderId, printerIndex: 1 }),
+                                });
+                                const data = await response.json();
+                                if (data.success) {
+                                  showSuccess(`Order #${order.orderId} sent to print queue!`);
+                                  // Update order status to printing
+                                  await updateOrderStatus(order._id, 'printing');
+                                } else {
+                                  showError(`Failed to send to print queue: ${data.error || 'Unknown error'}`);
+                                }
+                              } catch (error) {
+                                console.error('Error sending to print queue:', error);
+                                showError('Failed to send order to print queue');
+                              } finally {
+                                setPrintingOrders(prev => {
+                                  const next = new Set(prev);
+                                  next.delete(order._id);
+                                  return next;
+                                });
+                              }
+                            }}
+                            disabled={printingOrders.has(order._id)}
+                            className="block w-full bg-indigo-600 text-white text-center px-3 py-1 rounded text-xs hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+                            title="Send to Print Queue"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                            </svg>
+                            {printingOrders.has(order._id) ? 'Sending...' : 'Print'}
+                          </button>
                         )}
                       </div>
                     </td>
