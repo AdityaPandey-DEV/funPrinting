@@ -249,12 +249,13 @@ export const handlePaymentSuccess = async (paymentResponse: any, orderId: string
         retryCount++;
         
         if (retryCount < maxRetries) {
-          // Enhanced backoff for iPhone Safari
+          // Enhanced backoff for iPhone Safari and slow networks
+          // Longer delays to accommodate slow network conditions
           const delay = isIphone ? 
-            Math.pow(2, retryCount) * 2000 : // Longer delays for iPhone
-            Math.pow(2, retryCount) * 1000;  // Standard delays
+            Math.pow(2, retryCount) * 3000 : // Longer delays for iPhone (3s, 6s, 12s, 24s, 48s)
+            Math.pow(2, retryCount) * 2000;  // Extended delays for all (2s, 4s, 8s, 16s)
           
-          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          console.log(`⏳ Waiting ${delay}ms before retry... (attempt ${retryCount + 1}/${maxRetries})`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
@@ -304,8 +305,8 @@ export const checkPendingPaymentVerification = async () => {
     
     const { orderId, paymentResponse, timestamp, isIphoneSafari: wasIphoneSafari } = JSON.parse(storedData);
     
-    // Check if data is not too old (extended time for iPhone Safari)
-    const maxAge = wasIphoneSafari ? 10 * 60 * 1000 : 5 * 60 * 1000; // 10 minutes for iPhone, 5 for others
+    // Check if data is not too old (extended time for iPhone Safari and slow networks)
+    const maxAge = wasIphoneSafari ? 15 * 60 * 1000 : 10 * 60 * 1000; // 15 minutes for iPhone, 10 for others
     if (Date.now() - timestamp > maxAge) {
       localStorage.removeItem('pending_payment_verification');
       return null;
@@ -333,4 +334,105 @@ export const checkPendingPaymentVerification = async () => {
     console.error('Error checking pending payment verification:', error);
     return null;
   }
+};
+
+// Client-side payment status polling mechanism
+// Polls every 30 seconds for up to 10 minutes to check payment status
+export const startPaymentStatusPolling = (
+  razorpayOrderId: string,
+  orderId: string,
+  onSuccess?: (data: any) => void,
+  onFailure?: (error: string) => void,
+  onTimeout?: () => void
+): (() => void) => {
+  if (typeof window === 'undefined') {
+    return () => {}; // Return no-op cleanup function for SSR
+  }
+
+  const POLLING_INTERVAL = 30 * 1000; // 30 seconds
+  const MAX_POLLING_DURATION = 10 * 60 * 1000; // 10 minutes
+  const MAX_POLLS = Math.floor(MAX_POLLING_DURATION / POLLING_INTERVAL); // 20 polls
+
+  let pollCount = 0;
+  let isPolling = true;
+  const startTime = Date.now();
+
+  console.log(`🔄 Starting payment status polling for order ${orderId} (Razorpay: ${razorpayOrderId})`);
+
+  const poll = async () => {
+    if (!isPolling) return;
+
+    // Check if we've exceeded max polling duration
+    const elapsed = Date.now() - startTime;
+    if (elapsed >= MAX_POLLING_DURATION || pollCount >= MAX_POLLS) {
+      console.log(`⏱️ Payment status polling timeout for order ${orderId}`);
+      isPolling = false;
+      if (onTimeout) {
+        onTimeout();
+      }
+      return;
+    }
+
+    pollCount++;
+    console.log(`🔍 Polling payment status (attempt ${pollCount}/${MAX_POLLS}) for order ${orderId}`);
+
+    try {
+      const response = await fetch('/api/payment/check-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          razorpay_order_id: razorpayOrderId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.payment_status === 'completed') {
+        console.log(`✅ Payment completed detected via polling for order ${orderId}`);
+        isPolling = false;
+        if (onSuccess) {
+          onSuccess(data);
+        }
+        return;
+      } else if (data.payment_status === 'failed') {
+        console.log(`❌ Payment failed detected via polling for order ${orderId}`);
+        isPolling = false;
+        if (onFailure) {
+          onFailure(data.message || 'Payment failed');
+        }
+        return;
+      }
+
+      // Payment still pending, schedule next poll
+      if (isPolling) {
+        setTimeout(poll, POLLING_INTERVAL);
+      }
+    } catch (error) {
+      console.error(`❌ Error polling payment status for order ${orderId}:`, error);
+      // Continue polling even on error (network issues might be temporary)
+      if (isPolling && pollCount < MAX_POLLS) {
+        setTimeout(poll, POLLING_INTERVAL);
+      } else {
+        isPolling = false;
+        if (onTimeout) {
+          onTimeout();
+        }
+      }
+    }
+  };
+
+  // Start polling after initial delay (give verification handler time to work first)
+  setTimeout(poll, POLLING_INTERVAL);
+
+  // Return cleanup function to stop polling
+  return () => {
+    console.log(`🛑 Stopping payment status polling for order ${orderId}`);
+    isPolling = false;
+  };
 };

@@ -248,9 +248,10 @@ async function updateOrderStatus(orderId: string, paymentId: string, amount: num
 }
 
 // Main function to check and update pending orders
-export async function checkPendingOrdersFromRazorpay(): Promise<void> {
+// minAgeMinutes: Only check orders older than this many minutes (default: 5)
+export async function checkPendingOrdersFromRazorpay(minAgeMinutes: number = 5): Promise<void> {
   try {
-    console.log('🔄 Starting Razorpay fallback check for pending orders...');
+    console.log(`🔄 Starting Razorpay reconciliation check for pending orders (min age: ${minAgeMinutes} minutes)...`);
     
     if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
       console.error('❌ Razorpay credentials not configured');
@@ -259,14 +260,18 @@ export async function checkPendingOrdersFromRazorpay(): Promise<void> {
 
     await connectDB();
     
-    // Find all pending payment orders
+    // Find pending payment orders older than minAgeMinutes
+    const minAgeMs = minAgeMinutes * 60 * 1000;
+    const minAgeDate = new Date(Date.now() - minAgeMs);
+    
     const pendingOrders = await Order.find({
       paymentStatus: 'pending',
       status: 'pending_payment',
-      razorpayOrderId: { $exists: true, $ne: null }
-    });
+      razorpayOrderId: { $exists: true, $ne: null },
+      createdAt: { $lt: minAgeDate } // Only check orders older than minAgeMinutes
+    }).sort({ createdAt: 1 }); // Process oldest first
 
-    console.log(`📋 Found ${pendingOrders.length} pending orders to check`);
+    console.log(`📋 Found ${pendingOrders.length} pending orders older than ${minAgeMinutes} minutes to check`);
 
     let updatedCount = 0;
 

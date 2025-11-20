@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
-import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure } from '@/lib/paymentUtils';
+import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure, startPaymentStatusPolling } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 
 interface FilePrintingOptions {
@@ -579,6 +579,38 @@ export default function OrderPage() {
   
   // Payment state
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentVerificationStatus, setPaymentVerificationStatus] = useState<{
+    verifying: boolean;
+    orderId: string | null;
+    razorpayOrderId: string | null;
+    startTime: number | null;
+    polling: boolean;
+  }>({
+    verifying: false,
+    orderId: null,
+    razorpayOrderId: null,
+    startTime: null,
+    polling: false,
+  });
+  const [uploadProgress, setUploadProgress] = useState<{
+    uploading: boolean;
+    currentFile: number;
+    totalFiles: number;
+    fileName: string;
+    progress: number;
+    startTime: number | null;
+    estimatedTimeRemaining: number | null;
+    isSlowNetwork: boolean;
+  }>({
+    uploading: false,
+    currentFile: 0,
+    totalFiles: 0,
+    fileName: '',
+    progress: 0,
+    startTime: null,
+    estimatedTimeRemaining: null,
+    isSlowNetwork: false,
+  });
   
   // Pickup locations
   const [defaultPickupLocation, setDefaultPickupLocation] = useState<{
@@ -1001,50 +1033,126 @@ export default function OrderPage() {
       const fileTypes: string[] = [];
       if (selectedFiles.length > 0 && orderType === 'file') {
         try {
-          // Upload all files
-          for (const file of selectedFiles) {
-          const uploadFormData = new FormData();
-            uploadFormData.append('file', file);
-          
-          const uploadResponse = await fetch('/api/upload-file', {
-            method: 'POST',
-            body: uploadFormData,
+          // Initialize upload progress
+          setUploadProgress({
+            uploading: true,
+            currentFile: 0,
+            totalFiles: selectedFiles.length,
+            fileName: '',
+            progress: 0,
+            startTime: Date.now(),
+            estimatedTimeRemaining: null,
+            isSlowNetwork: false,
           });
-          
-          // Check if response is ok before trying to parse JSON
-          if (!uploadResponse.ok) {
-            let errorMessage = 'Upload failed';
-            try {
-              const errorData = await uploadResponse.json();
-              errorMessage = errorData.error || errorMessage;
-            } catch (parseError) {
-              // If we can't parse JSON, it might be an HTML error page from Vercel
-              if (uploadResponse.status === 413) {
-                errorMessage = 'File size too large. Please try a smaller file.';
-              } else if (uploadResponse.status >= 500) {
-                errorMessage = 'Server error. Please try again later.';
-              } else {
-                errorMessage = `Upload failed with status ${uploadResponse.status}`;
+
+          // Upload all files with progress tracking
+          for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            const fileStartTime = Date.now();
+            
+            setUploadProgress(prev => ({
+              ...prev,
+              currentFile: i + 1,
+              fileName: file.name,
+              progress: 0,
+              startTime: fileStartTime,
+              estimatedTimeRemaining: null,
+            }));
+
+            const uploadFormData = new FormData();
+            uploadFormData.append('file', file);
+            
+            // Track upload time for slow network detection
+            const uploadTimeout = setTimeout(() => {
+              setUploadProgress(prev => ({
+                ...prev,
+                isSlowNetwork: true,
+              }));
+            }, 30000); // Warn if upload takes > 30 seconds
+            
+            const uploadResponse = await fetch('/api/upload-file', {
+              method: 'POST',
+              body: uploadFormData,
+            });
+
+            clearTimeout(uploadTimeout);
+            
+            const uploadDuration = Date.now() - fileStartTime;
+            const fileSizeMB = file.size / (1024 * 1024);
+            const uploadSpeedMBps = fileSizeMB / (uploadDuration / 1000);
+            
+            // Detect slow network (< 1 MB/s is considered slow)
+            const isSlowNetwork = uploadSpeedMBps < 1 && fileSizeMB > 1;
+            
+            setUploadProgress(prev => ({
+              ...prev,
+              progress: 100,
+              isSlowNetwork: prev.isSlowNetwork || isSlowNetwork,
+            }));
+            
+            // Check if response is ok before trying to parse JSON
+            if (!uploadResponse.ok) {
+              let errorMessage = 'Upload failed';
+              try {
+                const errorData = await uploadResponse.json();
+                errorMessage = errorData.error || errorMessage;
+              } catch (parseError) {
+                // If we can't parse JSON, it might be an HTML error page from Vercel
+                if (uploadResponse.status === 413) {
+                  errorMessage = 'File size too large. Please try a smaller file.';
+                } else if (uploadResponse.status >= 500) {
+                  errorMessage = 'Server error. Please try again later.';
+                } else {
+                  errorMessage = `Upload failed with status ${uploadResponse.status}`;
+                }
               }
+              throw new Error(errorMessage);
             }
-            throw new Error(errorMessage);
+            
+            const uploadData = await uploadResponse.json();
+            
+            if (uploadData.success) {
+                fileURLs.push(uploadData.fileURL);
+                originalFileNames.push(uploadData.originalFileName);
+                fileTypes.push(file.type); // Collect file type (MIME type)
+                console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type} (${Math.round(uploadDuration / 1000)}s)`);
+                
+                // Update progress for next file
+                setUploadProgress(prev => ({
+                  ...prev,
+                  progress: 100,
+                  estimatedTimeRemaining: null,
+                }));
+            } else {
+              throw new Error(uploadData.error || 'Upload failed');
+            }
           }
           
-          const uploadData = await uploadResponse.json();
-          
-          if (uploadData.success) {
-              fileURLs.push(uploadData.fileURL);
-              originalFileNames.push(uploadData.originalFileName);
-              fileTypes.push(file.type); // Collect file type (MIME type)
-              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type}`);
-          } else {
-            throw new Error(uploadData.error || 'Upload failed');
-            }
-          }
+          // Clear upload progress
+          setUploadProgress({
+            uploading: false,
+            currentFile: 0,
+            totalFiles: 0,
+            fileName: '',
+            progress: 0,
+            startTime: null,
+            estimatedTimeRemaining: null,
+            isSlowNetwork: false,
+          });
         } catch (error) {
           console.error('Error uploading files:', error);
           const errorMessage = error instanceof Error ? error.message : 'Failed to upload files. Please try again.';
           alert(`Upload Error: ${errorMessage}`);
+          setUploadProgress({
+            uploading: false,
+            currentFile: 0,
+            totalFiles: 0,
+            fileName: '',
+            progress: 0,
+            startTime: null,
+            estimatedTimeRemaining: null,
+            isSlowNetwork: false,
+          });
           setIsProcessingPayment(false);
           return;
         }
@@ -1111,22 +1219,89 @@ export default function OrderPage() {
             try {
               console.log('💳 Payment response received:', response);
               
+              // Set verification status
+              setPaymentVerificationStatus({
+                verifying: true,
+                orderId: data.orderId,
+                razorpayOrderId: data.razorpayOrderId,
+                startTime: Date.now(),
+                polling: false,
+              });
+              
+              // Start polling for payment status as fallback
+              const stopPolling = startPaymentStatusPolling(
+                data.razorpayOrderId,
+                data.orderId,
+                (pollData) => {
+                  // Payment completed via polling
+                  console.log('✅ Payment verified via polling:', pollData);
+                  setPaymentVerificationStatus({
+                    verifying: false,
+                    orderId: null,
+                    razorpayOrderId: null,
+                    startTime: null,
+                    polling: false,
+                  });
+                  alert(`🎉 Payment successful! Your order #${data.orderId} has been placed.`);
+                  window.location.href = '/my-orders';
+                },
+                (error) => {
+                  // Payment failed
+                  console.error('❌ Payment failed via polling:', error);
+                  setPaymentVerificationStatus({
+                    verifying: false,
+                    orderId: null,
+                    razorpayOrderId: null,
+                    startTime: null,
+                    polling: false,
+                  });
+                  alert(`❌ Payment failed: ${error}`);
+                },
+                () => {
+                  // Polling timeout - keep verification status active for manual check
+                  console.log('⏱️ Payment status polling timeout');
+                  setPaymentVerificationStatus(prev => ({
+                    ...prev,
+                    polling: true, // Mark as polling timeout, show manual check button
+                  }));
+                }
+              );
+              
               // Use the new payment success handler with iPhone Safari recovery
               const result = await handlePaymentSuccess(response, data.orderId);
               
+              // Stop polling if verification succeeds
+              stopPolling();
+              
               if (result.success) {
                 console.log('✅ Payment verified successfully:', result.data);
+                setPaymentVerificationStatus({
+                  verifying: false,
+                  orderId: null,
+                  razorpayOrderId: null,
+                  startTime: null,
+                  polling: false,
+                });
                 alert(`🎉 Payment successful! Your order #${result.data.order.orderId} has been placed.`);
                 // Redirect to my orders page
                 window.location.href = '/my-orders';
               } else {
                 console.error('❌ Payment verification failed:', result.error);
-                alert(`❌ Payment verification failed: ${result.error || 'Unknown error'}`);
+                // Keep verification status active for polling/manual check
+                setPaymentVerificationStatus(prev => ({
+                  ...prev,
+                  polling: true, // Allow manual check
+                }));
+                alert(`⚠️ Payment verification is taking longer than expected. Please wait or check your order status.`);
               }
             } catch (error) {
               console.error('❌ Error in payment handler:', error);
               const failureResult = handlePaymentFailure(error, data.orderId);
-              alert(`❌ Payment failed: ${failureResult.error}`);
+              setPaymentVerificationStatus(prev => ({
+                ...prev,
+                polling: true, // Allow manual check on error
+              }));
+              alert(`⚠️ Payment verification encountered an issue. Please check your order status.`);
             }
           },
           modal: {
@@ -2824,14 +2999,116 @@ export default function OrderPage() {
                 {/* Payment Button */}
                   <button
                     onClick={handlePayment}
-                  disabled={isProcessingPayment || !isRazorpayLoaded || !isAuthenticated || selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))}
+                  disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || !isAuthenticated || selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))}
                   className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {!isAuthenticated ? '🔒 Sign In to Place Order' :
                    !isRazorpayLoaded ? '⏳ Loading...' : 
+                     uploadProgress.uploading ? `📤 Uploading... (${uploadProgress.currentFile}/${uploadProgress.totalFiles})` :
                      isProcessingPayment ? '🔄 Processing...' : 
                    `💳 Pay ₹${amount.toFixed(2)}`}
                   </button>
+
+                {/* Upload Progress Indicator */}
+                {uploadProgress.uploading && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-900">
+                        📤 Uploading {uploadProgress.currentFile} of {uploadProgress.totalFiles} file(s)
+                      </span>
+                      <span className="text-sm text-blue-700">
+                        {uploadProgress.fileName ? uploadProgress.fileName.substring(0, 30) + (uploadProgress.fileName.length > 30 ? '...' : '') : ''}
+                      </span>
+                    </div>
+                    <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${((uploadProgress.currentFile - 1) * 100 + uploadProgress.progress) / uploadProgress.totalFiles}%` }}
+                      ></div>
+                    </div>
+                    {uploadProgress.isSlowNetwork && (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        ⚠️ Slow network detected. Upload is taking longer than expected. Please wait...
+                      </div>
+                    )}
+                    {uploadProgress.startTime && uploadProgress.progress > 0 && uploadProgress.progress < 100 && (
+                      <div className="text-xs text-blue-600 mt-1">
+                        Upload in progress... This may take a while on slow connections.
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Payment Verification Status */}
+                {paymentVerificationStatus.verifying && (
+                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        <span className="text-sm font-medium text-blue-900">
+                          Verifying payment...
+                        </span>
+                      </div>
+                      {paymentVerificationStatus.startTime && (
+                        <span className="text-xs text-blue-600">
+                          {Math.floor((Date.now() - paymentVerificationStatus.startTime) / 1000)}s
+                        </span>
+                      )}
+                    </div>
+                    {paymentVerificationStatus.startTime && Date.now() - paymentVerificationStatus.startTime > 60000 && (
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                        ⚠️ Verification is taking longer than expected. Please wait...
+                      </div>
+                    )}
+                    {paymentVerificationStatus.polling && (
+                      <div className="mt-2">
+                        <button
+                          onClick={async () => {
+                            if (!paymentVerificationStatus.razorpayOrderId) return;
+                            try {
+                              const response = await fetch('/api/payment/check-status', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  razorpay_order_id: paymentVerificationStatus.razorpayOrderId,
+                                }),
+                              });
+                              const data = await response.json();
+                              if (data.success && data.payment_status === 'completed') {
+                                alert(`🎉 Payment successful! Your order #${data.order.orderId} has been placed.`);
+                                setPaymentVerificationStatus({
+                                  verifying: false,
+                                  orderId: null,
+                                  razorpayOrderId: null,
+                                  startTime: null,
+                                  polling: false,
+                                });
+                                window.location.href = '/my-orders';
+                              } else if (data.payment_status === 'failed') {
+                                alert(`❌ Payment failed: ${data.message}`);
+                                setPaymentVerificationStatus({
+                                  verifying: false,
+                                  orderId: null,
+                                  razorpayOrderId: null,
+                                  startTime: null,
+                                  polling: false,
+                                });
+                              } else {
+                                alert(`ℹ️ Payment status: ${data.message}`);
+                              }
+                            } catch (error) {
+                              console.error('Error checking payment status:', error);
+                              alert('Failed to check payment status. Please try again later.');
+                            }
+                          }}
+                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          🔍 Check Payment Status
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {!isAuthenticated && (
                   <div className="mt-4 text-center">

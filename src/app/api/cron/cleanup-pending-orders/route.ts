@@ -20,9 +20,10 @@ export async function GET(request: NextRequest) {
     await connectDB();
     
     // 🔄 FIRST: Check Razorpay for successful payments before cleanup
-    console.log('🔄 Checking Razorpay for successful payments...');
+    // Check all pending orders older than 5 minutes
+    console.log('🔄 Checking Razorpay for successful payments (checking orders > 5 minutes old)...');
     try {
-      await checkPendingOrdersFromRazorpay();
+      await checkPendingOrdersFromRazorpay(5);
       console.log('✅ Razorpay payment check completed');
     } catch (error) {
       console.error('❌ Error checking Razorpay payments:', error);

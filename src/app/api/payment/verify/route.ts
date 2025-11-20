@@ -18,6 +18,16 @@ export async function POST(request: NextRequest) {
     } = body;
 
     console.log('🔍 Payment verification started for order:', razorpay_order_id);
+    console.log(`📋 Payment details: order_id=${razorpay_order_id}, payment_id=${razorpay_payment_id}`);
+
+    // Validate required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      console.error('❌ Missing required payment verification fields');
+      return NextResponse.json(
+        { success: false, error: 'Missing required payment verification fields' },
+        { status: 400 }
+      );
+    }
 
     // Verify payment signature
     const isValid = verifyPayment(
@@ -27,9 +37,38 @@ export async function POST(request: NextRequest) {
     );
 
     if (!isValid) {
-      console.error('❌ Invalid payment signature');
+      console.error('❌ Invalid payment signature - attempting fallback verification');
+      
+      // Fallback: Check payment status from Razorpay API if signature verification fails
+      // This handles cases where signature might be corrupted during transmission
+      try {
+        const { checkSpecificOrderFromRazorpay } = await import('@/lib/razorpayFallback');
+        const fallbackResult = await checkSpecificOrderFromRazorpay(razorpay_order_id);
+        
+        if (fallbackResult) {
+          console.log('✅ Payment verified via fallback API check');
+          // Fetch updated order
+          const updatedOrder = await Order.findOne({ razorpayOrderId: razorpay_order_id });
+          if (updatedOrder && updatedOrder.paymentStatus === 'completed') {
+            return NextResponse.json({
+              success: true,
+              message: 'Payment verified via fallback check',
+              order: {
+                orderId: updatedOrder.orderId,
+                amount: updatedOrder.amount,
+                paymentStatus: updatedOrder.paymentStatus,
+                orderStatus: updatedOrder.orderStatus,
+                createdAt: updatedOrder.createdAt,
+              }
+            });
+          }
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback verification also failed:', fallbackError);
+      }
+      
       return NextResponse.json(
-        { success: false, error: 'Invalid payment signature' },
+        { success: false, error: 'Invalid payment signature. Please contact support if payment was deducted.' },
         { status: 400 }
       );
     }
@@ -295,10 +334,44 @@ export async function POST(request: NextRequest) {
       invoiceSent: true,
     });
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    console.error('❌ Error verifying payment:', error);
+    
+    // Enhanced error handling with specific error messages
+    let errorMessage = 'Failed to verify payment and create order';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      // Network/timeout errors
+      if (error.message.includes('timeout') || error.message.includes('ETIMEDOUT') || error.message.includes('ECONNRESET')) {
+        errorMessage = 'Payment verification timed out. Your payment may still be processing. Please check your order status in a few minutes or contact support.';
+        statusCode = 504;
+      } 
+      // Database errors
+      else if (error.message.includes('E11000') || error.message.includes('duplicate')) {
+        errorMessage = 'Order already processed. Please check your order status.';
+        statusCode = 409;
+      }
+      // Validation errors
+      else if (error.message.includes('validation') || error.message.includes('required')) {
+        errorMessage = 'Invalid payment data provided.';
+        statusCode = 400;
+      }
+      // Connection errors
+      else if (error.message.includes('ECONNREFUSED') || error.message.includes('ENOTFOUND')) {
+        errorMessage = 'Unable to connect to payment service. Please try again later.';
+        statusCode = 503;
+      }
+      
+      console.error(`❌ Payment verification error details: ${error.message}`);
+    }
+    
+    // Attempt fallback verification for timeout/network errors
+    // Note: We can't re-read request body here, so fallback is handled at client side
+    // The payment status check API should be called by the client as fallback
+    
     return NextResponse.json(
-      { success: false, error: 'Failed to verify payment and create order' },
-      { status: 500 }
+      { success: false, error: errorMessage },
+      { status: statusCode }
     );
   }
 }

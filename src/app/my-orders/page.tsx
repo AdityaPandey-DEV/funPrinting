@@ -214,14 +214,16 @@ export default function MyOrdersPage() {
           const razorpay = openRazorpay(options);
           razorpay.open();
           
-          // Add timeout to detect stuck payments
+          // Add timeout to detect stuck payments (extended for slow networks)
+          // Default: 10 minutes, can be up to 15 minutes for very slow connections
+          const timeoutDuration = 600000; // 10 minutes (600 seconds)
           setTimeout(() => {
             if (processingPayment === order.orderId) {
               console.log('⚠️ Payment timeout detected for order:', order.orderId);
-              alert('⚠️ Payment is taking longer than expected. Please check your payment status or try again.');
+              alert('⚠️ Payment is taking longer than expected. The payment may still be processing. Please check your payment status in a few minutes.');
               setProcessingPayment(null);
             }
-          }, 300000); // 5 minutes timeout
+          }, timeoutDuration);
           
         } catch (razorpayError) {
           logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
@@ -476,6 +478,37 @@ export default function MyOrdersPage() {
                           >
                             {processingPayment === order._id ? 'Processing...' : '💳 Complete Payment'}
                           </button>
+                          {order.razorpayOrderId && (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const response = await fetch('/api/payment/check-status', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      razorpay_order_id: order.razorpayOrderId,
+                                    }),
+                                  });
+                                  const data = await response.json();
+                                  if (data.success && data.payment_status === 'completed') {
+                                    alert(`✅ Payment successful! Your order #${data.order.orderId} has been confirmed.`);
+                                    // Reload orders to show updated status
+                                    window.location.reload();
+                                  } else if (data.payment_status === 'failed') {
+                                    alert(`❌ Payment failed: ${data.message}`);
+                                  } else {
+                                    alert(`ℹ️ Payment status: ${data.message}`);
+                                  }
+                                } catch (error) {
+                                  console.error('Error checking payment status:', error);
+                                  alert('Failed to check payment status. Please try again later.');
+                                }
+                              }}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                            >
+                              🔍 Check Payment Status
+                            </button>
+                          )}
                           <button
                             onClick={() => handleDeleteOrder(order)}
                             disabled={deletingOrder === order._id}

@@ -102,25 +102,39 @@ export async function POST(request: NextRequest) {
     }
 
     const event = JSON.parse(body);
+    const receivedAt = Date.now();
+    const eventTimestamp = event.created_at ? event.created_at * 1000 : receivedAt; // Convert seconds to milliseconds
+    
+    // Calculate webhook delay (if event is old, it might be a replay)
+    const delay = receivedAt - eventTimestamp;
+    const isDelayed = delay > 5 * 60 * 1000; // More than 5 minutes old
+    
     console.log('🔔 Razorpay webhook received:', event.event);
+    console.log(`📅 Event timestamp: ${new Date(eventTimestamp).toISOString()}`);
+    console.log(`⏱️ Webhook delay: ${Math.round(delay / 1000)}s${isDelayed ? ' (DELAYED - possible replay)' : ''}`);
 
     // Check for duplicate events (idempotency protection)
     const eventId = event.payload?.payment?.entity?.id || event.payload?.order?.entity?.id;
     if (eventId && processedEvents.has(eventId)) {
-      console.log(`ℹ️ Duplicate webhook event ignored: ${eventId}`);
+      const processedAt = processedEvents.get(eventId)!;
+      const timeSinceProcessed = receivedAt - processedAt;
+      console.log(`ℹ️ Duplicate webhook event ignored: ${eventId} (processed ${Math.round(timeSinceProcessed / 1000)}s ago)`);
       return NextResponse.json({ success: true, message: 'Duplicate event ignored' });
     }
 
-    // Mark event as processed
+    // Mark event as processed (even if we haven't processed it yet, to prevent race conditions)
+    // We'll remove it if processing fails
     if (eventId) {
-      processedEvents.set(eventId, Date.now());
+      processedEvents.set(eventId, receivedAt);
     }
 
     await connectDB();
 
+    let processingSuccess = true;
+    
     switch (event.event) {
       case 'payment.captured':
-        await handlePaymentCaptured(event.payload.payment.entity);
+        processingSuccess = await handlePaymentCaptured(event.payload.payment.entity);
         break;
       
       case 'payment.failed':
@@ -134,8 +148,19 @@ export async function POST(request: NextRequest) {
       default:
         console.log(`ℹ️ Unhandled webhook event: ${event.event}`);
     }
-
-    return NextResponse.json({ success: true });
+    
+    // If processing failed, remove from processed events so it can be retried
+    if (!processingSuccess && eventId) {
+      console.warn(`⚠️ Webhook processing failed for ${eventId}, removing from processed events for retry`);
+      processedEvents.delete(eventId);
+    }
+    
+    // Always return success to Razorpay to prevent retries from their side
+    // We handle retries internally
+    return NextResponse.json({ 
+      success: true, 
+      message: processingSuccess ? 'Webhook processed successfully' : 'Webhook processing failed but will retry'
+    });
   } catch (error) {
     console.error('❌ Webhook processing error:', error);
     return NextResponse.json(
@@ -145,23 +170,36 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handlePaymentCaptured(payment: any) {
+async function handlePaymentCaptured(payment: any, retryCount: number = 0): Promise<boolean> {
+  const MAX_RETRIES = 3;
+  
   try {
-    console.log('💰 Payment captured:', payment.id);
+    console.log(`💰 Payment captured: ${payment.id}${retryCount > 0 ? ` (retry ${retryCount}/${MAX_RETRIES})` : ''}`);
+    console.log(`📋 Payment details: order_id=${payment.order_id}, amount=${payment.amount}, status=${payment.status}, captured=${payment.captured}`);
     
     // Find the order by Razorpay order ID
     const order = await Order.findOne({ razorpayOrderId: payment.order_id });
     
     if (!order) {
       console.error('❌ Order not found for payment:', payment.order_id);
-      return;
+      // Don't retry if order doesn't exist - this is a permanent failure
+      return false;
     }
 
     // Check if order is already processed (race condition protection)
     if (order.paymentStatus === 'completed' && order.razorpayPaymentId === payment.id) {
       console.log(`ℹ️ Order ${order.orderId} already processed for payment ${payment.id}`);
-      return;
+      return true; // Success (already processed)
     }
+    
+    // If order is already completed with a different payment ID, log warning
+    if (order.paymentStatus === 'completed' && order.razorpayPaymentId !== payment.id) {
+      console.warn(`⚠️ Order ${order.orderId} already completed with different payment: ${order.razorpayPaymentId} (new: ${payment.id})`);
+      return true; // Consider this success to avoid duplicate processing
+    }
+
+    // If order update result is null, it means order was already processed
+    // This is handled below after the update attempt
 
     // Validate payment amount matches order amount
     const expectedAmount = Math.round(order.amount * 100); // Convert to paise
@@ -190,7 +228,7 @@ async function handlePaymentCaptured(payment: any) {
 
     if (!updateResult) {
       console.log(`ℹ️ Order ${order.orderId} already processed or not found`);
-      return;
+      return true; // Consider this success (already processed)
     }
 
     console.log(`✅ Order ${order.orderId} marked as paid`);
@@ -225,7 +263,7 @@ async function handlePaymentCaptured(payment: any) {
         const existingPrintJob = await PrintJob.findOne({ orderId: order._id.toString() });
         if (existingPrintJob) {
           console.log(`ℹ️ Print job already exists for order ${order.orderId}`);
-          return;
+          return true; // Success (print job already exists)
         }
 
         console.log('🖨️ Creating print job for order:', order.orderId);
@@ -261,9 +299,36 @@ async function handlePaymentCaptured(payment: any) {
       }
     }
 
+    return true; // Success
+    
   } catch (error) {
-    console.error('❌ Error handling payment captured:', error);
-    // Consider implementing retry logic or dead letter queue for failed webhook processing
+    console.error(`❌ Error handling payment captured (attempt ${retryCount + 1}):`, error);
+    
+    // Retry logic for transient errors
+    if (retryCount < MAX_RETRIES) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Only retry on transient errors (network, database connection, etc.)
+      const isTransientError = errorMessage.includes('ECONNRESET') ||
+                              errorMessage.includes('ETIMEDOUT') ||
+                              errorMessage.includes('ENOTFOUND') ||
+                              errorMessage.includes('connection') ||
+                              errorMessage.includes('timeout') ||
+                              errorMessage.includes('MongoError') ||
+                              errorMessage.includes('MongooseError');
+      
+      if (isTransientError) {
+        const retryDelay = Math.pow(2, retryCount) * 1000; // Exponential backoff: 1s, 2s, 4s
+        console.log(`🔄 Retrying payment captured handler in ${retryDelay}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+        return await handlePaymentCaptured(payment, retryCount + 1);
+      }
+    }
+    
+    // If we exhausted retries or it's a permanent error, log and return false
+    console.error(`❌ Failed to handle payment captured after ${retryCount + 1} attempts`);
+    return false; // Failure
   }
 }
 
