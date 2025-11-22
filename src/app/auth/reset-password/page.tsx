@@ -100,10 +100,10 @@ function ResetPasswordContent() {
 
   if (tokenError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full">
           <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-red-600 to-pink-600 p-8 text-center text-white">
+            <div className="bg-gradient-to-r from-gray-900 to-black p-8 text-center text-white">
               <div className="text-5xl mb-4">⚠️</div>
               <h1 className="text-3xl font-bold mb-2">Invalid Reset Link</h1>
             </div>
@@ -113,7 +113,7 @@ function ResetPasswordContent() {
               </div>
               <Link
                 href="/auth/forgot-password"
-                className="block w-full text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+                className="block w-full text-center bg-black text-white font-semibold py-4 px-6 rounded-lg hover:bg-gray-800 transition-all shadow-lg"
               >
                 Request New Reset Link
               </Link>
@@ -125,14 +125,14 @@ function ResetPasswordContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-center text-white">
+          <div className="bg-gradient-to-r from-gray-900 to-black p-8 text-center text-white">
             <div className="text-5xl mb-4">🔐</div>
             <h1 className="text-3xl font-bold mb-2">Reset Your Password</h1>
-            <p className="text-blue-100 text-lg">Enter your new password below</p>
+            <p className="text-gray-300 text-lg">Enter your new password below</p>
           </div>
 
           {/* Form Content */}
@@ -156,7 +156,7 @@ function ResetPasswordContent() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                   placeholder="Enter your new password"
                 />
               </div>
@@ -173,7 +173,7 @@ function ResetPasswordContent() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${
+                  className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all ${
                     confirmPassword && !passwordsMatch ? 'border-red-300' : 'border-gray-300'
                   }`}
                   placeholder="Confirm your new password"
@@ -215,7 +215,7 @@ function ResetPasswordContent() {
                 <button
                   type="submit"
                   disabled={isLoading || !isPasswordValid() || !token}
-                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                  className="w-full bg-black text-white font-semibold py-4 px-6 rounded-lg hover:bg-gray-800 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                 >
                   {isLoading ? (
                     <span className="flex items-center justify-center">
@@ -241,7 +241,7 @@ function ResetPasswordContent() {
 
         {/* Footer Link */}
         <div className="text-center">
-          <Link href="/auth/signin" className="text-sm text-gray-600 hover:text-purple-600 transition-colors">
+          <Link href="/auth/signin" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Back to sign in →
           </Link>
         </div>
@@ -255,7 +255,7 @@ export default function ResetPasswordPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>

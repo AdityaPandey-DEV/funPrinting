@@ -55,14 +55,14 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-center text-white">
+          <div className="bg-gradient-to-r from-gray-900 to-black p-8 text-center text-white">
             <div className="text-5xl mb-4">🔑</div>
             <h1 className="text-3xl font-bold mb-2">Forgot Password?</h1>
-            <p className="text-blue-100 text-lg">No worries, we&apos;ll help you reset it</p>
+            <p className="text-gray-300 text-lg">No worries, we&apos;ll help you reset it</p>
           </div>
 
           {/* Form Content */}
@@ -105,7 +105,7 @@ export default function ForgotPasswordPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                       placeholder="Enter your email"
                     />
                   </div>
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                      className="w-full bg-black text-white font-semibold py-4 px-6 rounded-lg hover:bg-gray-800 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                     >
                       {isLoading ? (
                         <span className="flex items-center justify-center">
@@ -146,7 +146,7 @@ export default function ForgotPasswordPage() {
 
         {/* Footer Links */}
         <div className="text-center space-y-2">
-          <Link href="/auth/signin" className="block text-sm text-gray-600 hover:text-purple-600 transition-colors">
+          <Link href="/auth/signin" className="block text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Back to sign in →
           </Link>
           {success && (

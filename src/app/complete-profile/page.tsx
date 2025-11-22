@@ -182,9 +182,9 @@ export default function CompleteProfilePage() {
 
   if (!isAuthenticated || isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
@@ -192,15 +192,15 @@ export default function CompleteProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
         {/* Progress Indicator */}
         <div className="mb-8">
           <div className="flex items-center justify-center space-x-2">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">
+            <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center text-white font-bold text-lg shadow-lg">
               1
             </div>
-            <div className="w-24 h-1 bg-gradient-to-r from-blue-500 to-purple-600 rounded"></div>
+            <div className="w-24 h-1 bg-gray-900 rounded"></div>
             <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold text-lg">
               2
             </div>
@@ -211,10 +211,10 @@ export default function CompleteProfilePage() {
         {/* Main Card */}
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           {/* Header with Gradient */}
-          <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 p-8 text-center text-white">
+          <div className="bg-gradient-to-r from-gray-900 to-black p-8 text-center text-white">
             <div className="text-6xl mb-4">🎉</div>
             <h1 className="text-3xl font-bold mb-2">Welcome, {user?.name || 'there'}!</h1>
-            <p className="text-blue-100 text-lg">Complete your profile to get started with printing</p>
+            <p className="text-gray-300 text-lg">Complete your profile to get started with printing</p>
           </div>
 
           {/* Form Content */}
@@ -236,7 +236,7 @@ export default function CompleteProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                    className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white hover:bg-gray-50 flex items-center gap-2 min-w-[140px]"
+                    className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all bg-white hover:bg-gray-50 flex items-center gap-2 min-w-[140px]"
                   >
                     <span className="text-xl">{selectedCountryCode.flag}</span>
                     <span className="text-sm font-medium">{selectedCountryCode.dialCode}</span>
@@ -258,8 +258,8 @@ export default function CompleteProfilePage() {
                               setSelectedCountryCode(country);
                               setShowCountryDropdown(false);
                             }}
-                            className={`w-full px-4 py-2 text-left hover:bg-purple-50 flex items-center gap-3 ${
-                              selectedCountryCode.code === country.code ? 'bg-purple-50' : ''
+                            className={`w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 ${
+                              selectedCountryCode.code === country.code ? 'bg-gray-50' : ''
                             }`}
                           >
                             <span className="text-xl">{country.flag}</span>
@@ -282,7 +282,7 @@ export default function CompleteProfilePage() {
                   }}
                   placeholder="Enter phone number"
                   maxLength={15}
-                  className={`flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${
+                  className={`flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all ${
                     phoneNumber && !phoneValidation.valid ? 'border-red-300' : 'border-gray-300'
                   }`}
                 />
@@ -313,8 +313,8 @@ export default function CompleteProfilePage() {
                       key={location._id}
                       className={`flex items-start p-4 rounded-lg border-2 cursor-pointer transition-all ${
                         selectedLocationId === location._id
-                          ? 'border-purple-500 bg-purple-50 shadow-md'
-                          : 'border-gray-200 hover:border-purple-300 hover:bg-gray-50'
+                          ? 'border-gray-900 bg-gray-50 shadow-md'
+                          : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'
                       }`}
                     >
                       <input
@@ -323,7 +323,7 @@ export default function CompleteProfilePage() {
                         value={location._id}
                         checked={selectedLocationId === location._id}
                         onChange={(e) => setSelectedLocationId(e.target.value)}
-                        className="mt-1 mr-3 text-purple-600 focus:ring-purple-500"
+                        className="mt-1 mr-3 text-gray-900 focus:ring-gray-900"
                       />
                       <div className="flex-1">
                         <div className="font-semibold text-gray-900">{location.name}</div>
@@ -355,7 +355,7 @@ export default function CompleteProfilePage() {
               <button
                 onClick={() => handleSave(false)}
                 disabled={isSaving || !phoneValidation.valid || !phone || !selectedLocationId}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                className="flex-1 bg-black text-white font-semibold py-4 px-6 rounded-lg hover:bg-gray-800 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
               >
                 {isSaving ? (
                   <span className="flex items-center justify-center">
@@ -394,7 +394,7 @@ export default function CompleteProfilePage() {
 
         {/* Footer Link */}
         <div className="text-center mt-6">
-          <Link href="/order" className="text-sm text-gray-600 hover:text-purple-600 transition-colors">
+          <Link href="/order" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
             Already have an account? Go to order page →
           </Link>
         </div>
