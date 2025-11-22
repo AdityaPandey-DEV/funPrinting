@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
+import { validatePhoneNumber, needsCountryCode } from '@/lib/phoneValidation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { phone } = body;
+    let { phone } = body;
 
     if (!phone || typeof phone !== 'string') {
       return NextResponse.json(
@@ -24,6 +25,26 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    phone = phone.trim();
+
+    // Handle legacy phone numbers (10-digit without country code)
+    // Auto-add India country code if it's a 10-digit number
+    if (needsCountryCode(phone)) {
+      phone = `+91${phone}`;
+    }
+
+    // Validate phone number format
+    const validation = validatePhoneNumber(phone);
+    if (!validation.valid) {
+      return NextResponse.json(
+        { success: false, error: validation.error || 'Invalid phone number format' },
+        { status: 400 }
+      );
+    }
+
+    // Use validated and formatted phone number
+    const formattedPhone = validation.formatted || phone;
 
     await connectDB();
 
@@ -36,8 +57,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update phone number
-    user.phone = phone.trim();
+    // Update phone number with validated format
+    user.phone = formattedPhone;
     await user.save();
 
     return NextResponse.json({

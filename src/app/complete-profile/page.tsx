@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
+import { countryCodes, defaultCountryCode, validatePhoneNumber, parsePhoneNumber, needsCountryCode } from '@/lib/phoneValidation';
 
 interface PickupLocation {
   _id: string;
@@ -24,6 +25,10 @@ export default function CompleteProfilePage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [phone, setPhone] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountryCode, setSelectedCountryCode] = useState(defaultCountryCode);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [phoneValidation, setPhoneValidation] = useState<{ valid: boolean; error?: string }>({ valid: true });
   const [selectedLocationId, setSelectedLocationId] = useState<string>('');
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,7 +55,26 @@ export default function CompleteProfilePage() {
         
         if (profileData.success && profileData.profile) {
           if (profileData.profile.phone) {
-            setPhone(profileData.profile.phone);
+            const existingPhone = profileData.profile.phone;
+            // Check if phone needs country code (legacy 10-digit)
+            if (needsCountryCode(existingPhone)) {
+              // Legacy number - set country code to default and number to existing
+              setPhoneNumber(existingPhone);
+              setPhone(`${selectedCountryCode.dialCode}${existingPhone}`);
+            } else if (existingPhone.startsWith('+')) {
+              // Already has country code - parse it
+              const parsed = parsePhoneNumber(existingPhone);
+              if (parsed) {
+                const country = countryCodes.find(c => c.dialCode === parsed.countryCode) || defaultCountryCode;
+                setSelectedCountryCode(country);
+                setPhoneNumber(parsed.number);
+                setPhone(existingPhone);
+              } else {
+                setPhone(existingPhone);
+              }
+            } else {
+              setPhone(existingPhone);
+            }
           }
           if (profileData.profile.defaultLocationId) {
             setSelectedLocationId(profileData.profile.defaultLocationId);
@@ -81,15 +105,38 @@ export default function CompleteProfilePage() {
     loadData();
   }, [isAuthenticated, selectedLocationId]);
 
-  const handleSave = async (skip: boolean = false) => {
-    if (!skip && (!phone || phone.length < 10)) {
-      setError('Please enter a valid phone number (at least 10 digits)');
-      return;
+  // Update phone when country code or number changes
+  useEffect(() => {
+    if (phoneNumber) {
+      const fullPhone = `${selectedCountryCode.dialCode}${phoneNumber}`;
+      setPhone(fullPhone);
+      const validation = validatePhoneNumber(fullPhone);
+      setPhoneValidation(validation);
+    } else {
+      setPhone('');
+      setPhoneValidation({ valid: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phoneNumber, selectedCountryCode.dialCode]);
 
-    if (!skip && !selectedLocationId) {
-      setError('Please select a pickup location');
-      return;
+  const handleSave = async (skip: boolean = false) => {
+    if (!skip) {
+      // Validate phone number
+      if (!phone || !phoneNumber) {
+        setError('Please enter a valid phone number with country code');
+        return;
+      }
+
+      const validation = validatePhoneNumber(phone);
+      if (!validation.valid) {
+        setError(validation.error || 'Please enter a valid phone number');
+        return;
+      }
+
+      if (!selectedLocationId) {
+        setError('Please select a pickup location');
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -97,15 +144,16 @@ export default function CompleteProfilePage() {
 
     try {
       // Save phone number if provided
-      if (phone && phone.length >= 10) {
+      if (phone && phoneValidation.valid) {
         const phoneResponse = await fetch('/api/user/update-phone', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone }),
         });
         
-        if (!phoneResponse.ok) {
-          throw new Error('Failed to save phone number');
+        const phoneData = await phoneResponse.json();
+        if (!phoneResponse.ok || !phoneData.success) {
+          throw new Error(phoneData.error || 'Failed to save phone number');
         }
       }
 
@@ -182,14 +230,72 @@ export default function CompleteProfilePage() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 📱 Phone Number <span className="text-red-500">*</span>
               </label>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                placeholder="Enter your 10-digit phone number"
-                maxLength={10}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-              />
+              <div className="flex gap-2">
+                {/* Country Code Selector */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                    className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-white hover:bg-gray-50 flex items-center gap-2 min-w-[140px]"
+                  >
+                    <span className="text-xl">{selectedCountryCode.flag}</span>
+                    <span className="text-sm font-medium">{selectedCountryCode.dialCode}</span>
+                    <span className="ml-auto">▼</span>
+                  </button>
+                  
+                  {showCountryDropdown && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowCountryDropdown(false)}
+                      ></div>
+                      <div className="absolute z-20 mt-1 bg-white border-2 border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto w-64">
+                        {countryCodes.map((country) => (
+                          <button
+                            key={country.code}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCountryCode(country);
+                              setShowCountryDropdown(false);
+                            }}
+                            className={`w-full px-4 py-2 text-left hover:bg-purple-50 flex items-center gap-3 ${
+                              selectedCountryCode.code === country.code ? 'bg-purple-50' : ''
+                            }`}
+                          >
+                            <span className="text-xl">{country.flag}</span>
+                            <span className="flex-1 text-sm font-medium">{country.country}</span>
+                            <span className="text-sm text-gray-600">{country.dialCode}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Phone Number Input */}
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => {
+                    const digitsOnly = e.target.value.replace(/\D/g, '');
+                    setPhoneNumber(digitsOnly);
+                  }}
+                  placeholder="Enter phone number"
+                  maxLength={15}
+                  className={`flex-1 px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all ${
+                    phoneNumber && !phoneValidation.valid ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+              </div>
+              
+              {phoneNumber && !phoneValidation.valid && (
+                <p className="text-red-600 text-sm mt-1">{phoneValidation.error}</p>
+              )}
+              
+              {phoneValidation.valid && phone && (
+                <p className="text-green-600 text-sm mt-1">✓ Valid phone number: {phone}</p>
+              )}
+              
               <p className="text-xs text-gray-500 mt-1">We&apos;ll use this to contact you about your orders</p>
             </div>
 
@@ -248,7 +354,7 @@ export default function CompleteProfilePage() {
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <button
                 onClick={() => handleSave(false)}
-                disabled={isSaving || !phone || phone.length < 10 || !selectedLocationId}
+                disabled={isSaving || !phoneValidation.valid || !phone || !selectedLocationId}
                 className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
               >
                 {isSaving ? (
