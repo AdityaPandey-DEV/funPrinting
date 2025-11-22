@@ -21,8 +21,19 @@ export default function CheckProfilePage() {
         const response = await fetch('/api/user/check-profile-complete');
         const data = await response.json();
         
-        if (data.success && !data.isComplete) {
-          router.push('/complete-profile');
+        if (data.success) {
+          // First check if user needs to set up password (Google OAuth users or users without password)
+          if (!data.hasPassword && (data.provider === 'google' || !data.provider)) {
+            router.push('/auth/setup-password');
+            return;
+          }
+          
+          // Then check if profile is complete
+          if (!data.isComplete) {
+            router.push('/complete-profile');
+          } else {
+            router.push('/my-orders');
+          }
         } else {
           router.push('/my-orders');
         }

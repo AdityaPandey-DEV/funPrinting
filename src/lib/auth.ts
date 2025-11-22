@@ -30,14 +30,17 @@ export const authOptions: NextAuthOptions = {
         try {
           await connectDB();
           
+          // Find user by email (can be email or google provider)
           const user = await User.findOne({ 
-            email: credentials.email.toLowerCase(),
-            provider: 'email'
+            email: credentials.email.toLowerCase()
           });
 
           if (!user || !user.password) {
             return null;
           }
+
+          // Allow login if user has password, regardless of provider
+          // This allows Google OAuth users who set up a password to login with email/password
 
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
           

@@ -33,6 +33,8 @@ export async function GET(_request: NextRequest) {
       isComplete,
       hasPhone: !!user.phone,
       hasDefaultLocation: !!user.defaultLocationId,
+      hasPassword: !!user.password,
+      provider: user.provider,
     });
   } catch (error) {
     console.error('Error checking profile completeness:', error);
