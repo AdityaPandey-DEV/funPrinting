@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Upload PDF to cloud storage
     let pdfUrl: string;
     try {
-      pdfUrl = await uploadToCloudinary(pdfBuffer, 'custom-documents');
+      pdfUrl = await uploadFile(pdfBuffer, 'custom-documents', 'application/pdf');
       console.log('✅ PDF uploaded to cloud storage:', pdfUrl);
     } catch (error) {
       console.error('❌ Error uploading PDF:', error);

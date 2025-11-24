@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import NewOrder from '@/models/NewOrder';
 import Order from '@/models/Order';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -30,9 +30,9 @@ export async function POST(request: NextRequest) {
 
     // Upload PDF to cloud storage
     const pdfBuffer = Buffer.from(await file.arrayBuffer());
-    const pdfUrl = await uploadToCloudinary(
+    const pdfUrl = await uploadFile(
       pdfBuffer,
-      `orders/${orderId}.pdf`,
+      `orders/${orderId}`,
       'application/pdf'
     );
 

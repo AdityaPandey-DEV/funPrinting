@@ -76,13 +76,13 @@ export async function POST(request: NextRequest) {
       console.log('  - deliveryOption:', JSON.stringify(deliveryOption, null, 2));
       console.log('  - expectedDate:', expectedDate);
 
-      // Upload file to Cloudinary if it's a file order
+      // Upload file to storage if it's a file order
       if (orderType === 'file' && file) {
         try {
-          const { uploadToCloudinary } = await import('@/lib/cloudinary');
+          const { uploadFile } = await import('@/lib/storage');
           const bytes = await file.arrayBuffer();
           const buffer = Buffer.from(bytes);
-          fileURL = await uploadToCloudinary(buffer, 'print-service', file.type);
+          fileURL = await uploadFile(buffer, 'print-service', file.type);
           console.log(`File uploaded successfully to: ${fileURL}`);
           
           // Store file type and original filename for later use

@@ -3,7 +3,7 @@ import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
 import { fillDocxTemplate, validateFormData } from '@/lib/docxProcessor';
 import { convertDocxToPdf } from '@/lib/cloudmersive';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -71,8 +71,8 @@ export async function POST(request: NextRequest) {
       console.log('🔄 Converting filled DOCX to PDF...');
       const pdfBuffer = await convertDocxToPdf(filledDocxBuffer);
       
-      // Upload PDF to Cloudinary
-      previewUrl = await uploadToCloudinary(
+      // Upload PDF to storage
+      previewUrl = await uploadFile(
         pdfBuffer, 
         'previews/pdf', 
         'application/pdf'
@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
       contentType = 'application/pdf';
       fileName = 'preview-document.pdf';
     } else {
-      // Upload filled DOCX to Cloudinary
-      previewUrl = await uploadToCloudinary(
+      // Upload filled DOCX to storage
+      previewUrl = await uploadFile(
         filledDocxBuffer, 
         'previews/docx', 
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'

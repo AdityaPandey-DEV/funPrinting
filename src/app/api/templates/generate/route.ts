@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import {
   generateAssignmentCover,
   generateResume,
@@ -73,10 +73,11 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(pdfBuffer);
     console.log('Buffer created, size:', buffer.length);
     
-    // Upload to Cloudinary
+    // Upload to storage
     try {
-      console.log('Uploading to Cloudinary...');
-      const pdfURL = await uploadToCloudinary(buffer, 'templates');
+      const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+      console.log(`Uploading to ${storageProvider}...`);
+      const pdfURL = await uploadFile(buffer, 'templates', 'application/pdf');
       console.log('Upload successful:', pdfURL);
 
       return NextResponse.json({

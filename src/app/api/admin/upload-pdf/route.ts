@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { convertPdfToDocx } from '@/lib/cloudmersive';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
+    // Validate file size (max 50MB - application limit, storage provider supports larger files)
+    if (file.size > 50 * 1024 * 1024) {
       return NextResponse.json(
-        { success: false, error: 'File size must be less than 10MB' },
+        { success: false, error: 'File size must be less than 50MB' },
         { status: 400 }
       );
     }
@@ -50,13 +50,14 @@ export async function POST(request: NextRequest) {
     console.log('Converting PDF to DOCX...');
     const docxBuffer = await convertPdfToDocx(pdfBuffer);
 
-    // Upload original PDF to Cloudinary
-    console.log('Uploading PDF to Cloudinary...');
-    const pdfUrl = await uploadToCloudinary(pdfBuffer, 'templates/pdf', 'application/pdf');
+    // Upload original PDF to storage
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+    console.log(`Uploading PDF to ${storageProvider}...`);
+    const pdfUrl = await uploadFile(pdfBuffer, 'templates/pdf', 'application/pdf');
 
-    // Upload converted DOCX to Cloudinary
-    console.log('Uploading DOCX to Cloudinary...');
-    const docxUrl = await uploadToCloudinary(docxBuffer, 'templates/docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    // Upload converted DOCX to storage
+    console.log(`Uploading DOCX to ${storageProvider}...`);
+    const docxUrl = await uploadFile(docxBuffer, 'templates/docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
 
     return NextResponse.json({
       success: true,

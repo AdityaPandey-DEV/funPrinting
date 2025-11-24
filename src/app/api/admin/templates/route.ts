@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { ObjectId } from 'mongodb';
 
 interface TemplateField {
@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Upload PDF to Cloudinary
+    // Upload PDF to storage
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    const pdfUrl = await uploadToCloudinary(buffer, 'templates', file.type);
+    const pdfUrl = await uploadFile(buffer, 'templates', file.type);
 
     // Save template to database
     const db = await connectDB();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fillDocxTemplate } from '@/lib/docxProcessor';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,13 +50,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Try to upload the filled document to Cloudinary
+    // Try to upload the filled document to storage
     let previewUrl: string;
     try {
-      previewUrl = await uploadToCloudinary(filledBuffer, 'preview-documents');
-      console.log('🎉 Upload preview generated successfully:', previewUrl);
+      const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+      previewUrl = await uploadFile(filledBuffer, 'preview-documents', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      console.log(`🎉 Upload preview generated successfully (${storageProvider}):`, previewUrl);
     } catch (uploadError) {
-      console.error('❌ Cloudinary upload failed:', uploadError);
+      console.error('❌ Storage upload failed:', uploadError);
       
       // Fallback: Create a data URL for immediate preview
       const base64Data = filledBuffer.toString('base64');

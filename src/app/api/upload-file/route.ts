@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 // Runtime configuration for Vercel
 export const runtime = 'nodejs';
@@ -68,19 +68,30 @@ export async function POST(request: NextRequest) {
     
     console.log(`📦 Buffer created: ${buffer.length} bytes`);
 
-    // Check Cloudinary configuration
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      console.log('❌ Cloudinary configuration missing');
-      return NextResponse.json({ 
-        success: false, 
-        error: 'File upload service not configured. Please contact support.' 
-      }, { status: 500 });
+    // Check storage provider configuration
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+    if (storageProvider === 'cloudinary') {
+      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        console.log('❌ Cloudinary configuration missing');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'File upload service not configured. Please contact support.' 
+        }, { status: 500 });
+      }
+    } else if (storageProvider === 'oracle') {
+      if (!process.env.OCI_TENANCY_OCID || !process.env.OCI_USER_OCID || !process.env.OCI_FINGERPRINT) {
+        console.log('❌ Oracle Cloud configuration missing');
+        return NextResponse.json({ 
+          success: false, 
+          error: 'File upload service not configured. Please contact support.' 
+        }, { status: 500 });
+      }
     }
 
-    console.log(`☁️ Uploading to Cloudinary...`);
+    console.log(`☁️ Uploading to ${storageProvider}...`);
 
-    // Upload to Cloudinary
-    const fileURL = await uploadToCloudinary(buffer, 'print-service', file.type);
+    // Upload to configured storage provider
+    const fileURL = await uploadFile(buffer, 'print-service', file.type);
     
     console.log(`✅ File uploaded successfully: ${fileURL}`);
     
@@ -109,7 +120,7 @@ export async function POST(request: NextRequest) {
         }, { status: 413 });
       }
       
-      if (error.message.includes('Cloudinary')) {
+      if (error.message.includes('Cloudinary') || error.message.includes('Oracle')) {
         return NextResponse.json({ 
           success: false, 
           error: 'File upload service error. Please try again.' 

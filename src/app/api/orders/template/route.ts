@@ -4,7 +4,7 @@ import DynamicTemplate from '@/models/DynamicTemplate';
 import Order from '@/models/Order';
 import { fillDocxTemplate, validateFormData } from '@/lib/docxProcessor';
 import { convertDocxToPdf } from '@/lib/cloudmersive';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
 import { v4 as uuidv4 } from 'uuid';
@@ -74,15 +74,16 @@ export async function POST(request: NextRequest) {
     console.log('Converting filled DOCX to PDF...');
     const pdfBuffer = await convertDocxToPdf(filledDocxBuffer);
 
-    // Upload both filled DOCX and PDF to Cloudinary
-    console.log('Uploading filled documents to Cloudinary...');
-    const filledDocxUrl = await uploadToCloudinary(
+    // Upload both filled DOCX and PDF to storage
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+    console.log(`Uploading filled documents to ${storageProvider}...`);
+    const filledDocxUrl = await uploadFile(
       filledDocxBuffer, 
       'orders/filled-docx', 
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
     
-    const filledPdfUrl = await uploadToCloudinary(
+    const filledPdfUrl = await uploadFile(
       pdfBuffer, 
       'orders/filled-pdf', 
       'application/pdf'

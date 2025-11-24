@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType } from 'docx';
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/templateAuth';
@@ -119,10 +119,10 @@ export async function POST(request: NextRequest) {
     
     console.log('✅ Word document created, size:', wordBuffer.length, 'bytes');
 
-    // Upload Word document to Cloudinary
-    const wordUrl = await uploadToCloudinary(
+    // Upload Word document to storage
+    const wordUrl = await uploadFile(
       wordBuffer,
-      `templates/word/${templateId}.docx`,
+      `templates/word/${templateId}`,
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
 

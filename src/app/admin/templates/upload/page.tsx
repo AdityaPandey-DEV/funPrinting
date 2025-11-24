@@ -48,8 +48,8 @@ function AdminUploadPageContent() {
         setError('Please select a PDF file');
         return;
       }
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB');
+      if (selectedFile.size > 50 * 1024 * 1024) {
+        setError('File size must be less than 50MB');
         return;
       }
       setFile(selectedFile);
@@ -293,7 +293,7 @@ function AdminUploadPageContent() {
                     </label>
                     <p className="pl-1">or drag and drop</p>
                   </div>
-                  <p className="text-xs text-gray-500">PDF up to 10MB</p>
+                  <p className="text-xs text-gray-500">PDF up to 50MB (no storage provider limits)</p>
                 </div>
               </div>
               {file && (

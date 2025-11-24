@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +13,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔄 Uploading raw file to Cloudinary...');
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+    console.log(`🔄 Uploading raw file to ${storageProvider}...`);
     console.log('📄 File name:', fileName);
     console.log('📄 Content type:', contentType);
     console.log('📄 Buffer size:', fileBuffer.length, 'chars');
@@ -22,15 +23,15 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(fileBuffer, 'base64');
     console.log('📄 Converted buffer size:', buffer.length, 'bytes');
 
-    // Upload to Cloudinary with raw file type
-    const uploadResult = await uploadToCloudinary(
+    // Upload to configured storage provider
+    const uploadResult = await uploadFile(
       buffer, 
       'raw-templates', 
       contentType || 'application/octet-stream'
     );
 
     if (!uploadResult) {
-      throw new Error('Cloudinary upload failed');
+      throw new Error('File upload failed');
     }
 
     console.log('✅ Raw file upload successful:', uploadResult);

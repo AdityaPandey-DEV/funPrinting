@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     let pdfUrl: string;
     try {
       const pdfBuffer = Buffer.from(await file.arrayBuffer());
-      pdfUrl = await uploadToCloudinary(pdfBuffer, 'templates');
+      pdfUrl = await uploadFile(pdfBuffer, 'templates', 'application/pdf');
       console.log('✅ PDF uploaded to cloud storage');
     } catch (error) {
       console.error('❌ Error uploading PDF:', error);
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Upload Word document to cloud storage
     let wordUrl: string;
     try {
-      wordUrl = await uploadToCloudinary(wordBuffer, 'templates');
+      wordUrl = await uploadFile(wordBuffer, 'templates', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       console.log('✅ Word document uploaded to cloud storage');
     } catch (error) {
       console.error('❌ Error uploading Word document:', error);

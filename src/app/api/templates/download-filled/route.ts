@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fillDocxTemplate } from '@/lib/docxProcessor';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
     const filledBuffer = await fillDocxTemplate(buffer, formData);
     console.log('✅ DOCX template filled successfully, size:', filledBuffer.length, 'bytes');
 
-    // Upload to Cloudinary
-    console.log('📤 Uploading filled document to Cloudinary...');
-    const uploadResult = await uploadToCloudinary(filledBuffer, 'filled-documents');
-    console.log('✅ Cloudinary upload successful:', uploadResult);
+    // Upload to storage
+    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+    console.log(`📤 Uploading filled document to ${storageProvider}...`);
+    const uploadResult = await uploadFile(filledBuffer, 'filled-documents', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    console.log(`✅ ${storageProvider} upload successful:`, uploadResult);
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadFile } from '@/lib/storage';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     let pdfUrl: string;
     try {
       const folder = metadata ? JSON.parse(metadata).folder || 'uploads' : 'uploads';
-      pdfUrl = await uploadToCloudinary(buffer, folder);
+      pdfUrl = await uploadFile(buffer, folder, 'application/pdf');
       console.log('✅ PDF uploaded to cloud storage:', pdfUrl);
     } catch (error) {
       console.error('❌ Error uploading PDF:', error);
