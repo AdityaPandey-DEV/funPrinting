@@ -36,8 +36,8 @@ export default function AdminAuth({ onLogin, title = "Admin Login", subtitle = "
       const data = await response.json();
 
       if (data.success) {
-        onLogin();
-      } else {
+      onLogin();
+    } else {
         setError(data.error || 'Invalid credentials');
       }
     } catch (error) {

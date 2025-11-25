@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure, startPaymentStatusPolling } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
+import InlineAuthModal from '@/components/InlineAuthModal';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -457,6 +458,10 @@ export default function OrderPage() {
   const [colorPagesInputs, setColorPagesInputs] = useState<string[]>([]); // Per-file color pages input
   const [colorPagesValidation, setColorPagesValidation] = useState<{ errors: string[]; warnings: string[] }>({ errors: [], warnings: [] });
   const [colorPagesValidations, setColorPagesValidations] = useState<Array<{ errors: string[]; warnings: string[] }>>([]); // Per-file validations
+  
+  // Auth modal state
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
   // Update customer info when user authentication changes
   useEffect(() => {
@@ -2808,9 +2813,27 @@ export default function OrderPage() {
                   <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <p className="text-sm text-yellow-800 mb-3">
                       ⚠️ <strong>Sign in required:</strong> You need to sign in to place an order.
-                      <a href="/auth/signin" className="text-blue-600 hover:text-blue-800 underline ml-1">Sign in here</a> or 
-                      <a href="/auth/signup" className="text-blue-600 hover:text-blue-800 underline ml-1">create an account</a>.
                     </p>
+                    <div className="flex gap-3 mt-3">
+                      <button
+                        onClick={() => {
+                          setAuthMode('signin');
+                          setShowAuthModal(true);
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        Sign In
+                      </button>
+                      <button
+                        onClick={() => {
+                          setAuthMode('signup');
+                          setShowAuthModal(true);
+                        }}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
+                      >
+                        Create Account
+                      </button>
+                    </div>
                   </div>
                 )}
                 
@@ -2998,9 +3021,16 @@ export default function OrderPage() {
 
                 {/* Payment Button */}
                   <button
-                    onClick={handlePayment}
-                  disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || !isAuthenticated || selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))}
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        setAuthMode('signin');
+                        setShowAuthModal(true);
+                      } else {
+                        handlePayment();
+                      }
+                    }}
+                    disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || (isAuthenticated && (selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))))}
+                    className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {!isAuthenticated ? '🔒 Sign In to Place Order' :
                    !isRazorpayLoaded ? '⏳ Loading...' : 
@@ -3112,9 +3142,15 @@ export default function OrderPage() {
 
                 {!isAuthenticated && (
                   <div className="mt-4 text-center">
-                    <a href="/auth/signin" className="text-sm text-blue-600 hover:text-blue-800 underline">
+                    <button
+                      onClick={() => {
+                        setAuthMode('signin');
+                        setShowAuthModal(true);
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 underline"
+                    >
                       Sign in to continue
-                    </a>
+                    </button>
                   </div>
                 )}
 
@@ -3139,6 +3175,18 @@ export default function OrderPage() {
         </div>
       </div>
     </div>
+
+    {/* Inline Auth Modal */}
+    <InlineAuthModal
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+      onAuthSuccess={() => {
+        // Auth success is handled by useEffect that watches isAuthenticated
+        // This callback is called after successful authentication
+        setShowAuthModal(false);
+      }}
+      initialMode={authMode}
+    />
     </>
   );
 }

@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
     // Check storage provider configuration
     const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
     if (storageProvider === 'cloudinary') {
-      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-        console.log('❌ Cloudinary configuration missing');
-        return NextResponse.json({ 
-          success: false, 
-          error: 'File upload service not configured. Please contact support.' 
-        }, { status: 500 });
-      }
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.log('❌ Cloudinary configuration missing');
+      return NextResponse.json({ 
+        success: false, 
+        error: 'File upload service not configured. Please contact support.' 
+      }, { status: 500 });
+    }
     } else if (storageProvider === 'oracle') {
       if (!process.env.OCI_TENANCY_OCID || !process.env.OCI_USER_OCID || !process.env.OCI_FINGERPRINT) {
         console.log('❌ Oracle Cloud configuration missing');
