@@ -3,6 +3,7 @@
 import { signIn, signOut, useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { adminAuth } from '@/lib/adminAuth';
 
 interface AdminGoogleAuthProps {
   children: React.ReactNode;
@@ -24,9 +25,11 @@ export default function AdminGoogleAuth({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
   const [passwordAuthenticated, setPasswordAuthenticated] = useState(false);
+  const [localStorageAuth, setLocalStorageAuth] = useState(false);
 
   // Check if user is authenticated and has admin role (either via Google or password)
-  const isAuthenticated = (session?.user && isAdmin === true) || passwordAuthenticated;
+  // Also check localStorage for persistent admin auth
+  const isAuthenticated = (session?.user && isAdmin === true) || passwordAuthenticated || localStorageAuth;
 
   // Check admin role when user is authenticated
   useEffect(() => {
@@ -37,6 +40,26 @@ export default function AdminGoogleAuth({
       checkAdminRole(session.user.email);
     }
   }, [session, status, isAdmin, isCheckingAdmin]);
+
+  // Check localStorage for persistent admin auth on mount and periodically
+  useEffect(() => {
+    const checkLocalStorageAuth = () => {
+      const isAuth = adminAuth.isAuthenticated();
+      setLocalStorageAuth(isAuth);
+      if (isAuth) {
+        setPasswordAuthenticated(true);
+        setIsAdmin(true);
+      }
+    };
+
+    // Check immediately
+    checkLocalStorageAuth();
+
+    // Check every 30 seconds to catch changes from other tabs/windows
+    const interval = setInterval(checkLocalStorageAuth, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const checkAdminRole = async (email: string) => {
     try {
@@ -72,6 +95,9 @@ export default function AdminGoogleAuth({
   };
 
   const handleSignOut = () => {
+    // Clear admin auth from localStorage
+    adminAuth.logout();
+    setLocalStorageAuth(false);
     setPasswordAuthenticated(false);
     setPasswordCredentials({ email: '', password: '' });
     signOut({ 
@@ -100,6 +126,9 @@ export default function AdminGoogleAuth({
       const data = await response.json();
 
       if (data.success) {
+        // Persist admin authentication in localStorage
+        adminAuth.setAuthenticated();
+        setLocalStorageAuth(true);
         setPasswordAuthenticated(true);
         setIsAdmin(true);
         setPasswordError(null);

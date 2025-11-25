@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { adminAuth } from '@/lib/adminAuth';
 
 interface AdminAuthProps {
   onLogin: () => void;
@@ -36,8 +37,10 @@ export default function AdminAuth({ onLogin, title = "Admin Login", subtitle = "
       const data = await response.json();
 
       if (data.success) {
-      onLogin();
-    } else {
+        // Persist admin authentication in localStorage
+        adminAuth.setAuthenticated();
+        onLogin();
+      } else {
         setError(data.error || 'Invalid credentials');
       }
     } catch (error) {
