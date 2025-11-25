@@ -243,7 +243,7 @@ export default function OrderDetailsPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => window.open(order.filledPdfUrl, '_blank')}
+                      onClick={() => window.open(order.filledPdfUrl, '_self')}
                       className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 font-medium"
                     >
                       👁️ View Full Screen

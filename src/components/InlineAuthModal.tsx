@@ -406,8 +406,6 @@ export default function InlineAuthModal({
                 <div className="text-sm text-right">
                   <a
                     href="/auth/forgot-password"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     className="font-medium text-blue-600 hover:text-blue-500"
                   >
                     Forgot your password?

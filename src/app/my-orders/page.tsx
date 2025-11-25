@@ -535,8 +535,6 @@ export default function MyOrdersPage() {
                           {order.orderType === 'file' && order.fileURL && (
                             <a
                               href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
                               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
                               Download {order.originalFileName || 'File'}

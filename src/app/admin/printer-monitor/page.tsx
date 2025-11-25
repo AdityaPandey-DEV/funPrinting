@@ -408,8 +408,6 @@ function PrinterMonitorContent() {
                               <a 
                                 href={`/admin/orders/${job.job.orderId}`}
                                 className="text-blue-600 hover:text-blue-800 underline font-medium"
-                                target="_blank"
-                                rel="noopener noreferrer"
                               >
                                 {job.job.orderId}
                               </a>

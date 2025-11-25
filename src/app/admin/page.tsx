@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import { AdminCard } from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
@@ -98,6 +99,7 @@ interface Order {
 
 function AdminDashboardContent() {
   const { data: session } = useSession();
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -493,7 +495,7 @@ function AdminDashboardContent() {
                   <tr 
                     key={order._id} 
                     className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer group"
-                    onClick={() => window.open(`/admin/orders/${order._id}`, '_blank')}
+                    onClick={() => router.push(`/admin/orders/${order._id}`)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
@@ -646,8 +648,6 @@ function AdminDashboardContent() {
                                     <a
                                       key={idx}
                                       href={`/api/admin/pdf-viewer?url=${encodeURIComponent(fileURL)}&orderId=${order.orderId}&filename=${fileName}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
                                       className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
                                       title={`Download ${fileName}`}
                                       onClick={(e) => e.stopPropagation()}
@@ -666,8 +666,6 @@ function AdminDashboardContent() {
                               // Legacy: single file
                           <a
                             href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="block w-full bg-black text-white text-center px-3 py-1 rounded text-xs hover:bg-gray-800 transition-colors truncate"
                             title={`Download ${order.originalFileName || 'File'}`}
                             onClick={(e) => e.stopPropagation()}
@@ -682,8 +680,6 @@ function AdminDashboardContent() {
                         {order.orderType === 'template' && order.templateData?.generatedPDF && (
                           <a
                             href={order.templateData.generatedPDF}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="block w-full bg-gray-800 text-white text-center px-3 py-1 rounded text-xs hover:bg-black transition-colors"
                             onClick={(e) => e.stopPropagation()}
                           >

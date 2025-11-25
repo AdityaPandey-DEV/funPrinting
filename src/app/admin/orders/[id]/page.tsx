@@ -962,8 +962,6 @@ function OrderDetailPageContent() {
                               </div>
                               <a
                                 href={`/api/admin/pdf-viewer?url=${encodeURIComponent(fileURL)}&orderId=${order.orderId}&filename=${fileName}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
                                 className="bg-black text-white px-3 py-1.5 rounded text-xs font-medium hover:bg-gray-800 transition-colors ml-2 flex-shrink-0"
                                 onClick={(e) => e.stopPropagation()}
                                 title={`Download ${fileName}`}
@@ -990,8 +988,6 @@ function OrderDetailPageContent() {
                     <span className="text-sm text-gray-600">Original File</span>
                     <a
                         href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL!)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
                     >
                       Download File
@@ -1121,8 +1117,6 @@ function OrderDetailPageContent() {
                                 </p>
                                 <a
                                   href={`/api/admin/pdf-viewer?url=${encodeURIComponent(currentFileURL)}&orderId=${order.orderId}&filename=${currentFileName}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
                                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                                 >
                                   Download to View
@@ -1141,8 +1135,6 @@ function OrderDetailPageContent() {
                     <span className="text-sm text-gray-600">Generated Template PDF</span>
                     <a
                       href={order.templateData.generatedPDF}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="bg-gray-800 text-white px-3 py-1 rounded text-sm hover:bg-black transition-colors"
                     >
                       Download PDF
