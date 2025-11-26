@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn, getSession } from 'next-auth/react';
+import { signIn, getSession, useSession } from 'next-auth/react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
 
 interface InlineAuthModalProps {
   isOpen: boolean;
@@ -30,7 +29,7 @@ export default function InlineAuthModal({
   const [showResend, setShowResend] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const { isAuthenticated } = useAuth();
-  const router = useRouter();
+  const { update: updateSession } = useSession();
 
   // Reset form when modal opens/closes or mode changes
   useEffect(() => {
@@ -100,17 +99,18 @@ export default function InlineAuthModal({
           setError('Invalid email or password');
         }
       } else {
-        // Get the updated session
+        // Get the updated session and trigger session update
         const session = await getSession();
         if (session) {
+          // Manually trigger session update to ensure all components using useSession get the new session
+          // This avoids router.refresh() which would reset all React state including file uploads
+          await updateSession();
           setSuccess('Sign in successful!');
-          // Refresh the page to update authentication state
-          // Small delay to ensure session is fully updated
+          // Small delay to ensure session is fully propagated to all components
           setTimeout(() => {
-            router.refresh();
             onAuthSuccess();
             onClose();
-          }, 500);
+          }, 300);
         }
       }
     } catch (error) {
