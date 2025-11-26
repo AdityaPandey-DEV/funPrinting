@@ -9,6 +9,7 @@ interface InlineAuthModalProps {
   onClose: () => void;
   onAuthSuccess: () => void;
   initialMode?: 'signin' | 'signup';
+  onBeforeGoogleSignIn?: () => Promise<void> | void; // Callback to save state before Google OAuth redirect
 }
 
 export default function InlineAuthModal({
@@ -16,6 +17,7 @@ export default function InlineAuthModal({
   onClose,
   onAuthSuccess,
   initialMode = 'signin',
+  onBeforeGoogleSignIn,
 }: InlineAuthModalProps) {
   const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
@@ -190,6 +192,12 @@ export default function InlineAuthModal({
     setError('');
 
     try {
+      // Save order state before redirecting to Google OAuth
+      // This preserves files and form data during the OAuth redirect
+      if (onBeforeGoogleSignIn) {
+        await onBeforeGoogleSignIn();
+      }
+      
       // Use current page as callback URL to return to order page
       await signIn('google', { 
         callbackUrl: window.location.pathname,

@@ -6,6 +6,7 @@ import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure, startPaymentStatusPolling } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 import InlineAuthModal from '@/components/InlineAuthModal';
+import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -626,6 +627,45 @@ export default function OrderPage() {
     lng: number;
     gmapLink?: string;
   } | null>(null);
+
+  // Restore order state after Google OAuth redirect
+  useEffect(() => {
+    const restoreState = async () => {
+      const savedState = await restoreOrderState();
+      if (savedState) {
+        try {
+          console.log('📋 Restoring order state after Google OAuth...');
+          
+          // Restore all state (files are already converted to File objects)
+          setSelectedFiles(savedState.selectedFiles);
+          setFileURLs(savedState.fileURLs);
+          setOrderType(savedState.orderType);
+          setPrintingOptions(savedState.printingOptions);
+          setExpectedDate(savedState.expectedDate);
+          setPageCount(savedState.pageCount);
+          setFilePageCounts(savedState.filePageCounts);
+          setPdfUrls(savedState.pdfUrls);
+          setPdfLoaded(savedState.pdfLoaded);
+          setCustomerInfo(savedState.customerInfo);
+          setDeliveryOption(savedState.deliveryOption);
+          setSelectedPickupLocation(savedState.selectedPickupLocation);
+          setColorPagesInput(savedState.colorPagesInput);
+          setColorPagesInputs(savedState.colorPagesInputs);
+          setColorPagesValidations(savedState.colorPagesValidations);
+          
+          // Clear saved state after restoration
+          clearOrderState();
+          
+          console.log('✅ Order state restored successfully');
+        } catch (error) {
+          console.error('Error restoring order state:', error);
+          clearOrderState();
+        }
+      }
+    };
+    
+    restoreState();
+  }, []);
 
   // Check for pending order from custom template workflow
   useEffect(() => {
@@ -3186,6 +3226,33 @@ export default function OrderPage() {
         setShowAuthModal(false);
       }}
       initialMode={authMode}
+      onBeforeGoogleSignIn={async () => {
+        // Save order state before Google OAuth redirect
+        // This preserves files and form data during the OAuth flow
+        try {
+          await saveOrderState({
+            selectedFiles,
+            fileURLs,
+            orderType,
+            printingOptions,
+            expectedDate,
+            pageCount,
+            filePageCounts,
+            pdfUrls,
+            pdfLoaded,
+            customerInfo,
+            deliveryOption,
+            selectedPickupLocation,
+            colorPagesInput,
+            colorPagesInputs,
+            colorPagesValidations,
+          });
+          console.log('✅ Order state saved before Google OAuth');
+        } catch (error) {
+          console.error('Error saving order state:', error);
+          // Don't block OAuth flow if save fails
+        }
+      }}
     />
     </>
   );
