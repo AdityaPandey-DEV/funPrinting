@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
-import fs from 'fs';
-import path from 'path';
-// mammoth removed - using Microsoft Word directly
-import { Document, Packer, Paragraph, TextRun, AlignmentType } from 'docx';
+import Docxtemplater from 'docxtemplater';
+import PizZip from 'pizzip';
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,45 +19,36 @@ export async function POST(request: NextRequest) {
     // Convert base64 Word file to buffer
     const wordBuffer = Buffer.from(wordFile, 'base64');
     
-    // Create temporary files
-    const tempDir = '/tmp';
-    const inputWordPath = path.join(tempDir, `input_${uuidv4()}.docx`);
-    const outputWordPath = path.join(tempDir, `output_${uuidv4()}.docx`);
-    
     try {
-      // Write Word file to temporary location
-      fs.writeFileSync(inputWordPath, wordBuffer);
-      console.log('✅ Word file written to temporary location');
-
-      // For direct Word document usage, we'll create a simple placeholder
-      const originalText = 'Word document loaded. Use Microsoft Word to add placeholders like {{name}}, {{date}}, etc.';
+      // Load the Word document using PizZip
+      const zip = new PizZip(wordBuffer);
       
-      console.log('✅ Text extracted from Word document');
+      // Create docxtemplater instance
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: {
+          start: '{{',
+          end: '}}'
+        }
+      });
 
-      // Replace placeholders in the text
-      let replacedText = originalText;
-      for (const [placeholder, value] of Object.entries(placeholders)) {
-        const placeholderPattern = new RegExp(`\\{\\{${placeholder}\\}\\}`, 'g');
-        replacedText = replacedText.replace(placeholderPattern, value as string);
-        console.log(`✅ Replaced {{${placeholder}}} with: ${value}`);
-      }
+      // Set the data to replace placeholders
+      doc.setData(placeholders);
 
-      // Create new Word document with replaced text
-      const newWordBuffer = await createWordDocumentFromText(replacedText);
-      
-      // Write new Word document to temporary location
-      fs.writeFileSync(outputWordPath, newWordBuffer);
-      console.log('✅ New Word document created with replaced placeholders');
+      // Render the document (replace all placeholders)
+      doc.render();
 
-      // Read the new Word document
-      const finalWordBuffer = fs.readFileSync(outputWordPath);
-      
-      // Clean up temporary files
-      fs.unlinkSync(inputWordPath);
-      fs.unlinkSync(outputWordPath);
+      // Get the output buffer
+      const outputBuffer = doc.getZip().generate({
+        type: 'nodebuffer',
+        compression: 'DEFLATE'
+      });
+
+      console.log('✅ Placeholders replaced successfully');
 
       // Convert to base64 for response
-      const base64Word = finalWordBuffer.toString('base64');
+      const base64Word = outputBuffer.toString('base64');
 
       return NextResponse.json({
         success: true,
@@ -68,14 +56,18 @@ export async function POST(request: NextRequest) {
         message: 'Placeholders replaced successfully'
       });
 
-    } catch (error) {
-      console.error('❌ Placeholder replacement error:', error);
+    } catch (renderError: unknown) {
+      console.error('❌ Docxtemplater render error:', renderError);
       
-      // Clean up temporary files
-      if (fs.existsSync(inputWordPath)) fs.unlinkSync(inputWordPath);
-      if (fs.existsSync(outputWordPath)) fs.unlinkSync(outputWordPath);
+      // Handle docxtemplater specific errors
+      if (renderError && typeof renderError === 'object' && 'properties' in renderError) {
+        const docxError = renderError as { properties?: { errors?: unknown[] } };
+        if (docxError.properties?.errors) {
+          console.error('Template errors:', docxError.properties.errors);
+        }
+      }
       
-      throw error;
+      throw renderError;
     }
 
   } catch (error) {
@@ -84,33 +76,5 @@ export async function POST(request: NextRequest) {
       { success: false, error: 'Failed to replace placeholders' },
       { status: 500 }
     );
-  }
-}
-
-// Create Word document from text
-async function createWordDocumentFromText(text: string): Promise<Buffer> {
-  try {
-    // Split text into paragraphs
-    const paragraphs = text.split('\n').filter(line => line.trim());
-    
-    // Create Word document
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: paragraphs.map(line => 
-          new Paragraph({
-            children: [new TextRun(line.trim())],
-            alignment: AlignmentType.LEFT,
-          })
-        )
-      }]
-    });
-
-    // Convert to buffer
-    const buffer = await Packer.toBuffer(doc);
-    return buffer;
-  } catch (error) {
-    console.error('Error creating Word document:', error);
-    throw error;
   }
 }

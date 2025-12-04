@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
         body: (() => {
           const formData = new FormData();
           const wordFile = new File([new Uint8Array(personalizedWordBuffer)], 'document.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-          formData.append('wordFile', wordFile);
+          formData.append('file', wordFile);
           return formData;
         })()
       });
