@@ -267,7 +267,6 @@ export default function CustomTemplatePage() {
           modal: {
             ondismiss: function() {
               setIsProcessingPayment(false);
-              setRazorpayOrderId(null);
             }
           }
         };
