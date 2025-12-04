@@ -15,6 +15,9 @@ interface Template {
   createdByType: string;
   createdByEmail?: string;
   createdByName?: string;
+  isPaid?: boolean;
+  price?: number;
+  allowFreeDownload?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -165,9 +168,20 @@ function PublicTemplatesContent() {
                     {template.category.replace('-', ' ')}
                   </div>
 
-                  {/* Public Badge */}
-                  <div className="absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Public
+                  {/* Price/Free Badge */}
+                  <div className={`absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium ${
+                    template.isPaid && (template.price ?? 0) > 0 
+                      ? 'bg-orange-100 text-orange-800' 
+                      : 'bg-green-100 text-green-800'
+                  }`}>
+                    {template.isPaid && (template.price ?? 0) > 0 
+                      ? `₹${template.price}` 
+                      : 'Free'}
+                  </div>
+                  
+                  {/* Creator Type Badge */}
+                  <div className="absolute bottom-3 right-3 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                    {template.createdByType === 'admin' ? 'Admin' : 'User'}
                   </div>
                 </div>
 

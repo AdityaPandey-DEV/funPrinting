@@ -18,6 +18,9 @@ interface Template {
   createdByType: string;
   createdByEmail?: string;
   createdByName?: string;
+  isPaid: boolean;
+  price?: number;
+  allowFreeDownload?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -239,6 +242,13 @@ function MyTemplatesContent() {
                       Public
                     </div>
                   )}
+                  
+                  {/* Paid Badge */}
+                  {template.isPaid && (template.price ?? 0) > 0 && (
+                    <div className="absolute bottom-3 left-3 px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      ₹{template.price}
+                    </div>
+                  )}
                 </div>
 
                 {/* Template Info */}
@@ -247,9 +257,25 @@ function MyTemplatesContent() {
                     {template.name}
                   </h3>
                   
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                  <p className="text-gray-600 text-sm mb-3 line-clamp-2">
                     {template.description}
                   </p>
+
+                  {/* Monetization Info */}
+                  <div className="flex items-center justify-between mb-3 text-xs">
+                    <span className={template.isPaid && (template.price ?? 0) > 0 
+                      ? 'text-orange-600 font-semibold' 
+                      : 'text-green-600 font-semibold'}>
+                      {template.isPaid && (template.price ?? 0) > 0 
+                        ? `Paid • ₹${template.price}` 
+                        : 'Free'}
+                    </span>
+                    <span className="text-gray-500">
+                      {template.allowFreeDownload !== false 
+                        ? 'Download: Allowed' 
+                        : 'Download: After payment'}
+                    </span>
+                  </div>
 
                   {/* Placeholders count and date */}
                   <div className="flex items-center justify-between mb-4">
@@ -292,7 +318,7 @@ function MyTemplatesContent() {
         )}
 
         {/* Stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-2xl font-bold text-blue-600">{templates.length}</div>
             <div className="text-gray-600">Total Templates</div>
@@ -302,6 +328,12 @@ function MyTemplatesContent() {
               {templates.filter(t => t.isPublic).length}
             </div>
             <div className="text-gray-600">Public Templates</div>
+          </div>
+          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
+            <div className="text-2xl font-bold text-orange-600">
+              {templates.filter(t => t.isPaid && (t.price ?? 0) > 0).length}
+            </div>
+            <div className="text-gray-600">Paid Templates</div>
           </div>
           <div className="bg-white rounded-lg shadow-sm p-6 text-center">
             <div className="text-2xl font-bold text-purple-600">

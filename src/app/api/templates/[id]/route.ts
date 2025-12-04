@@ -61,6 +61,9 @@ export async function GET(
         createdByType: template.createdByType,
         createdByEmail: template.createdByEmail,
         createdByName: template.createdByName,
+        isPaid: template.isPaid || false,
+        price: template.price || 0,
+        allowFreeDownload: template.allowFreeDownload !== false,
         createdAt: template.createdAt,
         updatedAt: template.updatedAt
       }
@@ -113,7 +116,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, category, placeholders, formSchema } = body;
+    const { name, description, category, placeholders, formSchema, isPublic, isPaid, price, allowFreeDownload } = body;
 
     await connectDB();
     
@@ -132,6 +135,21 @@ export async function PUT(
     if (category !== undefined) template.category = category;
     if (placeholders !== undefined) template.placeholders = placeholders;
     if (formSchema !== undefined) template.formSchema = formSchema;
+    
+    // Update monetization fields
+    if (isPublic !== undefined) template.isPublic = !!isPublic;
+    if (isPaid !== undefined) {
+      // Validate paid templates have valid price and payout info
+      if (isPaid && (price === undefined || price <= 0)) {
+        return NextResponse.json(
+          { success: false, error: 'Paid templates require a valid price greater than 0' },
+          { status: 400 }
+        );
+      }
+      template.isPaid = !!isPaid;
+    }
+    if (price !== undefined) template.price = Math.max(0, Number(price) || 0);
+    if (allowFreeDownload !== undefined) template.allowFreeDownload = allowFreeDownload !== false;
 
     await template.save();
 

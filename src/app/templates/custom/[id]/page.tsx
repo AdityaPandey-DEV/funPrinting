@@ -11,6 +11,9 @@ interface Template {
   placeholders: string[];
   pdfUrl: string;
   wordUrl: string;
+  isPaid?: boolean;
+  price?: number;
+  allowFreeDownload?: boolean;
 }
 
 interface FormField {
@@ -200,11 +203,25 @@ export default function CustomTemplatePage() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">{template.name}</h1>
           <p className="text-gray-600 mb-4">{template.description}</p>
-          <div className="flex items-center space-x-4 text-sm text-gray-500">
+          <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500">
             <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">
               {template.category}
             </span>
             <span>{formConfig.fields.length} fields to fill</span>
+            <span className={`px-2 py-1 rounded font-medium ${
+              template.isPaid && (template.price ?? 0) > 0 
+                ? 'bg-orange-100 text-orange-800' 
+                : 'bg-green-100 text-green-800'
+            }`}>
+              {template.isPaid && (template.price ?? 0) > 0 
+                ? `Template fee: ₹${template.price}` 
+                : 'Template: Free'}
+            </span>
+            {template.isPaid && template.allowFreeDownload === false && (
+              <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">
+                Download requires order
+              </span>
+            )}
           </div>
         </div>
 

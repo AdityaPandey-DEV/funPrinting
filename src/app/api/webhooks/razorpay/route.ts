@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import PrintJob from '@/models/PrintJob';
+import CreatorEarning from '@/models/CreatorEarning';
 import { sendPaymentNotification } from '@/lib/notificationService';
 
 // In-memory store to track processed webhook events (prevents duplicate processing)
@@ -232,6 +233,37 @@ async function handlePaymentCaptured(payment: any, retryCount: number = 0): Prom
     }
 
     console.log(`✅ Order ${order.orderId} marked as paid`);
+
+    // Create CreatorEarning record for paid template orders
+    if (updateResult.orderType === 'template' && 
+        updateResult.creatorShareAmount && 
+        updateResult.creatorShareAmount > 0 && 
+        updateResult.templateCreatorUserId) {
+      try {
+        // Check if earning already exists (idempotency)
+        const existingEarning = await CreatorEarning.findOne({ orderId: updateResult.orderId });
+        
+        if (!existingEarning) {
+          const earning = new CreatorEarning({
+            creatorUserId: updateResult.templateCreatorUserId,
+            templateId: updateResult.templateId,
+            orderId: updateResult.orderId,
+            razorpayPaymentId: payment.id,
+            amount: updateResult.creatorShareAmount,
+            platformShareAmount: updateResult.platformShareAmount || 0,
+            status: 'pending',
+          });
+          
+          await earning.save();
+          console.log(`💰 CreatorEarning created via webhook: ₹${updateResult.creatorShareAmount} for creator ${updateResult.templateCreatorUserId}`);
+        } else {
+          console.log(`ℹ️ CreatorEarning already exists for order ${updateResult.orderId}`);
+        }
+      } catch (earningError) {
+        console.error('❌ Error creating CreatorEarning in webhook:', earningError);
+        // Don't fail the webhook if earning creation fails
+      }
+    }
 
     // Send payment completion notification to admin
     try {

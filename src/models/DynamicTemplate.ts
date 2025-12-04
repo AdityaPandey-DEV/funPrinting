@@ -24,6 +24,18 @@ export interface IDynamicTemplate {
   createdByName?: string; // User name for display
   isPublic: boolean; // Controls visibility to all users
   createdByType: 'user' | 'admin'; // Distinguish user vs admin created templates
+  // Monetization
+  isPaid?: boolean; // Whether this template charges a fee per use
+  price?: number; // Template price in INR
+  allowFreeDownload?: boolean; // If true, filled document can be downloaded without payment
+  creatorPayoutMethod?: 'upi' | 'bank'; // Preferred payout method for this template
+  creatorUpiId?: string; // UPI ID for payouts
+  creatorBankDetails?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -122,6 +134,36 @@ const dynamicTemplateSchema = new mongoose.Schema<IDynamicTemplate>({
     enum: ['user', 'admin'],
     default: 'user',
     required: true
+  },
+  // Monetization
+  isPaid: {
+    type: Boolean,
+    default: false
+  },
+  price: {
+    type: Number,
+    required: false,
+    min: 0
+  },
+  allowFreeDownload: {
+    type: Boolean,
+    default: true
+  },
+  creatorPayoutMethod: {
+    type: String,
+    enum: ['upi', 'bank'],
+    required: false
+  },
+  creatorUpiId: {
+    type: String,
+    required: false,
+    trim: true
+  },
+  creatorBankDetails: {
+    accountHolderName: { type: String, required: false, trim: true },
+    accountNumber: { type: String, required: false, trim: true },
+    ifscCode: { type: String, required: false, trim: true },
+    bankName: { type: String, required: false, trim: true }
   }
 }, {
   timestamps: true
@@ -133,5 +175,6 @@ dynamicTemplateSchema.index({ name: 'text', description: 'text' });
 dynamicTemplateSchema.index({ createdByUserId: 1, createdAt: -1 });
 dynamicTemplateSchema.index({ isPublic: 1, createdAt: -1 });
 dynamicTemplateSchema.index({ createdByEmail: 1 });
+dynamicTemplateSchema.index({ isPaid: 1, createdAt: -1 });
 
 export default mongoose.models.DynamicTemplate || mongoose.model<IDynamicTemplate>('DynamicTemplate', dynamicTemplateSchema);

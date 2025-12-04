@@ -9,7 +9,18 @@ import User from '@/models/User';
 
 export async function POST(request: NextRequest) {
   try {
-    const { templateName, wordContent, placeholders, description, category, pdfUrl } = await request.json();
+    const { 
+      templateName, 
+      wordContent, 
+      placeholders, 
+      description, 
+      category, 
+      pdfUrl,
+      isPublic,
+      isPaid,
+      price,
+      allowFreeDownload,
+    } = await request.json();
 
     if (!templateName || !wordContent) {
       return NextResponse.json(
@@ -35,6 +46,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'User not found' },
         { status: 404 }
+      );
+    }
+
+    // Check if user has payout info for paid templates
+    const hasPayoutInfo = !!(user.upiId || user.bankDetails?.accountNumber);
+    
+    // Validate and sanitize monetization fields
+    const safeIsPaid = !!isPaid && hasPayoutInfo && (price ?? 0) > 0;
+    const safePrice = safeIsPaid ? Math.max(0, Number(price) || 0) : 0;
+    const safeAllowFreeDownload = allowFreeDownload === false ? false : true;
+    const safeIsPublic = !!isPublic;
+
+    // If user tried to set isPaid but doesn't have payout info, return error
+    if (isPaid && !hasPayoutInfo) {
+      return NextResponse.json(
+        { success: false, error: 'Please set up payout settings before creating a paid template' },
+        { status: 400 }
+      );
+    }
+
+    // If isPaid but price is invalid
+    if (isPaid && (price ?? 0) <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Please enter a valid price greater than 0 for a paid template' },
+        { status: 400 }
       );
     }
 
@@ -128,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Word document uploaded to cloud storage:', wordUrl);
 
-    // Create new dynamic template with user context
+    // Create new dynamic template with user context and monetization
     const template = new DynamicTemplate({
       id: templateId,
       name: templateName,
@@ -142,8 +178,15 @@ export async function POST(request: NextRequest) {
       createdByUserId: user._id,
       createdByEmail: user.email,
       createdByName: user.name,
-      isPublic: false, // Default to private
-      createdByType: 'user'
+      isPublic: safeIsPublic,
+      createdByType: 'user',
+      // Monetization fields
+      isPaid: safeIsPaid,
+      price: safePrice,
+      allowFreeDownload: safeAllowFreeDownload,
+      creatorPayoutMethod: user.upiId ? 'upi' : (user.bankDetails?.accountNumber ? 'bank' : undefined),
+      creatorUpiId: user.upiId,
+      creatorBankDetails: user.bankDetails,
     });
 
     await template.save();

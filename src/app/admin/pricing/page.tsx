@@ -34,6 +34,7 @@ interface PricingData {
     minServiceFee: number;
     minServiceFeePageLimit: number;
   };
+  templateCommissionPercent: number;
 }
 
 function AdminPricingPageContent() {
@@ -59,26 +60,29 @@ function AdminPricingPageContent() {
       minServiceFee: 5,
       minServiceFeePageLimit: 1,
     },
+    templateCommissionPercent: 20,
   });
 
-  // Ensure delivery charges are always properly structured
-  const ensureDeliveryCharges = (pricingData: any) => {
-    if (!pricingData.deliveryCharges?.delivery) {
-      return {
-        ...pricingData,
-        deliveryCharges: {
-          pickup: pricingData.deliveryCharges?.pickup || 0,
-          delivery: {
-            '0-5': 10,
-            '5-10': 20,
-            '10-15': 30,
-            '15-20': 40,
-            '20+': 50,
-          },
+  // Ensure pricing data is always properly structured
+  const ensurePricingData = (pricingData: any): PricingData => {
+    const result = {
+      ...pricingData,
+      templateCommissionPercent: pricingData.templateCommissionPercent ?? 20,
+    };
+    
+    if (!result.deliveryCharges?.delivery) {
+      result.deliveryCharges = {
+        pickup: result.deliveryCharges?.pickup || 0,
+        delivery: {
+          '0-5': 10,
+          '5-10': 20,
+          '10-15': 30,
+          '15-20': 40,
+          '20+': 50,
         },
       };
     }
-    return pricingData;
+    return result;
   };
 
   const fetchPricing = useCallback(async () => {
@@ -89,7 +93,7 @@ function AdminPricingPageContent() {
 
       if (data.success) {
         console.log('Fetched pricing data:', data.pricing);
-        const validatedPricing = ensureDeliveryCharges(data.pricing);
+        const validatedPricing = ensurePricingData(data.pricing);
         setPricing(validatedPricing);
       } else {
         showError('Failed to fetch pricing');
@@ -107,13 +111,24 @@ function AdminPricingPageContent() {
   }, [fetchPricing]);
 
   const handleInputChange = (section: string, field: string, value: number) => {
-    setPricing(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section as keyof PricingData],
-        [field]: value,
-      },
-    }));
+    setPricing(prev => {
+      const sectionValue = prev[section as keyof PricingData];
+      // Handle nested object sections
+      if (typeof sectionValue === 'object' && sectionValue !== null) {
+        return {
+          ...prev,
+          [section]: {
+            ...sectionValue,
+            [field]: value,
+          },
+        };
+      }
+      // For primitive values (shouldn't happen with current usage)
+      return {
+        ...prev,
+        [section]: value,
+      };
+    });
   };
 
   const handleDeliveryChange = (distance: string, value: number) => {
@@ -362,6 +377,53 @@ function AdminPricingPageContent() {
                   <p className="text-xs text-gray-500 mt-1">
                     Minimum service fee applies when pages &gt; this limit
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Template Commission */}
+            <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-yellow-50 to-orange-50 shadow-sm">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="mr-2">💰</span>
+                Template Monetization
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Configure the platform&apos;s commission on paid templates. When users create paid templates, this percentage is deducted and kept by the platform.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Template Commission (%)
+                  </label>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="50"
+                    className={formInputClasses.white}
+                    value={pricing.templateCommissionPercent}
+                    onChange={(e) => {
+                      const value = Math.min(50, Math.max(0, parseInt(e.target.value) || 0));
+                      setPricing(prev => ({ ...prev, templateCommissionPercent: value }));
+                    }}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Platform keeps this % from each paid template sale (0-50%)
+                  </p>
+                </div>
+                <div className="flex items-end">
+                  <div className="bg-white p-4 rounded-lg border border-gray-200 w-full">
+                    <p className="text-sm font-medium text-gray-700">Example:</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      If a template costs ₹100 and commission is {pricing.templateCommissionPercent}%:
+                    </p>
+                    <p className="text-xs text-green-600 mt-1">
+                      Creator receives: ₹{Math.round(100 * (100 - pricing.templateCommissionPercent) / 100)}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      Platform keeps: ₹{Math.round(100 * pricing.templateCommissionPercent / 100)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

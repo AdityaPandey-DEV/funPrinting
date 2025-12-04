@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
 import PrintJob from '@/models/PrintJob';
+import CreatorEarning from '@/models/CreatorEarning';
 import { verifyPayment } from '@/lib/razorpay';
 import { sendPrintJobFromOrder, generateDeliveryNumber } from '@/lib/printerClient';
 import { sendInvoiceEmail } from '@/lib/invoiceEmail';
@@ -185,6 +186,37 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`✅ Order ${order.orderId} marked as paid`);
+
+    // Create CreatorEarning record for paid template orders
+    if (updateResult.orderType === 'template' && 
+        updateResult.creatorShareAmount && 
+        updateResult.creatorShareAmount > 0 && 
+        updateResult.templateCreatorUserId) {
+      try {
+        // Check if earning already exists (idempotency)
+        const existingEarning = await CreatorEarning.findOne({ orderId: updateResult.orderId });
+        
+        if (!existingEarning) {
+          const earning = new CreatorEarning({
+            creatorUserId: updateResult.templateCreatorUserId,
+            templateId: updateResult.templateId,
+            orderId: updateResult.orderId,
+            razorpayPaymentId: razorpay_payment_id,
+            amount: updateResult.creatorShareAmount,
+            platformShareAmount: updateResult.platformShareAmount || 0,
+            status: 'pending',
+          });
+          
+          await earning.save();
+          console.log(`💰 CreatorEarning created: ₹${updateResult.creatorShareAmount} for creator ${updateResult.templateCreatorUserId}`);
+        } else {
+          console.log(`ℹ️ CreatorEarning already exists for order ${updateResult.orderId}`);
+        }
+      } catch (earningError) {
+        console.error('❌ Error creating CreatorEarning:', earningError);
+        // Don't fail the payment verification if earning creation fails
+      }
+    }
 
     // Generate delivery number and send print job
     let deliveryNumber = updateResult.deliveryNumber;

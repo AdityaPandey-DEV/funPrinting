@@ -61,6 +61,9 @@ export async function PUT(request: NextRequest) {
     // Find existing pricing or create new one
     let pricing = await Pricing.findOne();
     
+    // Validate and clamp templateCommissionPercent
+    const templateCommissionPercent = Math.min(50, Math.max(0, Number(newPricing.templateCommissionPercent) || 20));
+    
     if (pricing) {
       // Update existing pricing with proper structure validation
       pricing.basePrices = {
@@ -81,6 +84,7 @@ export async function PUT(request: NextRequest) {
         minServiceFee: newPricing.additionalServices.minServiceFee,
         minServiceFeePageLimit: newPricing.additionalServices.minServiceFeePageLimit,
       };
+      pricing.templateCommissionPercent = templateCommissionPercent;
       pricing.updatedBy = updatedBy;
       pricing.updatedAt = new Date();
       
@@ -89,6 +93,7 @@ export async function PUT(request: NextRequest) {
       // Create new pricing
       pricing = await Pricing.create({
         ...newPricing,
+        templateCommissionPercent,
         updatedBy,
       });
     }

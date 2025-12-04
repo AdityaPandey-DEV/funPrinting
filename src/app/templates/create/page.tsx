@@ -1,9 +1,19 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+
+interface PayoutSettings {
+  upiId?: string;
+  bankDetails?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+  };
+}
 
 function CreateTemplateContent() {
   const { data: session, status } = useSession();
@@ -13,6 +23,10 @@ function CreateTemplateContent() {
     name: '',
     description: '',
     category: 'lab-manual',
+    isPublic: false,
+    isPaid: false,
+    price: 0,
+    allowFreeDownload: true,
   });
   const [extractedPlaceholders, setExtractedPlaceholders] = useState<string[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -21,6 +35,33 @@ function CreateTemplateContent() {
   const [step, setStep] = useState<'upload' | 'preview' | 'save'>('upload');
   const [rawFileUrl, setRawFileUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [payoutSettings, setPayoutSettings] = useState<PayoutSettings | null>(null);
+  const [loadingPayout, setLoadingPayout] = useState(true);
+
+  // Fetch user's payout settings
+  useEffect(() => {
+    const fetchPayoutSettings = async () => {
+      try {
+        const response = await fetch('/api/user/payout-settings');
+        if (response.ok) {
+          const data = await response.json();
+          setPayoutSettings(data.payoutSettings || null);
+        }
+      } catch (error) {
+        console.error('Error fetching payout settings:', error);
+      } finally {
+        setLoadingPayout(false);
+      }
+    };
+
+    if (status === 'authenticated') {
+      fetchPayoutSettings();
+    } else {
+      setLoadingPayout(false);
+    }
+  }, [status]);
+
+  const hasPayoutInfo = !!(payoutSettings?.upiId || payoutSettings?.bankDetails?.accountNumber);
 
   // Redirect if not authenticated
   if (status === 'loading') {
@@ -145,6 +186,18 @@ function CreateTemplateContent() {
 
   const handleSaveTemplate = async () => {
     if (!rawFileUrl || !templateData.name) return;
+    
+    // Validate paid template requirements
+    if (templateData.isPaid && templateData.price <= 0) {
+      alert('Please enter a valid price greater than 0 for a paid template.');
+      return;
+    }
+    
+    if (templateData.isPaid && !hasPayoutInfo) {
+      alert('Please set up your payout settings before creating a paid template.');
+      return;
+    }
+    
     setIsUploading(true);
     try {
       console.log('🔄 Saving template...');
@@ -160,7 +213,11 @@ function CreateTemplateContent() {
             paragraphs: [],
             tables: []
           },
-          placeholders: extractedPlaceholders
+          placeholders: extractedPlaceholders,
+          isPublic: templateData.isPublic,
+          isPaid: templateData.isPaid,
+          price: templateData.price,
+          allowFreeDownload: templateData.allowFreeDownload,
         }),
       });
       const data = await response.json();
@@ -329,6 +386,99 @@ function CreateTemplateContent() {
                   placeholder="Enter template description"
                 />
               </div>
+
+              {/* Monetization Section */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Monetization Options</h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                    <input
+                      type="checkbox"
+                      checked={templateData.isPublic}
+                      onChange={(e) => setTemplateData(prev => ({ ...prev, isPublic: e.target.checked }))}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Make this template public</span>
+                      <p className="text-xs text-gray-500">Others can discover and use this template</p>
+                    </div>
+                  </label>
+
+                  <label className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer ${!hasPayoutInfo && !loadingPayout ? 'bg-gray-100 opacity-60' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                    <input
+                      type="checkbox"
+                      checked={templateData.isPaid}
+                      disabled={!hasPayoutInfo && !loadingPayout}
+                      onChange={(e) => setTemplateData(prev => ({
+                        ...prev,
+                        isPaid: e.target.checked,
+                        price: e.target.checked ? Math.max(prev.price, 1) : 0,
+                      }))}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-700">Charge for this template</span>
+                      <p className="text-xs text-gray-500">
+                        {hasPayoutInfo ? 'Earn money when others use your template' : 'Set up payout settings first'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {!hasPayoutInfo && !loadingPayout && (
+                  <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      To charge for templates, you need to set up your payout details.{' '}
+                      <Link href="/payout-settings" className="font-medium underline hover:text-yellow-900">
+                        Set up payout settings →
+                      </Link>
+                    </p>
+                  </div>
+                )}
+
+                {templateData.isPaid && (
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Template Price (₹) *
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        step="1"
+                        value={templateData.price}
+                        onChange={(e) => setTemplateData(prev => ({
+                          ...prev,
+                          price: Math.max(0, Number(e.target.value) || 0),
+                        }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter price in INR"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Users will pay this amount in addition to printing charges.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col justify-end">
+                      <label className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100">
+                        <input
+                          type="checkbox"
+                          checked={templateData.allowFreeDownload}
+                          onChange={(e) => setTemplateData(prev => ({ ...prev, allowFreeDownload: e.target.checked }))}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Allow free download</span>
+                          <p className="text-xs text-gray-500">
+                            Users can download without ordering
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Placeholders Management */}
@@ -427,7 +577,7 @@ function CreateTemplateContent() {
                   setStep('upload');
                   setFile(null);
                   setExtractedPlaceholders([]);
-                  setTemplateData({ name: '', description: '', category: 'lab-manual' });
+                  setTemplateData({ name: '', description: '', category: 'lab-manual', isPublic: false, isPaid: false, price: 0, allowFreeDownload: true });
                 }}
                 className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >

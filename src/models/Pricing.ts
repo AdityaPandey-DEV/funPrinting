@@ -26,6 +26,8 @@ export interface IPricing {
     minServiceFee: number;
     minServiceFeePageLimit: number;
   };
+  // Global commission for paid templates (website share in percentage, e.g. 20 = 20%)
+  templateCommissionPercent?: number;
   updatedBy: string;
   updatedAt: Date;
 }
@@ -54,6 +56,13 @@ const pricingSchema = new mongoose.Schema<IPricing>({
     resumeTemplate: { type: Number, required: true, default: 0 },
     minServiceFee: { type: Number, required: true, default: 5 },
     minServiceFeePageLimit: { type: Number, required: true, default: 1 },
+  },
+  templateCommissionPercent: {
+    type: Number,
+    required: false,
+    min: 0,
+    max: 50,
+    default: 20,
   },
   updatedBy: { type: String, required: true },
 }, {

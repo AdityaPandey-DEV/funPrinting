@@ -84,6 +84,12 @@ export interface IOrder {
   };
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
+  // Monetization split for paid templates
+  templatePrice?: number; // Price charged for using the template (if any)
+  templateCommissionPercent?: number; // Website share percentage at time of order
+  creatorShareAmount?: number; // Amount to be paid out to creator (INR)
+  platformShareAmount?: number; // Platform earnings for this order (INR)
+  templateCreatorUserId?: string; // Reference to template creator user ID (string for simplicity)
   expectedDate?: Date;
   deliveryNumber?: string; // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
   createdAt: Date;
@@ -220,6 +226,31 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   razorpayOrderId: String,
   razorpayPaymentId: String,
+  templatePrice: {
+    type: Number,
+    required: false,
+    min: 0,
+  },
+  templateCommissionPercent: {
+    type: Number,
+    required: false,
+    min: 0,
+    max: 50,
+  },
+  creatorShareAmount: {
+    type: Number,
+    required: false,
+    min: 0,
+  },
+  platformShareAmount: {
+    type: Number,
+    required: false,
+    min: 0,
+  },
+  templateCreatorUserId: {
+    type: String,
+    required: false,
+  },
   expectedDate: {
     type: Date,
     validate: {

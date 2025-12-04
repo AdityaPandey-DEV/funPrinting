@@ -13,6 +13,14 @@ export interface IUser {
   isActive: boolean;
   lastLogin?: Date;
   defaultLocationId?: string; // Reference to PickupLocation
+  // Optional payout details for creator monetization
+  upiId?: string;
+  bankDetails?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,6 +37,13 @@ const userSchema = new mongoose.Schema<IUser>({
   isActive: { type: Boolean, required: true, default: true },
   lastLogin: { type: Date, required: false },
   defaultLocationId: { type: String, required: false, trim: true },
+  upiId: { type: String, required: false, trim: true },
+  bankDetails: {
+    accountHolderName: { type: String, required: false, trim: true },
+    accountNumber: { type: String, required: false, trim: true },
+    ifscCode: { type: String, required: false, trim: true },
+    bankName: { type: String, required: false, trim: true },
+  },
 }, {
   timestamps: true,
 });

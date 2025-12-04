@@ -413,6 +413,12 @@ function AdminDashboardContent() {
             description="Monitor printer API and queue status"
             href="/admin/printer-monitor"
           />
+          <AdminCard
+            icon="💰"
+            title="Creator Earnings"
+            description="View and process template creator payouts"
+            href="/admin/creator-earnings"
+          />
         </div>
 
         {/* Orders Table */}

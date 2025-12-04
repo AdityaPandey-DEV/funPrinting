@@ -138,6 +138,28 @@ export async function POST(request: NextRequest) {
       amount += deliveryOption.deliveryCharge;
     }
 
+    // Calculate template fee and revenue split for paid templates
+    let templatePrice = 0;
+    let creatorShareAmount = 0;
+    let platformShareAmount = 0;
+    const templateCommissionPercent = pricing.templateCommissionPercent ?? 20;
+
+    if (template.isPaid && typeof template.price === 'number' && template.price > 0) {
+      templatePrice = template.price;
+      amount += templatePrice;
+
+      // Calculate platform and creator shares
+      const safeCommission = Math.min(Math.max(templateCommissionPercent, 0), 50);
+      platformShareAmount = Math.round((templatePrice * safeCommission) / 100);
+      creatorShareAmount = Math.max(0, templatePrice - platformShareAmount);
+
+      console.log(`💰 Template monetization for order:`);
+      console.log(`  - Template price: ₹${templatePrice}`);
+      console.log(`  - Commission: ${safeCommission}%`);
+      console.log(`  - Platform share: ₹${platformShareAmount}`);
+      console.log(`  - Creator share: ₹${creatorShareAmount}`);
+    }
+
     // Create Razorpay order
     const razorpayOrder = await createRazorpayOrder({
       amount,
@@ -147,10 +169,11 @@ export async function POST(request: NextRequest) {
         templateId,
         customerName: customerInfo.name,
         pageCount: pageCount.toString(),
+        templatePrice: templatePrice.toString(),
       },
     });
 
-    // Create order in database
+    // Create order in database with monetization fields
     const orderData = {
       orderId: uuidv4(),
       customerInfo: {
@@ -173,6 +196,12 @@ export async function POST(request: NextRequest) {
       amount,
       razorpayOrderId: razorpayOrder.id,
       status: 'pending_payment',
+      // Monetization fields
+      templatePrice: templatePrice > 0 ? templatePrice : undefined,
+      templateCommissionPercent: templatePrice > 0 ? templateCommissionPercent : undefined,
+      creatorShareAmount: creatorShareAmount > 0 ? creatorShareAmount : undefined,
+      platformShareAmount: platformShareAmount > 0 ? platformShareAmount : undefined,
+      templateCreatorUserId: template.createdByUserId ? template.createdByUserId.toString() : undefined,
     };
 
     const order = new Order(orderData);

@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest) {
 
     // Fetch all public templates
     const templates = await DynamicTemplate.find({ isPublic: true })
-      .select('id name description category placeholders pdfUrl wordUrl formSchema createdByType createdByEmail createdByName createdAt updatedAt')
+      .select('id name description category placeholders pdfUrl wordUrl formSchema createdByType createdByEmail createdByName isPaid price allowFreeDownload createdAt updatedAt')
       .sort({ createdAt: -1 });
 
     // Generate form schemas for each template
@@ -26,6 +26,9 @@ export async function GET(_request: NextRequest) {
       createdByType: template.createdByType,
       createdByEmail: template.createdByEmail,
       createdByName: template.createdByName,
+      isPaid: template.isPaid || false,
+      price: template.price || 0,
+      allowFreeDownload: template.allowFreeDownload !== false,
       createdAt: template.createdAt,
       updatedAt: template.updatedAt
     }));

@@ -26,6 +26,8 @@ export interface PricingData {
     minServiceFee: number;
     minServiceFeePageLimit: number;
   };
+  // Website commission on paid templates (percentage, e.g. 20 = 20%)
+  templateCommissionPercent?: number;
 }
 
 // Get pricing from database or return defaults
@@ -65,6 +67,7 @@ export async function getPricing(): Promise<PricingData> {
       multipliers: pricing.multipliers,
       deliveryCharges: pricing.deliveryCharges,
       additionalServices: pricing.additionalServices,
+      templateCommissionPercent: pricing.templateCommissionPercent,
     };
   } catch (error) {
     console.error('Error fetching pricing:', error);
@@ -88,6 +91,7 @@ export async function getPricing(): Promise<PricingData> {
         minServiceFee: 5,
         minServiceFeePageLimit: 1,
       },
+      templateCommissionPercent: 20,
     };
   }
 }
