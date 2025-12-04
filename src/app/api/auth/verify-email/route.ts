@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import { emailVerificationStore } from '@/lib/email-verification';
+import VerificationToken from '@/models/VerificationToken';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,21 +14,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify the token
-    const verificationResult = emailVerificationStore.verifyToken(token);
-    
-    if (!verificationResult.valid) {
+    await connectDB();
+
+    const tokenDoc = await VerificationToken.findOne({ token });
+
+    if (!tokenDoc) {
       return NextResponse.json(
-        { success: false, error: verificationResult.error },
+        { success: false, error: 'Invalid or expired verification token' },
         { status: 400 }
       );
     }
 
-    await connectDB();
+    if (tokenDoc.expiresAt < new Date()) {
+      await VerificationToken.deleteOne({ _id: tokenDoc._id });
+      return NextResponse.json(
+        { success: false, error: 'Verification token has expired' },
+        { status: 400 }
+      );
+    }
 
     // Find the user by email
     const user = await User.findOne({ 
-      email: verificationResult.email,
+      email: tokenDoc.email,
       provider: 'email'
     });
 
@@ -54,7 +61,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Remove the verification token
-    emailVerificationStore.deleteToken(token);
+    await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
     return NextResponse.json({
       success: true,
@@ -83,21 +90,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify the token
-    const verificationResult = emailVerificationStore.verifyToken(token);
-    
-    if (!verificationResult.valid) {
+    await connectDB();
+
+    const tokenDoc = await VerificationToken.findOne({ token });
+
+    if (!tokenDoc) {
       return NextResponse.json(
-        { success: false, error: verificationResult.error },
+        { success: false, error: 'Invalid or expired verification token' },
         { status: 400 }
       );
     }
 
-    await connectDB();
+    if (tokenDoc.expiresAt < new Date()) {
+      await VerificationToken.deleteOne({ _id: tokenDoc._id });
+      return NextResponse.json(
+        { success: false, error: 'Verification token has expired' },
+        { status: 400 }
+      );
+    }
 
     // Find the user by email
     const user = await User.findOne({ 
-      email: verificationResult.email,
+      email: tokenDoc.email,
       provider: 'email'
     });
 
@@ -123,7 +137,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Remove the verification token
-    emailVerificationStore.deleteToken(token);
+    await VerificationToken.deleteOne({ _id: tokenDoc._id });
 
     return NextResponse.json({
       success: true,

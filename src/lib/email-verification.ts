@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import crypto from 'crypto';
 
 // Configure email transporter using existing environment variables
 const transporter = nodemailer.createTransport({
@@ -14,96 +13,6 @@ const transporter = nodemailer.createTransport({
     rejectUnauthorized: false
   }
 });
-
-interface VerificationToken {
-  token: string;
-  email: string;
-  timestamp: number;
-  expiresAt: number;
-}
-
-// Global variable to persist verification tokens across API calls
-declare global {
-  var emailVerificationStore: Map<string, VerificationToken> | undefined;
-}
-
-class EmailVerificationStore {
-  private store: Map<string, VerificationToken>;
-
-  constructor() {
-    // Use global variable if it exists, otherwise create new
-    if (global.emailVerificationStore) {
-      this.store = global.emailVerificationStore;
-    } else {
-      this.store = new Map<string, VerificationToken>();
-      global.emailVerificationStore = this.store;
-    }
-
-    // Clean up expired tokens every hour
-    setInterval(() => {
-      this.cleanupExpiredTokens();
-    }, 60 * 60 * 1000);
-  }
-
-  // Generate verification token
-  generateToken(email: string): string {
-    const token = crypto.randomBytes(32).toString('hex');
-    const now = Date.now();
-    const expiresAt = now + (24 * 60 * 60 * 1000); // 24 hours
-
-    this.store.set(token, {
-      token,
-      email,
-      timestamp: now,
-      expiresAt
-    });
-
-    return token;
-  }
-
-  // Verify token
-  verifyToken(token: string): { valid: boolean; email?: string; error?: string } {
-    const tokenData = this.store.get(token);
-    
-    if (!tokenData) {
-      return { valid: false, error: 'Invalid or expired verification token' };
-    }
-
-    if (Date.now() > tokenData.expiresAt) {
-      this.store.delete(token);
-      return { valid: false, error: 'Verification token has expired' };
-    }
-
-    return { valid: true, email: tokenData.email };
-  }
-
-  // Remove token after successful verification
-  deleteToken(token: string): boolean {
-    return this.store.delete(token);
-  }
-
-  // Check if token is expired
-  isExpired(expiresAt: number): boolean {
-    return Date.now() > expiresAt;
-  }
-
-  // Clean up expired tokens
-  private cleanupExpiredTokens(): void {
-    for (const [token, data] of this.store.entries()) {
-      if (this.isExpired(data.expiresAt)) {
-        this.store.delete(token);
-      }
-    }
-  }
-
-  // Get store size for debugging
-  getStoreSize(): number {
-    return this.store.size;
-  }
-}
-
-// Export singleton instance
-export const emailVerificationStore = new EmailVerificationStore();
 
 // Send verification email
 export async function sendVerificationEmail(email: string, name: string, token: string): Promise<boolean> {

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
-import { emailVerificationStore, sendVerificationEmail } from '@/lib/email-verification';
+import VerificationToken from '@/models/VerificationToken';
+import { sendVerificationEmail } from '@/lib/email-verification';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,9 +18,11 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Find the user by email
     const user = await User.findOne({ 
-      email: email.toLowerCase().trim(),
+      email: normalizedEmail,
       provider: 'email'
     });
 
@@ -38,14 +42,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Generate new verification token
-    const verificationToken = emailVerificationStore.generateToken(email.toLowerCase().trim());
+    // Generate new verification token and store in MongoDB
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    await VerificationToken.deleteMany({ email: normalizedEmail });
+    await VerificationToken.create({
+      token,
+      email: normalizedEmail,
+      expiresAt,
+    });
     
     // Send verification email
     const emailSent = await sendVerificationEmail(
-      email.toLowerCase().trim(),
+      normalizedEmail,
       user.name,
-      verificationToken
+      token
     );
 
     if (!emailSent) {
