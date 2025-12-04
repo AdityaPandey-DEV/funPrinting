@@ -23,11 +23,11 @@ interface Template {
   formSchema: FormField[];
   pdfUrl: string;
   wordUrl: string;
+  createdAt: string;
+  updatedAt: string;
   isPaid?: boolean;
   price?: number;
   allowFreeDownload?: boolean;
-  createdAt: string;
-  updatedAt: string;
 }
 
 interface FormData {
@@ -39,15 +39,16 @@ type Step = 'filling' | 'payment' | 'complete';
 export default function TemplateFillPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
-  
   const [template, setTemplate] = useState<Template | null>(null);
   const [formData, setFormData] = useState<FormData>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+  const [redirectMessage, setRedirectMessage] = useState<string | null>(null);
   const [step, setStep] = useState<Step>('filling');
-  const [generatedPdfUrl, setGeneratedPdfUrl] = useState<string | null>(null);
+  const [generatedWordUrl, setGeneratedWordUrl] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   useEffect(() => {
@@ -66,37 +67,30 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
 
   const fetchTemplate = async () => {
     try {
-      setIsLoading(true);
-      
-      // Fetch template details using the templates API (includes monetization fields)
-      const response = await fetch(`/api/templates/${templateId}`);
-      if (!response.ok) {
-        throw new Error('Template not found');
-      }
-      
+      const response = await fetch(`/api/admin/save-template?id=${templateId}`);
       const result = await response.json();
-      if (!result.success || !result.template) {
-        throw new Error('Template not found');
+
+      if (result.success) {
+        setTemplate(result.data.template);
+        // Initialize form data with empty values
+        const initialFormData: FormData = {};
+        
+        // Check if formSchema exists and is an array
+        if (result.data.template.formSchema && Array.isArray(result.data.template.formSchema)) {
+          result.data.template.formSchema.forEach((field: FormField) => {
+            initialFormData[field.key] = '';
+          });
+        } else if (result.data.template.placeholders && Array.isArray(result.data.template.placeholders)) {
+          // Fallback: use placeholders array to create form data
+          result.data.template.placeholders.forEach((placeholder: string) => {
+            initialFormData[placeholder] = '';
+          });
+        }
+        
+        setFormData(initialFormData);
+      } else {
+        setError(result.error || 'Template not found');
       }
-      
-      setTemplate(result.template);
-      
-      // Initialize form data with empty values
-      const initialFormData: FormData = {};
-      
-      // Check if formSchema exists and is an array
-      if (result.template.formSchema && Array.isArray(result.template.formSchema)) {
-        result.template.formSchema.forEach((field: FormField) => {
-          initialFormData[field.key] = '';
-        });
-      } else if (result.template.placeholders && Array.isArray(result.template.placeholders)) {
-        // Fallback: use placeholders array to create form data
-        result.template.placeholders.forEach((placeholder: string) => {
-          initialFormData[placeholder] = '';
-        });
-      }
-      
-      setFormData(initialFormData);
     } catch (error) {
       console.error('Error fetching template:', error);
       setError('Failed to load template');
@@ -136,37 +130,43 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     return errors;
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
     const errors = validateForm();
     if (errors.length > 0) {
       setError(errors.join(', '));
       return;
     }
 
-    setIsGenerating(true);
+    setIsSubmitting(true);
     setError(null);
 
     try {
-      // Generate custom document using generate-custom API
-      const response = await fetch('/api/templates/generate-custom', {
+      console.log('🔄 Generating filled document...');
+      console.log('📝 Form data:', formData);
+
+      const response = await fetch('/api/templates/generate-fill', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          templateId: templateId,
-          formData: formData
-        })
+          templateId: template?.id,
+          formData
+        }),
       });
 
       if (!response.ok) {
+        const errText = await response.text();
+        console.error('❌ Generation error response:', errText);
         throw new Error('Failed to generate document');
       }
 
       const result = await response.json();
       
       if (result.success) {
-        setGeneratedPdfUrl(result.pdfUrl);
+        setGeneratedWordUrl(result.wordUrl);
         
         // Check if template is paid
         if (template?.isPaid && (template.price ?? 0) > 0) {
@@ -181,15 +181,16 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       }
       
     } catch (error) {
-      console.error('Error generating document:', error);
-      setError('Failed to generate document. Please try again.');
+      console.error('❌ Error generating document:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to generate document. Please try again.';
+      setError(errorMessage);
     } finally {
-      setIsGenerating(false);
+      setIsSubmitting(false);
     }
   };
 
   const handlePayment = async () => {
-    if (!template || !generatedPdfUrl) return;
+    if (!template || !generatedWordUrl) return;
     
     if (!isRazorpayLoaded) {
       alert('Payment gateway is loading. Please wait a moment.');
@@ -213,7 +214,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         },
         body: JSON.stringify({
           templateId: templateId,
-          pdfUrl: generatedPdfUrl,
+          pdfUrl: generatedWordUrl, // Pass Word URL as pdfUrl parameter
           formData: formData,
           amount: template.price
         })
@@ -227,6 +228,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       const data = await response.json();
       
       if (data.success) {
+        
         // Initialize Razorpay payment
         const options = {
           key: data.key,
@@ -300,26 +302,40 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     }
   };
 
-  const handleDownload = () => {
-    if (!generatedPdfUrl) return;
+  const handleDownload = async () => {
+    if (!generatedWordUrl) return;
     
-    // Create a temporary link and trigger download
-    const link = document.createElement('a');
-    link.href = generatedPdfUrl;
-    link.download = `${template?.name || 'document'}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      // Fetch Word document from URL
+      const response = await fetch(generatedWordUrl);
+      if (!response.ok) {
+        throw new Error('Failed to fetch document');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${template?.name?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      console.log('✅ Document downloaded successfully');
+    } catch (error) {
+      console.error('❌ Error downloading document:', error);
+      setError('Failed to download document. Please try again.');
+    }
   };
 
   const handleContinueToOrder = () => {
-    if (!generatedPdfUrl || !template) return;
+    if (!generatedWordUrl || !template) return;
     
     // Store order data in sessionStorage for the order page
     const orderData = {
       templateId: templateId,
       templateName: template.name,
-      pdfUrl: generatedPdfUrl,
+      wordUrl: generatedWordUrl,
       customerData: formData,
       isTemplateDocument: true
     };
@@ -329,6 +345,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     // Redirect to order page
     router.push('/order');
   };
+
 
   const renderFormField = (field: FormField) => {
     // Use placeholder if available, otherwise use defaultPlaceholder, otherwise generate default
@@ -469,12 +486,12 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
             )}
 
             <div className="flex gap-4 justify-center">
-              <Link
-                href="/templates"
+              <button
+                onClick={() => router.push('/templates')}
                 className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400"
               >
                 Cancel
-              </Link>
+              </button>
               <button
                 onClick={handlePayment}
                 disabled={!isRazorpayLoaded || isProcessingPayment}
@@ -513,15 +530,17 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button
-                onClick={handleDownload}
-                className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center"
-              >
-                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Download Document
-              </button>
+              {template.allowFreeDownload !== false && (
+                <button
+                  onClick={handleDownload}
+                  className="bg-green-600 text-white px-8 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  Download Document
+                </button>
+              )}
               <button
                 onClick={handleContinueToOrder}
                 className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center"
@@ -533,12 +552,12 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
               </button>
             </div>
 
-            <Link
-              href="/templates"
-              className="mt-6 text-gray-600 hover:text-gray-800 inline-block"
+            <button
+              onClick={() => router.push('/templates')}
+              className="mt-6 text-gray-600 hover:text-gray-800"
             >
               ← Back to Templates
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -568,16 +587,16 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                 {template.category}
               </span>
               {template.isPaid && (template.price ?? 0) > 0 ? (
-                <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded font-semibold text-base">
+                <span className="bg-orange-100 text-orange-800 text-xs px-3 py-1 rounded font-semibold">
                   ₹{template.price}
                 </span>
               ) : (
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded font-medium">
                   Free Template
                 </span>
               )}
               {template.isPaid && template.allowFreeDownload === false && (
-                <span className="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-xs">
+                <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
                   Download requires payment
                 </span>
               )}
@@ -595,23 +614,33 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                 Fill Template Form
               </h2>
               <p className="text-sm text-gray-600 mt-1">
-                Fill out the form below and generate your personalized document
+                Fill out the form below and download your personalized document
               </p>
             </div>
 
             <div className="p-6">
-              {error && (
+              {(error || redirectCountdown !== null) && (
                 <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
                   <div className="flex">
                     <div className="ml-3">
-                      <h3 className="text-sm font-medium text-red-800">Error</h3>
-                      <div className="mt-2 text-sm text-red-700">{error}</div>
+                      {error && (
+                        <>
+                          <h3 className="text-sm font-medium text-red-800">Error</h3>
+                          <div className="mt-2 text-sm text-red-700">{error}</div>
+                        </>
+                      )}
+                      {redirectCountdown !== null && (
+                        <div className="mt-2 text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded p-3">
+                          {redirectMessage || 'Redirecting'} in {redirectCountdown}s... Please wait while your download starts.
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               )}
 
-              <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+
+              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-4">
                   {template.formSchema && Array.isArray(template.formSchema) ? (
                     // Use formSchema if available
@@ -659,10 +688,10 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                   </Link>
                   <button
                     type="submit"
-                    disabled={isGenerating}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isGenerating ? (
+                    {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                         Generating...
@@ -675,6 +704,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
               </form>
             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     if (!templateId || !pdfUrl || !amount || amount <= 0) {
       return NextResponse.json(
-        { success: false, error: 'Template ID, PDF URL, and valid amount are required' },
+        { success: false, error: 'Template ID, document URL, and valid amount are required' },
         { status: 400 }
       );
     }

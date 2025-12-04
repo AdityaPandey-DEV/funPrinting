@@ -219,6 +219,9 @@ export async function GET(request: NextRequest) {
           wordUrl: template.wordUrl,
           placeholders: template.placeholders,
           formSchema,
+          isPaid: template.isPaid,
+          price: template.price,
+          allowFreeDownload: template.allowFreeDownload,
           createdAt: template.createdAt,
           updatedAt: template.updatedAt
         }
