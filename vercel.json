@@ -1,0 +1,22 @@
+{
+  "functions": {
+    "src/app/api/templates/user-download/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/templates/download-filled/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/orders/template/route.ts": {
+      "maxDuration": 30
+    },
+    "src/app/api/upload-file/route.ts": {
+      "maxDuration": 60
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/cleanup-pending-orders",
+      "schedule": "0 12 * * *"
+    }
+  ]
+}
