@@ -707,6 +707,53 @@ export default function OrderPage() {
     }
   }, []);
 
+  // Check for pending template document (from template payment flow)
+  useEffect(() => {
+    const pendingTemplateDoc = sessionStorage.getItem('pendingTemplateDocument');
+    if (pendingTemplateDoc) {
+      try {
+        const templateData = JSON.parse(pendingTemplateDoc);
+        console.log('📋 Found pending template document:', templateData);
+        
+        // Set the order type to template
+        setOrderType('template');
+        
+        // Set the PDF URL for preview
+        if (templateData.pdfUrl) {
+          setPdfUrls([templateData.pdfUrl]);
+          setPdfLoaded(true);
+          setFileURLs([templateData.pdfUrl]);
+          
+          // Set template ID if available
+          if (templateData.templateId) {
+            // Store template ID for order creation
+            // The order API will handle template orders with URLs
+          }
+        }
+        
+        // Set customer info from the form data
+        if (templateData.customerData) {
+          setCustomerInfo({
+            name: templateData.customerData.name || templateData.customerData.studentName || '',
+            email: templateData.customerData.email || '',
+            phone: templateData.customerData.phone || templateData.customerData.mobile || ''
+          });
+        }
+        
+        // Set page count to 1 for template orders (will be updated based on actual PDF)
+        setPageCount(1);
+        
+        // Clear the pending template document from session storage
+        sessionStorage.removeItem('pendingTemplateDocument');
+        
+        console.log('✅ Pending template document loaded successfully');
+      } catch (error) {
+        console.error('Error loading pending template document:', error);
+        sessionStorage.removeItem('pendingTemplateDocument');
+      }
+    }
+  }, []);
+
   // Fetch pickup locations
   useEffect(() => {
     const fetchPickupLocations = async () => {
