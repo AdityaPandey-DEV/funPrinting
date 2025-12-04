@@ -711,46 +711,83 @@ export default function OrderPage() {
   useEffect(() => {
     const pendingTemplateDoc = sessionStorage.getItem('pendingTemplateDocument');
     if (pendingTemplateDoc) {
-      try {
-        const templateData = JSON.parse(pendingTemplateDoc);
-        console.log('📋 Found pending template document:', templateData);
-        
-        // Set the order type to template
-        setOrderType('template');
-        
-        // Set the PDF URL for preview
-        if (templateData.pdfUrl) {
-          setPdfUrls([templateData.pdfUrl]);
-          setPdfLoaded(true);
-          setFileURLs([templateData.pdfUrl]);
+      const loadTemplateDocument = async () => {
+        try {
+          const templateData = JSON.parse(pendingTemplateDoc);
+          console.log('📋 Found pending template document:', templateData);
           
-          // Set template ID if available
-          if (templateData.templateId) {
-            // Store template ID for order creation
-            // The order API will handle template orders with URLs
+          // Set the order type to file (since we're uploading the file)
+          setOrderType('file');
+          
+          // Handle Word URL if present
+          if (templateData.wordUrl) {
+            setIsCountingPages(true);
+            setPdfLoaded(false);
+            
+            try {
+              // Fetch Word file from URL
+              const response = await fetch(templateData.wordUrl);
+              if (!response.ok) {
+                throw new Error('Failed to fetch Word file from URL');
+              }
+              
+              const blob = await response.blob();
+              
+              // Convert blob to File object
+              const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.docx`;
+              const file = new File([blob], fileName, {
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+              });
+              
+              // Add file to selectedFiles
+              setSelectedFiles([file]);
+              
+              // Create preview URL
+              const previewUrl = URL.createObjectURL(blob);
+              setPdfUrls([previewUrl]);
+              setFileURLs([templateData.wordUrl]);
+              
+              // Count pages for Word file
+              const pageCount = await countPagesInFile(file);
+              setFilePageCounts([pageCount]);
+              setPageCount(pageCount);
+              
+              setPdfLoaded(true);
+              setIsCountingPages(false);
+              
+              console.log('✅ Word file loaded from URL and added to upload');
+            } catch (error) {
+              console.error('Error loading Word file from URL:', error);
+              setIsCountingPages(false);
+            }
+          } else if (templateData.pdfUrl) {
+            // Legacy: Handle PDF URL if present
+            setPdfUrls([templateData.pdfUrl]);
+            setPdfLoaded(true);
+            setFileURLs([templateData.pdfUrl]);
+            setPageCount(1);
           }
+          
+          // Set customer info from the form data
+          if (templateData.customerData) {
+            setCustomerInfo({
+              name: templateData.customerData.name || templateData.customerData.studentName || '',
+              email: templateData.customerData.email || '',
+              phone: templateData.customerData.phone || templateData.customerData.mobile || ''
+            });
+          }
+          
+          // Clear the pending template document from session storage
+          sessionStorage.removeItem('pendingTemplateDocument');
+          
+          console.log('✅ Pending template document loaded successfully');
+        } catch (error) {
+          console.error('Error loading pending template document:', error);
+          sessionStorage.removeItem('pendingTemplateDocument');
         }
-        
-        // Set customer info from the form data
-        if (templateData.customerData) {
-          setCustomerInfo({
-            name: templateData.customerData.name || templateData.customerData.studentName || '',
-            email: templateData.customerData.email || '',
-            phone: templateData.customerData.phone || templateData.customerData.mobile || ''
-          });
-        }
-        
-        // Set page count to 1 for template orders (will be updated based on actual PDF)
-        setPageCount(1);
-        
-        // Clear the pending template document from session storage
-        sessionStorage.removeItem('pendingTemplateDocument');
-        
-        console.log('✅ Pending template document loaded successfully');
-      } catch (error) {
-        console.error('Error loading pending template document:', error);
-        sessionStorage.removeItem('pendingTemplateDocument');
-      }
+      };
+      
+      loadTemplateDocument();
     }
   }, []);
 
