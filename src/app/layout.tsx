@@ -12,7 +12,6 @@ export const metadata: Metadata = {
   verification: {
     google: 'KuALniDwTibP1GXe1WJTPJA66lA0P1VkDiq-IgBDwfg',
   },
-<<<<<<< HEAD
   icons: {
     icon: '/fun-printing-printing-service-favicon.jpg',
   },
@@ -29,8 +28,6 @@ export const metadata: Metadata = {
       'Professional printing services for college students. Fast, reliable, and affordable printing with delivery to your hostel.',
     images: ['/fun-printing-printing-service-favicon.jpg'],
   },
-=======
->>>>>>> 341729e721aa66ee683edfc9ef97ac328a158377
 };
 
 export default function RootLayout({
