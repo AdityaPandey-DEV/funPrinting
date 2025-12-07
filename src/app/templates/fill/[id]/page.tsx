@@ -348,6 +348,16 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
           name: 'Fun Printing',
           description: `Template Payment - ${template.name}`,
           order_id: data.razorpayOrderId,
+          // Configure payment methods - enable all available methods as fallback
+          // This ensures users can use cards, UPI, netbanking, wallets if GPay doesn't work
+          method: {
+            upi: true,
+            card: true,
+            netbanking: true,
+            wallet: true,
+            emi: false,
+            paylater: false,
+          },
           handler: async function (response: any) {
             try {
               console.log('💳 Payment response received:', response);
