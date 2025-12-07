@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import { getCurrentUser } from '@/lib/templateAuth';
+import bcrypt from 'bcryptjs';
 
 // Validate UPI ID format (basic validation)
 const isValidUpi = (upi?: string): boolean => {
@@ -76,7 +77,41 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { upiId, bankDetails } = body;
+    const { upiId, bankDetails, password } = body;
+
+    // Require password for security
+    if (!password) {
+      return NextResponse.json(
+        { success: false, error: 'Password is required to update payout settings' },
+        { status: 400 }
+      );
+    }
+
+    await connectDB();
+    const user = await User.findOne({ email: sessionUser.email.toLowerCase() });
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Verify password
+    if (!user.password) {
+      return NextResponse.json(
+        { success: false, error: 'No password set. Please set up a password first.' },
+        { status: 400 }
+      );
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return NextResponse.json(
+        { success: false, error: 'Incorrect password' },
+        { status: 401 }
+      );
+    }
 
     // Validate UPI ID
     if (upiId && !isValidUpi(upiId)) {
@@ -101,16 +136,6 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         );
       }
-    }
-
-    await connectDB();
-    const user = await User.findOne({ email: sessionUser.email.toLowerCase() });
-
-    if (!user) {
-      return NextResponse.json(
-        { success: false, error: 'User not found' },
-        { status: 404 }
-      );
     }
 
     // Update payout settings

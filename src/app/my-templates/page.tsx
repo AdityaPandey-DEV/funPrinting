@@ -25,6 +25,38 @@ interface Template {
   updatedAt: string;
 }
 
+interface CreatorEarning {
+  _id: string;
+  templateId: string;
+  orderId: string;
+  razorpayPaymentId?: string;
+  amount: number;
+  platformShareAmount?: number;
+  status: 'pending' | 'processing' | 'paid' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface EarningsSummary {
+  totalEarnings: number;
+  pendingEarnings: number;
+  paidEarnings: number;
+  platformEarnings: number;
+  totalCount: number;
+  pendingCount: number;
+  paidCount: number;
+}
+
+interface PayoutSettings {
+  upiId: string;
+  bankDetails: {
+    accountHolderName: string;
+    accountNumber: string;
+    ifscCode: string;
+    bankName: string;
+  };
+}
+
 function MyTemplatesContent() {
   const { status } = useSession();
   const router = useRouter();
@@ -36,6 +68,33 @@ function MyTemplatesContent() {
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
+  // Earnings modal state
+  const [showEarningsModal, setShowEarningsModal] = useState(false);
+  const [earnings, setEarnings] = useState<CreatorEarning[]>([]);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>({
+    totalEarnings: 0,
+    pendingEarnings: 0,
+    paidEarnings: 0,
+    platformEarnings: 0,
+    totalCount: 0,
+    pendingCount: 0,
+    paidCount: 0,
+  });
+  const [earningsLoading, setEarningsLoading] = useState(false);
+  const [payoutSettings, setPayoutSettings] = useState<PayoutSettings>({
+    upiId: '',
+    bankDetails: {
+      accountHolderName: '',
+      accountNumber: '',
+      ifscCode: '',
+      bankName: '',
+    },
+  });
+  const [showEditPayout, setShowEditPayout] = useState(false);
+  const [password, setPassword] = useState('');
+  const [updatingPayout, setUpdatingPayout] = useState(false);
+  const [payoutError, setPayoutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -66,6 +125,80 @@ function MyTemplatesContent() {
     }
   };
 
+  const handleViewEarnings = async (template: Template) => {
+    setSelectedTemplate(template);
+    setShowEarningsModal(true);
+    setEarningsLoading(true);
+    setEarnings([]);
+    setPayoutError(null);
+    
+    try {
+      // Fetch earnings for this template
+      const earningsResponse = await fetch(`/api/templates/${template.id}/earnings`);
+      const earningsData = await earningsResponse.json();
+      
+      if (earningsData.success) {
+        setEarnings(earningsData.earnings || []);
+        setEarningsSummary(earningsData.summary || {
+          totalEarnings: 0,
+          pendingEarnings: 0,
+          paidEarnings: 0,
+          platformEarnings: 0,
+          totalCount: 0,
+          pendingCount: 0,
+          paidCount: 0,
+        });
+      }
+      
+      // Fetch payout settings
+      const payoutResponse = await fetch('/api/user/payout-settings');
+      const payoutData = await payoutResponse.json();
+      
+      if (payoutData.success) {
+        setPayoutSettings(payoutData.payoutSettings);
+      }
+    } catch (error) {
+      console.error('Error fetching earnings:', error);
+      setPayoutError('Failed to load earnings data');
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
+  const handleUpdatePayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setUpdatingPayout(true);
+    setPayoutError(null);
+    
+    try {
+      const response = await fetch('/api/user/payout-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...payoutSettings,
+          password,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setPayoutSettings(data.payoutSettings);
+        setShowEditPayout(false);
+        setPassword('');
+        setPayoutError(null);
+        alert('Payout settings updated successfully!');
+      } else {
+        setPayoutError(data.error || 'Failed to update payout settings');
+      }
+    } catch (error) {
+      console.error('Error updating payout settings:', error);
+      setPayoutError('An error occurred while updating payout settings');
+    } finally {
+      setUpdatingPayout(false);
+    }
+  };
+
   const handleDelete = async (templateId: string) => {
     try {
       setDeleteLoading(templateId);
@@ -87,6 +220,16 @@ function MyTemplatesContent() {
     } finally {
       setDeleteLoading(null);
     }
+  };
+
+  const getStatusBadge = (status: string) => {
+    const badges: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      paid: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800',
+    };
+    return badges[status] || 'bg-gray-100 text-gray-800';
   };
 
   const filteredTemplates = templates.filter(template => {
@@ -289,12 +432,12 @@ function MyTemplatesContent() {
 
                   {/* Action Buttons */}
                   <div className="grid grid-cols-3 gap-2">
-                    <Link
-                      href={`/templates/custom/${template.id}`}
-                      className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium text-center"
+                    <button
+                      onClick={() => handleViewEarnings(template)}
+                      className="bg-blue-600 text-white py-2 px-3 rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
                     >
                       View
-                    </Link>
+                    </button>
                     <button
                       onClick={() => router.push(`/templates/edit/${template.id}`)}
                       className="bg-green-600 text-white py-2 px-3 rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
@@ -344,6 +487,272 @@ function MyTemplatesContent() {
         </div>
       </div>
 
+      {/* Earnings Detail Modal */}
+      {showEarningsModal && selectedTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Template Earnings</h2>
+                  <p className="text-gray-600 mt-1">{selectedTemplate.name}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowEarningsModal(false);
+                    setShowEditPayout(false);
+                    setSelectedTemplate(null);
+                    setEarnings([]);
+                    setPassword('');
+                    setPayoutError(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              {earningsLoading ? (
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Loading earnings...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-4">
+                      <p className="text-sm text-blue-600 font-medium">Total Earnings</p>
+                      <p className="text-2xl font-bold text-blue-800">₹{earningsSummary.totalEarnings.toLocaleString()}</p>
+                      <p className="text-xs text-blue-500">{earningsSummary.totalCount} transactions</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-yellow-50 to-orange-100 rounded-lg p-4">
+                      <p className="text-sm text-yellow-600 font-medium">Pending Payouts</p>
+                      <p className="text-2xl font-bold text-yellow-800">₹{earningsSummary.pendingEarnings.toLocaleString()}</p>
+                      <p className="text-xs text-yellow-500">{earningsSummary.pendingCount} pending</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-4">
+                      <p className="text-sm text-green-600 font-medium">Paid Out</p>
+                      <p className="text-2xl font-bold text-green-800">₹{earningsSummary.paidEarnings.toLocaleString()}</p>
+                      <p className="text-xs text-green-500">{earningsSummary.paidCount} completed</p>
+                    </div>
+                    <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-lg p-4">
+                      <p className="text-sm text-purple-600 font-medium">Platform Share</p>
+                      <p className="text-2xl font-bold text-purple-800">₹{earningsSummary.platformEarnings.toLocaleString()}</p>
+                      <p className="text-xs text-purple-500">Commission</p>
+                    </div>
+                  </div>
+
+                  {/* Earnings Table */}
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Earnings History</h3>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Platform</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {earnings.length === 0 ? (
+                            <tr>
+                              <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                                No earnings found for this template yet
+                              </td>
+                            </tr>
+                          ) : (
+                            earnings.map((earning) => (
+                              <tr key={earning._id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900">
+                                  {earning.orderId}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm font-semibold text-green-600">₹{earning.amount}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <div className="text-sm text-blue-600">₹{earning.platformShareAmount || 0}</div>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusBadge(earning.status)}`}>
+                                    {earning.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                  {new Date(earning.createdAt).toLocaleDateString()}
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Payout Settings */}
+                  <div className="border-t pt-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-gray-900">Payout Settings</h3>
+                      {!showEditPayout && (
+                        <button
+                          onClick={() => setShowEditPayout(true)}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
+                        >
+                          Edit Payout Details
+                        </button>
+                      )}
+                    </div>
+
+                    {showEditPayout ? (
+                      <form onSubmit={handleUpdatePayout} className="space-y-4">
+                        {payoutError && (
+                          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                            {payoutError}
+                          </div>
+                        )}
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Password (required to update)
+                          </label>
+                          <input
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter your password"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">UPI ID</label>
+                          <input
+                            type="text"
+                            value={payoutSettings.upiId}
+                            onChange={(e) => setPayoutSettings({ ...payoutSettings, upiId: e.target.value })}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="yourname@upi"
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Account Holder Name</label>
+                            <input
+                              type="text"
+                              value={payoutSettings.bankDetails.accountHolderName}
+                              onChange={(e) => setPayoutSettings({
+                                ...payoutSettings,
+                                bankDetails: { ...payoutSettings.bankDetails, accountHolderName: e.target.value }
+                              })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                            <input
+                              type="text"
+                              value={payoutSettings.bankDetails.accountNumber}
+                              onChange={(e) => setPayoutSettings({
+                                ...payoutSettings,
+                                bankDetails: { ...payoutSettings.bankDetails, accountNumber: e.target.value }
+                              })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">IFSC Code</label>
+                            <input
+                              type="text"
+                              value={payoutSettings.bankDetails.ifscCode}
+                              onChange={(e) => setPayoutSettings({
+                                ...payoutSettings,
+                                bankDetails: { ...payoutSettings.bankDetails, ifscCode: e.target.value.toUpperCase() }
+                              })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="ABCD0123456"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                            <input
+                              type="text"
+                              value={payoutSettings.bankDetails.bankName}
+                              onChange={(e) => setPayoutSettings({
+                                ...payoutSettings,
+                                bankDetails: { ...payoutSettings.bankDetails, bankName: e.target.value }
+                              })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex space-x-3">
+                          <button
+                            type="submit"
+                            disabled={updatingPayout}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {updatingPayout ? 'Saving...' : 'Save Changes'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowEditPayout(false);
+                              setPassword('');
+                              setPayoutError(null);
+                              // Reload payout settings
+                              fetch('/api/user/payout-settings')
+                                .then(res => res.json())
+                                .then(data => {
+                                  if (data.success) {
+                                    setPayoutSettings(data.payoutSettings);
+                                  }
+                                });
+                            }}
+                            className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        {payoutSettings.upiId ? (
+                          <div className="mb-3">
+                            <div className="text-xs text-gray-500 mb-1">UPI ID:</div>
+                            <div className="text-sm font-mono text-blue-600">{payoutSettings.upiId}</div>
+                          </div>
+                        ) : null}
+                        {payoutSettings.bankDetails.accountNumber ? (
+                          <div>
+                            <div className="text-xs text-gray-500 mb-1">Bank Account:</div>
+                            <div className="text-sm">
+                              <div className="font-medium">{payoutSettings.bankDetails.accountHolderName}</div>
+                              <div className="font-mono">{payoutSettings.bankDetails.accountNumber}</div>
+                              <div className="text-gray-600">
+                                {payoutSettings.bankDetails.bankName} • IFSC: {payoutSettings.bankDetails.ifscCode}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+                        {!payoutSettings.upiId && !payoutSettings.bankDetails.accountNumber && (
+                          <p className="text-sm text-gray-500">No payout information configured</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedTemplate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -380,4 +789,3 @@ function MyTemplatesContent() {
 export default function MyTemplatesPage() {
   return <MyTemplatesContent />;
 }
-
