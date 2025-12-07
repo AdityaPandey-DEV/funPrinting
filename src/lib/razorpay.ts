@@ -23,6 +23,13 @@ export const createRazorpayOrder = async (params: CreateOrderParams) => {
   }
 
   try {
+    console.log('💳 Creating Razorpay order with params:', {
+      amount: params.amount,
+      amountInPaise: params.amount * 100,
+      currency: params.currency || 'INR',
+      receipt: params.receipt
+    });
+
     const order = await razorpay.orders.create({
       amount: params.amount * 100, // Razorpay expects amount in paise
       currency: params.currency || 'INR',
@@ -30,10 +37,40 @@ export const createRazorpayOrder = async (params: CreateOrderParams) => {
       notes: params.notes,
     });
 
+    console.log('✅ Razorpay order created successfully:', order.id);
     return order;
-  } catch (error) {
-    console.error('Error creating Razorpay order:', error);
-    throw new Error('Failed to create payment order');
+  } catch (error: any) {
+    console.error('❌ Error creating Razorpay order:', error);
+    
+    // Preserve the actual error message from Razorpay
+    let errorMessage = 'Failed to create payment order';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+    } else if (error && typeof error === 'object') {
+      // Razorpay SDK errors often have additional properties
+      if (error.error) {
+        errorMessage = error.error.description || error.error.reason || error.message || errorMessage;
+        console.error('Razorpay API error:', {
+          code: error.error.code,
+          description: error.error.description,
+          field: error.error.field,
+          source: error.error.source,
+          step: error.error.step,
+          reason: error.error.reason,
+          metadata: error.error.metadata
+        });
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+    }
+    
+    throw new Error(errorMessage);
   }
 };
 

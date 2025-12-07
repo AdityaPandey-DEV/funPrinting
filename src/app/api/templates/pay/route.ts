@@ -108,17 +108,34 @@ export async function POST(request: NextRequest) {
 
     // Create Razorpay order
     console.log(`💳 Creating Razorpay order for amount: ₹${amount}`);
-    const razorpayOrder = await createRazorpayOrder({
-      amount: amount,
-      currency: 'INR',
-      receipt: `template_${templateId}_${Date.now()}`,
-      notes: {
-        templateId: templateId,
-        templateName: template.name,
-        type: 'template_payment'
-      }
-    });
-    console.log(`✅ Razorpay order created: ${razorpayOrder.id}`);
+    let razorpayOrder;
+    try {
+      razorpayOrder = await createRazorpayOrder({
+        amount: amount,
+        currency: 'INR',
+        receipt: `template_${templateId}_${Date.now()}`,
+        notes: {
+          templateId: templateId,
+          templateName: template.name,
+          type: 'template_payment'
+        }
+      });
+      console.log(`✅ Razorpay order created: ${razorpayOrder.id}`);
+    } catch (razorpayError: any) {
+      console.error('❌ Razorpay order creation failed:', razorpayError);
+      const razorpayErrorMessage = razorpayError instanceof Error 
+        ? razorpayError.message 
+        : (razorpayError?.error?.description || razorpayError?.message || 'Unknown Razorpay error');
+      
+      // Return specific error message to help with debugging
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: `Payment gateway error: ${razorpayErrorMessage}` 
+        },
+        { status: 500 }
+      );
+    }
 
     // Store payment info temporarily in sessionStorage equivalent (we'll store it in Order model with pending status)
     // For now, we'll return the order details and store payment info after verification
