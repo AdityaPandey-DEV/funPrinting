@@ -95,8 +95,18 @@ export async function POST(
     const placeholders = await extractPlaceholders(docxBuffer);
     console.log(`✅ Extracted ${placeholders.length} placeholders:`, placeholders);
 
-    // Generate form schema from placeholders
-    const formSchema = generateFormSchema(placeholders);
+    // Generate form schema from placeholders (returns object format)
+    const schemaObject = generateFormSchema(placeholders);
+    
+    // Convert object format to array format expected by fill page
+    // Format: [{ key: string, type: string, label: string, required: boolean, placeholder: string, defaultPlaceholder: string }]
+    const formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+      key,
+      ...value,
+      defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+    }));
+    
+    console.log(`✅ Generated formSchema with ${formSchema.length} fields (array format)`);
 
     // Upload new file to cloud storage
     console.log('☁️ Uploading file to cloud storage...');
