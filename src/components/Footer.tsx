@@ -39,7 +39,7 @@ export default function Footer() {
           {/* Company Info */}
           <div className="col-span-1 md:col-span-2">
             <h3 className="text-2xl font-bold text-blue-400 mb-4">
-              {adminInfo?.name || 'PrintService'}
+              {adminInfo?.name || 'Fun Printing Service'}
             </h3>
             <p className="text-gray-300 mb-4">
               {adminInfo?.description || 'Your trusted printing partner for all academic needs. Fast, reliable, and affordable printing services for college students.'}
@@ -93,7 +93,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; 2024 {adminInfo?.name || 'PrintService'}. All rights reserved.</p>
+          <p>&copy; 2024 {adminInfo?.name || 'Fun Printing Service'}. All rights reserved.</p>
         </div>
       </div>
     </footer>

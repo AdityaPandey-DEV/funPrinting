@@ -36,7 +36,11 @@ export function generateMetadata(config: SEOConfig): Metadata {
   const keywords = config.keywords || 
     'fun printing, printing service, print shop, document printing, color printing, B/W printing, binding service, printing templates, college printing, student printing';
   
-  const image = config.image || `${baseUrl}/fun-printing-printing-service-favicon.jpg`;
+  // Use provided image, or default to favicon
+  // If image is a relative path, make it absolute
+  const image = config.image 
+    ? (config.image.startsWith('http') ? config.image : `${baseUrl}${config.image.startsWith('/') ? '' : '/'}${config.image}`)
+    : `${baseUrl}/fun-printing-printing-service-favicon.jpg`;
   const url = config.url || baseUrl;
   const type = config.type || 'website';
 
