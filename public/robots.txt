@@ -1,19 +1,25 @@
 User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: https://funprinting.vercel.app/sitemap.xml
+# Sitemap (both www and non-www versions)
+Sitemap: https://www.funprinting.store/sitemap.xml
+Sitemap: https://funprinting.store/sitemap.xml
 
-# Disallow admin areas
+# Disallow admin areas and private routes
 Disallow: /admin/
 Disallow: /api/
 Disallow: /_next/
 Disallow: /temp/
+Disallow: /auth/
+Disallow: /complete-profile/
+Disallow: /payout-settings/
+Disallow: /my-templates/
 
-# Allow important pages
+# Allow important public pages
 Allow: /
 Allow: /order
 Allow: /templates
+Allow: /templates/fill/
 Allow: /contact
 Allow: /my-orders
 Allow: /privacy
@@ -22,5 +28,5 @@ Allow: /shipping-delivery
 Allow: /cancellation-refund
 Allow: /return-policy
 
-# Crawl delay (optional)
+# Crawl delay (be respectful to server resources)
 Crawl-delay: 1

@@ -3,32 +3,18 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import SessionProvider from '@/components/SessionProvider';
 import ConditionalLayout from '@/components/ConditionalLayout';
+import { generateMetadata as generateSEOMetadata } from '@/lib/seo';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
-  title: 'PrintService - College Printing Solutions',
-  description: 'Professional printing services for college students. Fast, reliable, and affordable printing with delivery to your hostel.',
-  verification: {
-    google: 'KuALniDwTibP1GXe1WJTPJA66lA0P1VkDiq-IgBDwfg',
-  },
-  icons: {
-    icon: '/fun-printing-printing-service-favicon.jpg',
-  },
-  openGraph: {
-    title: 'PrintService - College Printing Solutions',
-    description:
-      'Professional printing services for college students. Fast, reliable, and affordable printing with delivery to your hostel.',
-    images: ['/fun-printing-printing-service-favicon.jpg'],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'PrintService - College Printing Solutions',
-    description:
-      'Professional printing services for college students. Fast, reliable, and affordable printing with delivery to your hostel.',
-    images: ['/fun-printing-printing-service-favicon.jpg'],
-  },
-};
+// Generate optimized metadata with target keywords
+export const metadata: Metadata = generateSEOMetadata({
+  title: 'Fun Printing - Professional Printing Services',
+  description: 'Fun Printing offers professional printing services including color prints, B/W prints, binding, and document templates. Fast delivery for college students. Order now for quick and affordable printing solutions.',
+  keywords: 'fun printing, printing service, print shop, document printing, color printing, B/W printing, binding service, printing templates, college printing, student printing, online printing, print online',
+  image: '/fun-printing-printing-service-favicon.jpg',
+  siteName: 'Fun Printing',
+});
 
 export default function RootLayout({
   children,
@@ -37,6 +23,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="canonical" href={process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.funprinting.store'} />
+      </head>
       <body className={inter.className}>
         <SessionProvider>
           <ConditionalLayout>

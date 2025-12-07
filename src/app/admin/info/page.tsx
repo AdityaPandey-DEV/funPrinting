@@ -34,6 +34,10 @@ interface AdminInfo {
   description: string;
   logo: string;
   favicon: string;
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  ogImage?: string;
   isActive: boolean;
 }
 
@@ -68,6 +72,10 @@ function AdminInfoPageContent() {
     description: '',
     logo: '',
     favicon: '',
+    seoTitle: '',
+    seoDescription: '',
+    seoKeywords: '',
+    ogImage: '',
     isActive: true
   });
   const [loading, setLoading] = useState(false);
@@ -470,6 +478,74 @@ function AdminInfoPageContent() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* SEO Settings */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">SEO Settings</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Optimize your website for search engines. These settings will help improve your ranking on Google and other search engines.
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    SEO Title
+                  </label>
+                  <input
+                    type="text"
+                    name="seoTitle"
+                    value={adminInfo.seoTitle || ''}
+                    onChange={handleInputChange}
+                    placeholder="Fun Printing - Professional Printing Services"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Recommended: 50-60 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    SEO Description
+                  </label>
+                  <textarea
+                    name="seoDescription"
+                    value={adminInfo.seoDescription || ''}
+                    onChange={handleInputChange}
+                    rows={3}
+                    placeholder="Fun Printing offers professional printing services including color prints, B/W prints, binding, and document templates."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Recommended: 150-160 characters</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    SEO Keywords
+                  </label>
+                  <input
+                    type="text"
+                    name="seoKeywords"
+                    value={adminInfo.seoKeywords || ''}
+                    onChange={handleInputChange}
+                    placeholder="fun printing, printing service, print shop, document printing"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Comma-separated keywords (e.g., keyword1, keyword2, keyword3)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Open Graph Image URL
+                  </label>
+                  <input
+                    type="url"
+                    name="ogImage"
+                    value={adminInfo.ogImage || ''}
+                    onChange={handleInputChange}
+                    placeholder="https://www.funprinting.store/og-image.jpg"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Image for social media sharing (recommended: 1200x630px)</p>
                 </div>
               </div>
 

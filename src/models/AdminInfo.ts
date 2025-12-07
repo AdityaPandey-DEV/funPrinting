@@ -29,6 +29,11 @@ export interface IAdminInfo extends Document {
   description: string;
   logo: string;
   favicon: string;
+  // SEO fields
+  seoTitle?: string;
+  seoDescription?: string;
+  seoKeywords?: string;
+  ogImage?: string;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -107,6 +112,23 @@ const AdminInfoSchema = new Schema<IAdminInfo>({
     trim: true
   },
   favicon: {
+    type: String,
+    trim: true
+  },
+  // SEO fields
+  seoTitle: {
+    type: String,
+    trim: true
+  },
+  seoDescription: {
+    type: String,
+    trim: true
+  },
+  seoKeywords: {
+    type: String,
+    trim: true
+  },
+  ogImage: {
     type: String,
     trim: true
   },

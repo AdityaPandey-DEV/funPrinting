@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // Handle static files
+  // Handle static files and security headers
   async headers() {
     return [
       {
@@ -40,7 +40,36 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Security headers for SEO and security
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
     ];
+  },
+  
+  // Redirects for SEO (www/non-www handling)
+  async redirects() {
+    // Note: In production, handle www/non-www redirects at the DNS/hosting level (Vercel handles this automatically)
+    // These redirects are here as a fallback
+    return [];
   },
 };
 

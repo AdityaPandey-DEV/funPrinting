@@ -3,6 +3,7 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { generateLocalBusinessStructuredData, generateOrganizationStructuredData, generateServiceStructuredData, combineStructuredData } from '@/lib/seo';
 
 const services = [
   {
@@ -52,6 +53,60 @@ export default function Home() {
     };
 
     fetchPricing();
+  }, []);
+
+  // Inject structured data for SEO
+  useEffect(() => {
+    const injectStructuredData = async () => {
+      try {
+        // Fetch admin info for structured data
+        const adminResponse = await fetch('/api/admin/info');
+        const adminData = await adminResponse.json();
+        const adminInfo = adminData.success ? adminData.admin : null;
+
+        // Generate structured data
+        const localBusiness = generateLocalBusinessStructuredData(adminInfo);
+        const organization = generateOrganizationStructuredData(adminInfo);
+        const bwService = generateServiceStructuredData(
+          'Black and White Printing',
+          'High-quality black and white printing services for documents, assignments, and reports'
+        );
+        const colorService = generateServiceStructuredData(
+          'Color Printing',
+          'Vibrant color printing services for presentations, posters, and marketing materials'
+        );
+        const bindingService = generateServiceStructuredData(
+          'Document Binding',
+          'Professional binding services for reports, thesis, and documents'
+        );
+
+        const allStructuredData = combineStructuredData(
+          localBusiness,
+          organization,
+          bwService,
+          colorService,
+          bindingService
+        );
+
+        // Remove existing structured data scripts
+        const existingScripts = document.querySelectorAll('script[type="application/ld+json"][data-seo="true"]');
+        existingScripts.forEach(script => script.remove());
+
+        // Inject new structured data
+        allStructuredData.forEach((data, index) => {
+          const script = document.createElement('script');
+          script.type = 'application/ld+json';
+          script.setAttribute('data-seo', 'true');
+          script.id = `structured-data-${index}`;
+          script.textContent = JSON.stringify(data);
+          document.head.appendChild(script);
+        });
+      } catch (error) {
+        console.error('Error injecting structured data:', error);
+      }
+    };
+
+    injectStructuredData();
   }, []);
 
   const getServicePrice = (priceKey: string) => {
@@ -108,12 +163,12 @@ export default function Home() {
       <section className="bg-gradient-to-r from-gray-900 to-black text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Professional Printing Services
+            Fun Printing - Professional Printing Services
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-300">
-            Fast, reliable, and affordable printing solutions for college students.
+            Your trusted printing service for fast, reliable, and affordable printing solutions. 
             <br />
-            Get your documents printed and delivered to your hostel room.
+            Get your documents printed and delivered to your hostel room with our professional printing service.
           </p>
           <Link
             href="/order"
@@ -129,10 +184,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Our Services
+              Our Printing Services
             </h2>
             <p className="text-xl text-gray-600">
-              Everything you need for your academic printing requirements
+              Everything you need for your academic printing requirements - professional printing service at your fingertips
             </p>
           </div>
 
@@ -163,7 +218,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Why Choose PrintService?
+                Why Choose Fun Printing Service?
               </h2>
               <div className="space-y-4">
                 <div className="flex items-start">
@@ -311,7 +366,7 @@ export default function Home() {
             Don&apos;t Wait, Print Today!
           </h2>
           <p className="text-xl mb-8 text-gray-300">
-            Join thousands of students who trust PrintService for their printing needs
+            Join thousands of students who trust Fun Printing for their printing service needs
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link

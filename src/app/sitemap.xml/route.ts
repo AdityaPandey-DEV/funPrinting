@@ -1,76 +1,110 @@
 import { NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import DynamicTemplate from '@/models/DynamicTemplate';
 
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://funprinting.vercel.app';
+  // Use www.funprinting.store as preferred domain
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://www.funprinting.store';
+  
+  // Ensure URL doesn't have trailing slash
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   
   // Static pages
   const staticPages = [
     {
-      url: `${baseUrl}/`,
+      url: `${cleanBaseUrl}/`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'daily' as const,
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/order`,
+      url: `${cleanBaseUrl}/order`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'daily' as const,
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/templates`,
+      url: `${cleanBaseUrl}/templates`,
       lastModified: new Date(),
-      changeFrequency: 'weekly',
+      changeFrequency: 'weekly' as const,
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/contact`,
+      url: `${cleanBaseUrl}/contact`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/my-orders`,
+      url: `${cleanBaseUrl}/my-orders`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
+      changeFrequency: 'daily' as const,
       priority: 0.6,
     },
     {
-      url: `${baseUrl}/privacy`,
+      url: `${cleanBaseUrl}/privacy`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: 'yearly' as const,
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/terms`,
+      url: `${cleanBaseUrl}/terms`,
       lastModified: new Date(),
-      changeFrequency: 'yearly',
+      changeFrequency: 'yearly' as const,
       priority: 0.3,
     },
     {
-      url: `${baseUrl}/shipping-delivery`,
+      url: `${cleanBaseUrl}/shipping-delivery`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.5,
     },
     {
-      url: `${baseUrl}/cancellation-refund`,
+      url: `${cleanBaseUrl}/cancellation-refund`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.5,
     },
     {
-      url: `${baseUrl}/return-policy`,
+      url: `${cleanBaseUrl}/return-policy`,
       lastModified: new Date(),
-      changeFrequency: 'monthly',
+      changeFrequency: 'monthly' as const,
       priority: 0.5,
     },
   ];
 
+  // Fetch dynamic templates from database
+  let templatePages: Array<{
+    url: string;
+    lastModified: Date;
+    changeFrequency: 'weekly' | 'monthly';
+    priority: number;
+  }> = [];
+
+  try {
+    await connectDB();
+    const templates = await DynamicTemplate.find({ 
+      isPublic: true 
+    }).select('id updatedAt createdAt').lean();
+    
+    templatePages = templates.map((template) => ({
+      url: `${cleanBaseUrl}/templates/fill/${template.id}`,
+      lastModified: template.updatedAt ? new Date(template.updatedAt) : new Date(template.createdAt || new Date()),
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    }));
+  } catch (error) {
+    console.error('Error fetching templates for sitemap:', error);
+    // Continue without template pages if there's an error
+  }
+
+  // Combine all pages
+  const allPages = [...staticPages, ...templatePages];
+
   // Generate sitemap XML
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${staticPages
+${allPages
   .map(
     (page) => `  <url>
     <loc>${page.url}</loc>
