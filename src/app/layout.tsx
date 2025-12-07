@@ -4,24 +4,80 @@ import './globals.css';
 import SessionProvider from '@/components/SessionProvider';
 import ConditionalLayout from '@/components/ConditionalLayout';
 import { generateMetadata as generateSEOMetadata } from '@/lib/seo';
+import connectDB from '@/lib/mongodb';
+import AdminInfo from '@/models/AdminInfo';
 
 const inter = Inter({ subsets: ['latin'] });
 
-// Generate optimized metadata with target keywords
-export const metadata: Metadata = {
-  ...generateSEOMetadata({
-    title: 'Fun Printing - Professional Printing Services',
-    description: 'Fun Printing offers professional printing services including color prints, B/W prints, binding, and document templates. Fast delivery for college students. Order now for quick and affordable printing solutions.',
-    keywords: 'fun printing, printing service, print shop, document printing, color printing, B/W printing, binding service, printing templates, college printing, student printing, online printing, print online',
-    image: '/fun-printing-printing-service-favicon.jpg',
-    siteName: 'Fun Printing',
-  }),
-  icons: {
-    icon: '/fun-printing-printing-service-favicon.jpg',
-    shortcut: '/fun-printing-printing-service-favicon.jpg',
-    apple: '/fun-printing-printing-service-favicon.jpg',
-  },
-};
+// Generate dynamic metadata with admin info from database
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    await connectDB();
+    const adminInfo = await AdminInfo.findOne({ isActive: true }).lean() as {
+      favicon?: string;
+      seoTitle?: string;
+      seoDescription?: string;
+      seoKeywords?: string;
+      ogImage?: string;
+      name?: string;
+    } | null;
+
+    // Normalize favicon URL
+    let faviconUrl = '/fun-printing-printing-service-favicon.jpg'; // default
+    if (adminInfo?.favicon) {
+      const favicon = adminInfo.favicon.trim();
+      if (favicon.startsWith('http://') || favicon.startsWith('https://')) {
+        // Full URL - use as-is
+        faviconUrl = favicon;
+      } else if (favicon.startsWith('/')) {
+        // Relative path starting with / - use as-is
+        faviconUrl = favicon;
+      } else {
+        // Relative path without / - add it
+        faviconUrl = `/${favicon}`;
+      }
+    }
+
+    // Use admin SEO fields if available, otherwise use defaults
+    const seoConfig = {
+      title: adminInfo?.seoTitle || 'Fun Printing - Professional Printing Services',
+      description: adminInfo?.seoDescription || 'Fun Printing offers professional printing services including color prints, B/W prints, binding, and document templates. Fast delivery for college students. Order now for quick and affordable printing solutions.',
+      keywords: adminInfo?.seoKeywords || 'fun printing, printing service, print shop, document printing, color printing, B/W printing, binding service, printing templates, college printing, student printing, online printing, print online',
+      image: adminInfo?.ogImage || faviconUrl,
+      siteName: adminInfo?.name || 'Fun Printing',
+    };
+
+    // Generate SEO metadata
+    const seoMetadata = generateSEOMetadata(seoConfig);
+
+    // Return metadata with dynamic icons
+    return {
+      ...seoMetadata,
+      icons: {
+        icon: faviconUrl,
+        shortcut: faviconUrl,
+        apple: faviconUrl,
+      },
+    };
+  } catch (error) {
+    console.error('Error generating metadata:', error);
+    // Fallback to default metadata if there's an error
+    return {
+      ...generateSEOMetadata({
+        title: 'Fun Printing - Professional Printing Services',
+        description: 'Fun Printing offers professional printing services including color prints, B/W prints, binding, and document templates. Fast delivery for college students. Order now for quick and affordable printing solutions.',
+        keywords: 'fun printing, printing service, print shop, document printing, color printing, B/W printing, binding service, printing templates, college printing, student printing, online printing, print online',
+        image: '/fun-printing-printing-service-favicon.jpg',
+        siteName: 'Fun Printing',
+      }),
+      icons: {
+        icon: '/fun-printing-printing-service-favicon.jpg',
+        shortcut: '/fun-printing-printing-service-favicon.jpg',
+        apple: '/fun-printing-printing-service-favicon.jpg',
+      },
+    };
+  }
+}
 
 export default function RootLayout({
   children,

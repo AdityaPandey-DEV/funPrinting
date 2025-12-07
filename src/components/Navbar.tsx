@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useState } from 'react';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
 import { useAuth } from '@/hooks/useAuth';
@@ -46,15 +45,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link href="/" className="flex-shrink-0 flex items-center space-x-2">
-              <Image
-                src={adminInfo?.logo || adminInfo?.favicon || '/fun-printing-printing-service-favicon.jpg'}
-                alt={adminInfo?.name || 'Fun Printing Service'}
-                width={32}
-                height={32}
-                className="object-contain"
-                unoptimized={adminInfo?.logo?.startsWith('http') || adminInfo?.favicon?.startsWith('http')}
-              />
+            <Link href="/" className="flex-shrink-0">
               <span className="text-2xl font-bold text-black">{adminInfo?.name || 'Fun Printing Service'}</span>
             </Link>
           </div>
