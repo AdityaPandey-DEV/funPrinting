@@ -108,15 +108,36 @@ export async function POST(
 
     console.log('✅ File uploaded successfully:', wordUrl);
 
+    // Log placeholders before update
+    console.log('📋 Current placeholders in template:', template.placeholders);
+    console.log('📋 New placeholders to save:', placeholders);
+    console.log('📋 New formSchema to save:', formSchema.length, 'fields');
+
     // Update template with new file and placeholders
     template.wordUrl = wordUrl;
     template.placeholders = placeholders;
     template.formSchema = formSchema;
     template.updatedAt = new Date();
 
+    // Explicitly mark arrays as modified for Mongoose to detect changes
+    template.markModified('placeholders');
+    template.markModified('formSchema');
+
     await template.save();
 
-    console.log(`✅ Template ${templateId} file updated successfully`);
+    // Verify placeholders were saved correctly
+    const savedTemplate = await DynamicTemplate.findOne({ id: templateId });
+    console.log('✅ Template saved. Verifying placeholders...');
+    console.log('📋 Saved placeholders:', savedTemplate?.placeholders);
+    console.log('📋 Saved formSchema count:', savedTemplate?.formSchema?.length || 0);
+    
+    if (savedTemplate && savedTemplate.placeholders.length !== placeholders.length) {
+      console.error('⚠️ WARNING: Placeholders count mismatch!');
+      console.error('   Expected:', placeholders.length);
+      console.error('   Actual:', savedTemplate.placeholders.length);
+    } else {
+      console.log(`✅ Template ${templateId} file updated successfully with ${placeholders.length} placeholders`);
+    }
 
     return NextResponse.json({
       success: true,
