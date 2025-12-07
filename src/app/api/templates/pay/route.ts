@@ -110,10 +110,14 @@ export async function POST(request: NextRequest) {
     console.log(`💳 Creating Razorpay order for amount: ₹${amount}`);
     let razorpayOrder;
     try {
+      // Generate receipt - must be max 40 characters (Razorpay limit)
+      // Use short format since templateId is already in notes
+      const receipt = `tpl_${Date.now()}`;
+      
       razorpayOrder = await createRazorpayOrder({
         amount: amount,
         currency: 'INR',
-        receipt: `template_${templateId}_${Date.now()}`,
+        receipt: receipt,
         notes: {
           templateId: templateId,
           templateName: template.name,
