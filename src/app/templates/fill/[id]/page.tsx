@@ -157,10 +157,49 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         }),
       });
 
+      // Try to parse error response
+      let errorMessage = 'Failed to generate document';
       if (!response.ok) {
-        const errText = await response.text();
-        console.error('❌ Generation error response:', errText);
-        throw new Error('Failed to generate document');
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('❌ Generation error response:', errorData);
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text
+          try {
+            const errText = await response.text();
+            console.error('❌ Generation error response (text):', errText);
+            // Try to extract error message from text if it's JSON-like
+            if (errText.includes('error')) {
+              try {
+                const parsed = JSON.parse(errText);
+                errorMessage = parsed.error || errorMessage;
+              } catch {
+                // If it's not JSON, use a user-friendly message based on status
+                if (response.status === 404) {
+                  errorMessage = 'Template not found. Please try again or contact support.';
+                } else if (response.status === 500) {
+                  errorMessage = 'Server error occurred. Please try again later.';
+                } else if (response.status >= 400 && response.status < 500) {
+                  errorMessage = 'Invalid request. Please check your form data and try again.';
+                } else {
+                  errorMessage = 'Failed to generate document. Please try again.';
+                }
+              }
+            }
+          } catch (textError) {
+            console.error('❌ Could not parse error response:', textError);
+            // Use status-based error message
+            if (response.status === 404) {
+              errorMessage = 'Template not found. Please try again or contact support.';
+            } else if (response.status === 500) {
+              errorMessage = 'Server error occurred. Please try again later.';
+            } else {
+              errorMessage = 'Failed to generate document. Please try again.';
+            }
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
@@ -182,7 +221,23 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       
     } catch (error) {
       console.error('❌ Error generating document:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to generate document. Please try again.';
+      let errorMessage = 'Failed to generate document. Please try again.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Provide user-friendly error messages for common scenarios
+      if (errorMessage.includes('Template not found') || errorMessage.includes('template')) {
+        errorMessage = 'Template not found. Please go back and try again.';
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (errorMessage.includes('Storage') || errorMessage.includes('upload')) {
+        errorMessage = 'Failed to save document. Please try again.';
+      } else if (errorMessage.includes('Document processing') || errorMessage.includes('DOCX')) {
+        errorMessage = 'Error processing document. Please check your form data and try again.';
+      }
+      
       setError(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -193,12 +248,12 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     if (!template || !generatedWordUrl) return;
     
     if (!isRazorpayLoaded) {
-      alert('Payment gateway is loading. Please wait a moment.');
+      setError('Payment gateway is loading. Please wait a moment and try again.');
       return;
     }
 
     if (razorpayError) {
-      alert(`Payment gateway error: ${razorpayError}`);
+      setError(`Payment gateway error: ${razorpayError}. Please refresh the page and try again.`);
       return;
     }
 
@@ -206,6 +261,13 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     setError(null);
 
     try {
+      console.log('💳 Creating template payment order...');
+      console.log('📋 Payment data:', {
+        templateId,
+        amount: template.price,
+        hasFormData: !!formData
+      });
+
       // Create template payment order
       const response = await fetch('/api/templates/pay', {
         method: 'POST',
@@ -220,14 +282,63 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         })
       });
 
+      // Try to parse error response with detailed error handling
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create payment order');
+        let errorMessage = 'Failed to create payment order';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+          console.error('❌ Payment error response:', errorData);
+        } catch (parseError) {
+          // If JSON parsing fails, try to get text
+          try {
+            const errText = await response.text();
+            console.error('❌ Payment error response (text):', errText);
+            // Try to extract error message from text if it's JSON-like
+            if (errText.includes('error')) {
+              try {
+                const parsed = JSON.parse(errText);
+                errorMessage = parsed.error || errorMessage;
+              } catch {
+                // If it's not JSON, use a user-friendly message based on status
+                if (response.status === 400) {
+                  errorMessage = 'Invalid payment request. Please check the template details.';
+                } else if (response.status === 404) {
+                  errorMessage = 'Template not found. Please go back and try again.';
+                } else if (response.status === 500 || response.status === 503) {
+                  errorMessage = 'Payment service error. Please try again later or contact support.';
+                } else {
+                  errorMessage = 'Failed to create payment order. Please try again.';
+                }
+              }
+            }
+          } catch (textError) {
+            console.error('❌ Could not parse payment error response:', textError);
+            // Use status-based error message
+            if (response.status === 400) {
+              errorMessage = 'Invalid payment request. Please check the template details.';
+            } else if (response.status === 404) {
+              errorMessage = 'Template not found. Please go back and try again.';
+            } else if (response.status === 500 || response.status === 503) {
+              errorMessage = 'Payment service error. Please try again later or contact support.';
+            } else {
+              errorMessage = 'Failed to create payment order. Please try again.';
+            }
+          }
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
       
       if (data.success) {
+        // Validate that we have all required data
+        if (!data.key || !data.razorpayOrderId || !data.amount) {
+          console.error('❌ Missing payment data:', { hasKey: !!data.key, hasOrderId: !!data.razorpayOrderId, hasAmount: !!data.amount });
+          throw new Error('Payment gateway configuration error. Please contact support.');
+        }
+        
+        console.log('✅ Payment order created:', data.razorpayOrderId);
         
         // Initialize Razorpay payment
         const options = {
@@ -239,6 +350,8 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
           order_id: data.razorpayOrderId,
           handler: async function (response: any) {
             try {
+              console.log('💳 Payment response received:', response);
+              
               // Verify payment with all necessary data
               const verifyResponse = await fetch('/api/templates/pay/verify', {
                 method: 'POST',
@@ -260,16 +373,29 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                 })
               });
 
+              if (!verifyResponse.ok) {
+                let verifyError = 'Payment verification failed';
+                try {
+                  const verifyErrorData = await verifyResponse.json();
+                  verifyError = verifyErrorData.error || verifyError;
+                } catch {
+                  verifyError = 'Payment verification failed. Please contact support if payment was deducted.';
+                }
+                throw new Error(verifyError);
+              }
+
               const verifyData = await verifyResponse.json();
               
               if (verifyData.success) {
+                console.log('✅ Payment verified successfully');
                 setStep('complete');
               } else {
                 throw new Error(verifyData.error || 'Payment verification failed');
               }
             } catch (error) {
-              console.error('Payment verification error:', error);
-              setError('Payment verification failed. Please contact support if payment was deducted.');
+              console.error('❌ Payment verification error:', error);
+              const verifyErrorMessage = error instanceof Error ? error.message : 'Payment verification failed. Please contact support if payment was deducted.';
+              setError(verifyErrorMessage);
             } finally {
               setIsProcessingPayment(false);
             }
@@ -284,20 +410,46 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
           },
           modal: {
             ondismiss: function() {
+              console.log('Payment modal dismissed');
               setIsProcessingPayment(false);
             }
           }
         };
 
-        const razorpay = openRazorpay(options);
-        razorpay.open();
+        try {
+          const razorpay = openRazorpay(options);
+          razorpay.open();
+          console.log('✅ Razorpay payment UI opened');
+        } catch (razorpayError) {
+          console.error('❌ Error opening Razorpay:', razorpayError);
+          throw new Error('Failed to open payment gateway. Please try again.');
+        }
       } else {
         throw new Error(data.error || 'Failed to create payment order');
       }
       
     } catch (error) {
-      console.error('Payment error:', error);
-      setError(error instanceof Error ? error.message : 'Payment failed. Please try again.');
+      console.error('❌ Payment error:', error);
+      let errorMessage = 'Payment failed. Please try again.';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Provide user-friendly error messages for common scenarios
+      if (errorMessage.includes('Payment gateway configuration') || errorMessage.includes('RAZORPAY')) {
+        errorMessage = 'Payment gateway configuration error. Please contact support.';
+      } else if (errorMessage.includes('Template not found') || errorMessage.includes('template')) {
+        errorMessage = 'Template not found. Please go back and try again.';
+      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (errorMessage.includes('Database') || errorMessage.includes('connection')) {
+        errorMessage = 'Service temporarily unavailable. Please try again in a moment.';
+      } else if (errorMessage.includes('Payment service error') || errorMessage.includes('503')) {
+        errorMessage = 'Payment service is temporarily unavailable. Please try again later.';
+      }
+      
+      setError(errorMessage);
       setIsProcessingPayment(false);
     }
   };
