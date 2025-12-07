@@ -163,7 +163,7 @@ export default function Home() {
       <section className="bg-gradient-to-r from-gray-900 to-black text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Fun Printing - Professional Printing Services
+            Fun Printing Services
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-300">
             Your trusted printing service for fast, reliable, and affordable printing solutions. 
