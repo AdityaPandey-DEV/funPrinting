@@ -225,6 +225,85 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Earn Money Section */}
+      <section className="py-20 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 border-2 border-green-200">
+            <div className="text-center mb-8">
+              <div className="text-6xl mb-4">💰</div>
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                Earn Money by Creating Templates!
+              </h2>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                Turn your document templates into a passive income stream. Create once, earn every time someone uses your template.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-6 border border-green-200">
+                <div className="text-3xl mb-3">📝</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Templates</h3>
+                <p className="text-gray-600 text-sm">
+                  Upload your DOCX templates with placeholders. Set your own price and start earning.
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6 border border-blue-200">
+                <div className="text-3xl mb-3">💵</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Earn Passive Income</h3>
+                <p className="text-gray-600 text-sm">
+                  Get paid every time someone purchases your template. Track earnings in real-time.
+                </p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-lg p-6 border border-purple-200">
+                <div className="text-3xl mb-3">🚀</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Easy Payouts</h3>
+                <p className="text-gray-600 text-sm">
+                  Receive payments directly to your UPI or bank account. Fast and secure transfers.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-6 mb-8">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">How It Works</h3>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">1</div>
+                  <p className="text-sm font-medium text-gray-900">Create Template</p>
+                  <p className="text-xs text-gray-600 mt-1">Upload your DOCX file</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">2</div>
+                  <p className="text-sm font-medium text-gray-900">Set Price</p>
+                  <p className="text-xs text-gray-600 mt-1">Choose your earning amount</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">3</div>
+                  <p className="text-sm font-medium text-gray-900">Get Discovered</p>
+                  <p className="text-xs text-gray-600 mt-1">Users find and buy your template</p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-green-600 text-white rounded-full flex items-center justify-center font-bold text-lg mx-auto mb-2">4</div>
+                  <p className="text-sm font-medium text-gray-900">Earn Money</p>
+                  <p className="text-xs text-gray-600 mt-1">Receive payments automatically</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <Link
+                href="/templates/create"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all inline-block shadow-lg hover:shadow-xl transform hover:scale-105"
+              >
+                🎨 Start Creating Templates & Earn
+              </Link>
+              <p className="text-sm text-gray-500 mt-4">
+                Already have templates? <Link href="/my-templates" className="text-green-600 hover:text-green-700 font-medium underline">Manage your templates</Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-black text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -234,12 +313,20 @@ export default function Home() {
           <p className="text-xl mb-8 text-gray-300">
             Join thousands of students who trust PrintService for their printing needs
           </p>
-          <Link
-            href="/order"
-            className="bg-white text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors inline-block shadow-lg hover:shadow-xl"
-          >
-            Start Printing Now
-          </Link>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/order"
+              className="bg-white text-black px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors inline-block shadow-lg hover:shadow-xl"
+            >
+              Start Printing Now
+            </Link>
+            <Link
+              href="/templates/create"
+              className="bg-green-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-green-700 transition-colors inline-block shadow-lg hover:shadow-xl"
+            >
+              Create Templates & Earn
+            </Link>
+          </div>
         </div>
       </section>
     </div>
