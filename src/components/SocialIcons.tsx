@@ -11,7 +11,7 @@ export const FacebookIcon: React.FC<IconProps> = ({ className = '', size = 24 })
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#1877F2"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -26,7 +26,7 @@ export const InstagramIcon: React.FC<IconProps> = ({ className = '', size = 24 }
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#E4405F"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -41,7 +41,7 @@ export const TwitterIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#1DA1F2"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -56,7 +56,7 @@ export const LinkedInIcon: React.FC<IconProps> = ({ className = '', size = 24 })
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#0077B5"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -71,7 +71,7 @@ export const YouTubeIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#FF0000"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
