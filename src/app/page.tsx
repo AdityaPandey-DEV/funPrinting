@@ -4,30 +4,31 @@
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { generateLocalBusinessStructuredData, generateOrganizationStructuredData, generateServiceStructuredData, combineStructuredData } from '@/lib/seo';
+import { PrinterIcon, PaletteIcon, BookIcon, DocumentIcon, MoneyIcon, DollarIcon, RocketIcon, MemoIcon } from '@/components/SocialIcons';
 
 const services = [
   {
     title: 'B/W Prints',
     description: 'High-quality black and white printing',
-    icon: '🖨️',
+    icon: PrinterIcon,
     priceKey: 'bw',
   },
   {
     title: 'Color Prints',
     description: 'Vibrant color printing for presentations',
-    icon: '🎨',
+    icon: PaletteIcon,
     priceKey: 'color',
   },
   {
     title: 'Binding',
     description: 'Professional binding services',
-    icon: '📚',
+    icon: BookIcon,
     priceKey: 'binding',
   },
   {
     title: 'Templates',
     description: 'Professional document templates',
-    icon: '📄',
+    icon: DocumentIcon,
     priceKey: 'resumeTemplate',
   },
 ];
@@ -200,7 +201,9 @@ export default function Home() {
                 <div className="absolute top-0 right-0 bg-black text-white text-xs font-bold px-3 py-1 transform rotate-45 translate-x-6 -translate-y-1">
                   OFFER
                 </div>
-                <div className="text-4xl mb-4">{service.icon}</div>
+                <div className="flex justify-center mb-4">
+                  <service.icon size={48} className="w-12 h-12" />
+                </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   {service.title}
                 </h3>
@@ -285,7 +288,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-2xl p-8 md:p-12 border-2 border-green-200">
             <div className="text-center mb-8">
-              <div className="text-6xl mb-4">💰</div>
+              <div className="flex justify-center mb-4">
+                <MoneyIcon size={64} className="w-16 h-16" />
+              </div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
                 Earn Money by Creating Templates!
               </h2>
@@ -296,21 +301,27 @@ export default function Home() {
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-lg p-6 border border-green-200">
-                <div className="text-3xl mb-3">📝</div>
+                <div className="flex justify-center mb-3">
+                  <MemoIcon size={32} className="w-8 h-8" />
+                </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Create Templates</h3>
                 <p className="text-gray-600 text-sm">
                   Upload your DOCX templates with placeholders. Set your own price and start earning.
                 </p>
               </div>
               <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg p-6 border border-blue-200">
-                <div className="text-3xl mb-3">💵</div>
+                <div className="flex justify-center mb-3">
+                  <DollarIcon size={32} className="w-8 h-8" />
+                </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Earn Passive Income</h3>
                 <p className="text-gray-600 text-sm">
                   Get paid every time someone purchases your template. Track earnings in real-time.
                 </p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-pink-100 rounded-lg p-6 border border-purple-200">
-                <div className="text-3xl mb-3">🚀</div>
+                <div className="flex justify-center mb-3">
+                  <RocketIcon size={32} className="w-8 h-8" />
+                </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Easy Payouts</h3>
                 <p className="text-gray-600 text-sm">
                   Receive payments directly to your UPI or bank account. Fast and secure transfers.
@@ -349,7 +360,10 @@ export default function Home() {
                 href="/templates/create"
                 className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all inline-block shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                🎨 Start Creating Templates & Earn
+                <span className="flex items-center justify-center gap-2">
+                  <PaletteIcon size={20} className="w-5 h-5" />
+                  Start Creating Templates & Earn
+                </span>
               </Link>
               <p className="text-sm text-gray-500 mt-4">
                 Already have templates? <Link href="/my-templates" className="text-green-600 hover:text-green-700 font-medium underline">Manage your templates</Link>

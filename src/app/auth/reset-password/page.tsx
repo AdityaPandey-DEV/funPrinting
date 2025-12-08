@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { WarningIcon } from '@/components/SocialIcons';
 
 function ResetPasswordContent() {
   const [password, setPassword] = useState('');
@@ -104,7 +105,9 @@ function ResetPasswordContent() {
         <div className="max-w-md w-full">
           <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
             <div className="bg-gradient-to-r from-gray-900 to-black p-8 text-center text-white">
-              <div className="text-5xl mb-4">⚠️</div>
+              <div className="flex justify-center mb-4">
+                <WarningIcon size={64} className="w-16 h-16" />
+              </div>
               <h1 className="text-3xl font-bold mb-2">Invalid Reset Link</h1>
             </div>
             <div className="p-8">
@@ -232,7 +235,10 @@ function ResetPasswordContent() {
             {/* Info Box */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <p className="text-sm text-yellow-800">
-                <strong>⚠️ Important:</strong> This reset link will expire in 1 hour. 
+                <span className="flex items-center gap-2">
+                  <WarningIcon size={16} className="w-4 h-4" />
+                  <strong>Important:</strong> This reset link will expire in 1 hour.
+                </span> 
                 Make sure to complete the reset process soon.
               </p>
             </div>

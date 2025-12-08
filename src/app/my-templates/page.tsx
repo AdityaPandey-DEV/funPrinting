@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface Template {
   id: string;
@@ -269,7 +270,9 @@ function MyTemplatesContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <p className="text-red-600 text-lg mb-2">Error Loading Templates</p>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
@@ -341,7 +344,9 @@ function MyTemplatesContent() {
         {/* Templates Grid */}
         {filteredTemplates.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <div className="text-gray-400 text-6xl mb-4">📄</div>
+            <div className="flex justify-center mb-4">
+              <DocumentIcon size={64} className="w-16 h-16 text-gray-400" />
+            </div>
             <h2 className="text-2xl font-bold text-gray-800 mb-2">
               {searchTerm || filterCategory !== 'all' ? 'No Templates Found' : 'No Templates Yet'}
             </h2>
@@ -370,7 +375,9 @@ function MyTemplatesContent() {
                 {/* Template Preview */}
                 <div className="h-48 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center relative">
                   <div className="text-center">
-                    <div className="text-6xl mb-2">📄</div>
+                    <div className="flex justify-center mb-2">
+                      <DocumentIcon size={64} className="w-16 h-16" />
+                    </div>
                     <p className="text-sm text-gray-600">Template</p>
                   </div>
                   

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
+import { WarningIcon, DocumentIcon, MemoIcon } from '@/components/SocialIcons';
 
 interface FormField {
   key: string;
@@ -586,7 +587,9 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">Error</h3>
           <p className="text-red-600 mb-4">{error}</p>
           <Link
@@ -604,7 +607,9 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-500 text-6xl mb-4">📄</div>
+          <div className="flex justify-center mb-4">
+            <DocumentIcon size={64} className="w-16 h-16 text-gray-500" />
+          </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Template Not Found</h3>
           <p className="text-gray-600 mb-4">The requested template could not be found.</p>
           <Link
@@ -772,7 +777,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
           <div className="bg-white shadow rounded-lg">
             <div className="px-6 py-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <span className="text-xl mr-2">📝</span>
+                <MemoIcon size={20} className="w-5 h-5 mr-2" />
                 Fill Template Form
               </h2>
               <p className="text-sm text-gray-600 mt-1">

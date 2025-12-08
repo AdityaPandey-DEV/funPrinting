@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import { WarningIcon } from '@/components/SocialIcons';
 
 interface FormField {
   key: string;
@@ -248,7 +249,9 @@ function EditDynamicTemplateContent() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <p className="text-red-600 text-lg mb-2">Error Loading Template</p>
           <p className="text-gray-600 mb-4">{error || 'Template not found'}</p>
           <Link

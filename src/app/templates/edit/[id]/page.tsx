@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import Link from 'next/link';
+import { DownloadIcon, WarningIcon } from '@/components/SocialIcons';
 
 interface Template {
   id: string;
@@ -255,7 +256,9 @@ export default function EditTemplatePage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <p className="text-red-600 text-lg mb-2">Error Loading Template</p>
           <p className="text-gray-600 mb-4">{error}</p>
           <Link
@@ -439,7 +442,10 @@ export default function EditTemplatePage() {
                       onClick={handleDownload}
                       className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm"
                     >
-                      📥 Download
+                      <span className="flex items-center gap-2">
+                        <DownloadIcon size={18} className="w-4.5 h-4.5" />
+                        Download
+                      </span>
                     </button>
                   </div>
                 )}

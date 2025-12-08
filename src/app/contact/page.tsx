@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
+import { DocumentIcon } from '@/components/SocialIcons';
 
 export default function ContactPage() {
   const { adminInfo, loading } = useAdminInfo();
@@ -169,7 +170,10 @@ export default function ContactPage() {
                   href="/terms"
                   className="block text-blue-600 hover:text-blue-800 transition-colors"
                 >
-                  📄 Terms & Conditions
+                  <span className="flex items-center gap-1">
+                    <DocumentIcon size={16} className="w-4 h-4" />
+                    Terms & Conditions
+                  </span>
                 </Link>
               </div>
             </div>

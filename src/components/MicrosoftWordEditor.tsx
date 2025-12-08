@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import PlaceholderForm from './PlaceholderForm';
 import WordDocumentPreview from './WordDocumentPreview';
 import WordDocumentLivePreview from './WordDocumentLivePreview';
+import { EditIcon, MemoIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface MicrosoftWordEditorProps {
   docxBuffer: string; // Base64 encoded DOCX buffer
@@ -107,7 +108,10 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
-            ✏️ Edit with Microsoft Word Online
+            <span className="flex items-center gap-2">
+              <EditIcon size={18} className="w-4.5 h-4.5" />
+              Edit with Microsoft Word Online
+            </span>
           </h2>
           <div className="flex space-x-2">
             <button
@@ -129,7 +133,10 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
         {/* Instructions */}
         <div className="p-4 bg-blue-50 border-b">
           <div className="text-sm text-blue-800">
-            <p className="font-medium mb-2">📝 Document Editing Instructions:</p>
+            <p className="font-medium mb-2 flex items-center gap-2">
+              <MemoIcon size={18} className="w-4.5 h-4.5" />
+              Document Editing Instructions:
+            </p>
             <ul className="list-disc list-inside space-y-1">
               <li>Download your document using the button below</li>
               <li>Edit it with Microsoft Word, Google Docs, or any compatible editor</li>
@@ -154,7 +161,9 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
               {/* Main Editor Area */}
               <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg p-6 flex items-center justify-center">
                 <div className="text-center max-w-2xl">
-                  <div className="text-6xl mb-6">📝</div>
+                  <div className="flex justify-center mb-6">
+                    <MemoIcon size={64} className="w-16 h-16" />
+                  </div>
                   <h3 className="text-2xl font-bold text-gray-800 mb-4">Document Personalization</h3>
                   <p className="text-gray-600 mb-6 text-lg">
                     Upload a Word document with placeholders (like @name, @phone, @email) and we&apos;ll create a personalized form for you to fill out.
@@ -162,7 +171,10 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">📄 Live Preview</h4>
+                      <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <DocumentIcon size={18} className="w-4.5 h-4.5" />
+                        Live Preview
+                      </h4>
                       <p className="text-sm text-gray-600 mb-3">Real-time Word document preview</p>
                       <button
                         onClick={() => setShowLivePreview(true)}
@@ -173,7 +185,10 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
                     </div>
                     
                     <div className="bg-white p-4 rounded-lg border border-gray-200">
-                      <h4 className="font-semibold text-gray-800 mb-2">📄 Page Range</h4>
+                      <h4 className="font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                        <DocumentIcon size={18} className="w-4.5 h-4.5" />
+                        Page Range
+                      </h4>
                       <p className="text-sm text-gray-600 mb-3">Preview and choose pages to process</p>
                       <button
                         onClick={() => setShowDocumentPreview(true)}
@@ -239,7 +254,10 @@ export default function MicrosoftWordEditor({ docxBuffer, onDocumentEdited, onCl
         {showGoogleDocs && documentUrl && (
           <div className="mt-4 border-t pt-4">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-lg font-semibold text-gray-800">📄 Google Docs Viewer</h4>
+              <h4 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+                <DocumentIcon size={20} className="w-5 h-5" />
+                Google Docs Viewer
+              </h4>
               <div className="flex space-x-2">
                 <button
                   onClick={() => window.open(`https://docs.google.com/gview?url=${encodeURIComponent(documentUrl)}&embedded=true`, '_blank')}

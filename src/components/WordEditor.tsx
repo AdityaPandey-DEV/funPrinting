@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface WordEditorProps {
   pdfUrl: string | null;
@@ -228,7 +229,9 @@ export default function WordEditor({ pdfUrl, onPlaceholdersExtracted }: WordEdit
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">Conversion Error</h3>
           <p className="text-red-600 mb-4">{conversionError}</p>
           <button
@@ -258,7 +261,9 @@ export default function WordEditor({ pdfUrl, onPlaceholdersExtracted }: WordEdit
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
-          <div className="text-blue-500 text-6xl mb-4">📄</div>
+          <div className="flex justify-center mb-4">
+            <DocumentIcon size={64} className="w-16 h-16 text-blue-500" />
+          </div>
           <p className="text-blue-600 text-lg mb-2">Word Editor Ready</p>
           <p className="text-gray-600 mb-4">Upload a PDF file to convert to Word and start editing</p>
         </div>

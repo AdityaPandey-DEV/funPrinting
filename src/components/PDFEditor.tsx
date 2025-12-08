@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface TextOverlay {
   id: string;
@@ -314,7 +315,9 @@ export default function PDFEditor({ pdfUrl, onPlaceholdersExtracted }: PDFEditor
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">PDF Loading Error</h3>
           <p className="text-red-600 mb-4">{pdfError}</p>
           <button
@@ -332,7 +335,9 @@ export default function PDFEditor({ pdfUrl, onPlaceholdersExtracted }: PDFEditor
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
-          <div className="text-blue-500 text-6xl mb-4">📄</div>
+          <div className="flex justify-center mb-4">
+            <DocumentIcon size={64} className="w-16 h-16 text-blue-500" />
+          </div>
           <p className="text-blue-600 text-lg mb-2">PDF Editor Ready</p>
           <p className="text-gray-600 mb-4">Upload a PDF file to start editing</p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">

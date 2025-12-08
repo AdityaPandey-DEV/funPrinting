@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import { DocumentIcon, ChartIcon } from '@/components/SocialIcons';
 
 function AdminTemplatesPageContent() {
   return (
@@ -21,7 +22,9 @@ function AdminTemplatesPageContent() {
           <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
             <div className="bg-blue-600 p-6">
               <div className="text-white text-center">
-                <div className="text-3xl mb-2">📄</div>
+                <div className="flex justify-center mb-2">
+                  <DocumentIcon size={32} className="w-8 h-8" />
+                </div>
                 <h3 className="text-lg font-semibold mb-1">PDF Templates</h3>
                 <p className="text-blue-100 text-sm">Static PDF templates</p>
               </div>
@@ -95,7 +98,9 @@ function AdminTemplatesPageContent() {
           <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 overflow-hidden">
             <div className="bg-green-600 p-6">
               <div className="text-white text-center">
-                <div className="text-3xl mb-2">📊</div>
+                <div className="flex justify-center mb-2">
+                  <ChartIcon size={32} className="w-8 h-8" />
+                </div>
                 <h3 className="text-lg font-semibold mb-1">Statistics</h3>
                 <p className="text-green-100 text-sm">Template overview</p>
               </div>

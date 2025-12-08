@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { MemoIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface DocxEditorProps {
   docxBuffer: string;
@@ -125,7 +126,10 @@ export default function DocxEditor({ docxBuffer, placeholders, onSave, onClose }
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
-            📝 Edit Document Placeholders
+            <span className="flex items-center gap-2">
+              <MemoIcon size={20} className="w-5 h-5" />
+              Edit Document Placeholders
+            </span>
           </h2>
           <button 
             onClick={onClose}
@@ -172,7 +176,9 @@ export default function DocxEditor({ docxBuffer, placeholders, onSave, onClose }
 
             {placeholders.length === 0 && (
               <div className="text-center py-8">
-                <div className="text-gray-400 text-6xl mb-4">📄</div>
+                <div className="flex justify-center mb-4">
+                  <DocumentIcon size={64} className="w-16 h-16 text-gray-400" />
+                </div>
                 <p className="text-gray-600">No placeholders found in this document.</p>
                 <p className="text-sm text-gray-500 mt-2">
                   Add placeholders like @name, @date, @email to your document and re-upload.

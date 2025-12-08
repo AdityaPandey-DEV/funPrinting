@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import { countryCodes, defaultCountryCode, validatePhoneNumber, parsePhoneNumber, needsCountryCode } from '@/lib/phoneValidation';
+import { LocationIcon } from '@/components/SocialIcons';
 
 interface PickupLocation {
   _id: string;
@@ -339,7 +340,10 @@ export default function CompleteProfilePage() {
                             className="text-xs text-blue-600 hover:underline mt-1 inline-block"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            📍 View on Map
+                            <span className="flex items-center gap-1">
+                              <LocationIcon size={14} className="w-3.5 h-3.5" />
+                              View on Map
+                            </span>
                           </a>
                         )}
                       </div>

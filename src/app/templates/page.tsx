@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface FormField {
   key: string;
@@ -102,7 +103,9 @@ export default function TemplatesPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">Error</h3>
           <p className="text-red-600 mb-4">{error}</p>
           <button
@@ -191,7 +194,9 @@ export default function TemplatesPage() {
 
         {filteredTemplates.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg shadow-sm">
-            <div className="text-gray-500 text-6xl mb-4">📄</div>
+            <div className="flex justify-center mb-4">
+              <DocumentIcon size={64} className="w-16 h-16 text-gray-500" />
+            </div>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">No Templates Found</h3>
             <p className="text-gray-600 mb-4">
               {searchTerm || filterCategory !== 'all' || filterType !== 'all'

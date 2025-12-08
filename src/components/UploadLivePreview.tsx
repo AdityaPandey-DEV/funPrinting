@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { DocumentIcon, WarningIcon, MemoIcon } from '@/components/SocialIcons';
 
 interface UploadLivePreviewProps {
   docxBuffer: string | null;
@@ -154,7 +155,7 @@ const UploadLivePreview: React.FC<UploadLivePreviewProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <span className="text-2xl mr-2">📄</span>
+              <DocumentIcon size={24} className="w-6 h-6 mr-2" />
               Live Preview
               {isLoading && (
                 <div className="flex items-center text-blue-600 ml-3">
@@ -196,7 +197,9 @@ const UploadLivePreview: React.FC<UploadLivePreviewProps> = ({
       <div className="preview-content relative">
         {error ? (
           <div className="p-8 text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <div className="flex justify-center mb-4">
+              <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+            </div>
             <h4 className="text-lg font-semibold text-red-800 mb-2">Preview Error</h4>
             <p className="text-red-600 mb-4">{error}</p>
             <button
@@ -248,7 +251,9 @@ const UploadLivePreview: React.FC<UploadLivePreviewProps> = ({
           </div>
         ) : (
           <div className="preview-placeholder p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">📝</div>
+            <div className="flex justify-center mb-4">
+              <MemoIcon size={64} className="w-16 h-16 text-gray-400" />
+            </div>
             <h4 className="text-lg font-semibold text-gray-600 mb-2">No Preview Available</h4>
             <p className="text-gray-500">
               {!formData || Object.keys(formData).length === 0
@@ -264,7 +269,10 @@ const UploadLivePreview: React.FC<UploadLivePreviewProps> = ({
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>💡 Changes are updated automatically as you type</span>
           <span>🔄 Auto-refresh every 1 second</span>
-          <span>📄 Format: DOCX</span>
+          <span className="flex items-center gap-1">
+            <DocumentIcon size={14} className="w-3.5 h-3.5" />
+            Format: DOCX
+          </span>
         </div>
       </div>
     </div>

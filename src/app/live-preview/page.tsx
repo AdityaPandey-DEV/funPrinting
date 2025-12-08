@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import EnhancedLiveWordPreview from '@/components/EnhancedLiveWordPreview';
+import { MemoIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface FormField {
   key: string;
@@ -171,7 +172,7 @@ export default function LivePreviewPage() {
             <div className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <span className="text-xl mr-2">📝</span>
+                  <MemoIcon size={20} className="w-5 h-5 mr-2" />
                   Form Data
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
@@ -209,7 +210,9 @@ export default function LivePreviewPage() {
 
         {!selectedTemplate && (
           <div className="bg-white shadow rounded-lg p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">📄</div>
+            <div className="flex justify-center mb-4">
+              <DocumentIcon size={64} className="w-16 h-16 text-gray-400" />
+            </div>
             <h3 className="text-lg font-semibold text-gray-600 mb-2">No Template Selected</h3>
             <p className="text-gray-500">Please select a template to see the live preview</p>
           </div>

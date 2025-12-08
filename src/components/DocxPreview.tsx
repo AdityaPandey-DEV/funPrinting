@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { DocumentIcon, WarningIcon } from '@/components/SocialIcons';
 
 interface DocxPreviewProps {
   docxBuffer: string; // Base64 encoded DOCX buffer
@@ -39,7 +40,10 @@ export default function DocxPreview({ docxBuffer, onClose }: DocxPreviewProps) {
               containerRef.current.innerHTML = `
                 <div class="p-6 bg-white">
                   <div class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <h3 class="text-lg font-semibold text-blue-800 mb-2">📄 Document Preview</h3>
+                    <h3 class="text-lg font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                      <DocumentIcon size={20} className="w-5 h-5" />
+                      Document Preview
+                    </h3>
                     <div class="grid grid-cols-2 gap-4 text-sm text-blue-700">
                       <div>
                         <span class="font-medium">Pages:</span> ${data.totalPages || 'Unknown'}
@@ -157,7 +161,10 @@ export default function DocxPreview({ docxBuffer, onClose }: DocxPreviewProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <h2 className="text-xl font-semibold text-gray-800">
-            📄 Document Preview
+            <span className="flex items-center gap-2">
+              <DocumentIcon size={20} className="w-5 h-5" />
+              Document Preview
+            </span>
           </h2>
           <button 
             onClick={onClose}
@@ -181,7 +188,9 @@ export default function DocxPreview({ docxBuffer, onClose }: DocxPreviewProps) {
           {error && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="text-red-500 text-6xl mb-4">⚠️</div>
+                <div className="flex justify-center mb-4">
+                  <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+                </div>
                 <p className="text-red-600 mb-4">{error}</p>
                 <button 
                   onClick={() => window.location.reload()}

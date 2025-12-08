@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { EmailIcon, PhoneIcon, ClockIcon } from '@/components/SocialIcons';
 
 export default function ShippingDeliveryPage() {
   return (
@@ -225,9 +226,18 @@ export default function ShippingDeliveryPage() {
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                 <p className="text-blue-800 font-medium mb-2">For delivery-related issues:</p>
                 <ul className="text-blue-700 space-y-1">
-                  <li>📧 Email: delivery@funprinting.com</li>
-                  <li>📞 Phone: +91 98765 43210</li>
-                  <li>⏰ Support Hours: Mon-Sat 9AM-6PM</li>
+                  <li className="flex items-center gap-2">
+                    <EmailIcon size={16} className="w-4 h-4" />
+                    Email: delivery@funprinting.com
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <PhoneIcon size={16} className="w-4 h-4" />
+                    Phone: +91 98765 43210
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <ClockIcon size={16} className="w-4 h-4" />
+                    Support Hours: Mon-Sat 9AM-6PM
+                  </li>
                 </ul>
               </div>
               

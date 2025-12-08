@@ -6,6 +6,7 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showError } from '@/lib/adminNotifications';
+import { PrinterIcon, TrashIcon } from '@/components/SocialIcons';
 
 interface PrinterStatus {
   success: boolean;
@@ -202,7 +203,9 @@ function PrinterMonitorContent() {
                       {status.printerApi?.health?.status === 'healthy' ? '✅ Online' : '❌ Offline'}
                     </p>
                   </div>
-                  <div className="text-3xl">🖨️</div>
+                  <div className="flex items-center">
+                    <PrinterIcon size={32} className="w-8 h-8" />
+                  </div>
                 </div>
               </div>
 
@@ -466,7 +469,10 @@ function PrinterMonitorContent() {
                               }}
                               className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700 transition-colors text-xs"
                             >
-                              🗑️ Delete
+                              <span className="flex items-center gap-1">
+                                <TrashIcon size={14} className="w-3.5 h-3.5" />
+                                Delete
+                              </span>
                             </button>
                           </td>
                         </tr>

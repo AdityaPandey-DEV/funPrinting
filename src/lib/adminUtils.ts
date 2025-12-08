@@ -1,4 +1,6 @@
 // Common admin utility functions
+import { MicroscopeIcon, MemoIcon, ChartIcon, TrophyIcon, DocumentIcon } from '@/components/SocialIcons';
+import React from 'react';
 
 export const getStatusColor = (status: string) => {
   switch (status) {
@@ -92,18 +94,18 @@ export const getDefaultExpectedDate = (createdAt: string) => {
   return defaultDate.toISOString();
 };
 
-export const getCategoryIcon = (category: string) => {
+export const getCategoryIcon = (category: string): React.ComponentType<{ className?: string; size?: number }> => {
   switch (category) {
     case 'lab-manual':
-      return '🔬';
+      return MicroscopeIcon;
     case 'assignment':
-      return '📝';
+      return MemoIcon;
     case 'report':
-      return '📊';
+      return ChartIcon;
     case 'certificate':
-      return '🏆';
+      return TrophyIcon;
     default:
-      return '📄';
+      return DocumentIcon;
   }
 };
 

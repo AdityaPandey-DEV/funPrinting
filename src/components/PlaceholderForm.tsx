@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { MemoIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface PlaceholderFormProps {
   docxBuffer: string;
@@ -176,7 +177,10 @@ export default function PlaceholderForm({ docxBuffer, onGenerateDocument, onDocu
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <h2 className="text-2xl font-semibold text-gray-800">
-            📝 Fill Document Details
+            <span className="flex items-center gap-2">
+              <MemoIcon size={20} className="w-5 h-5" />
+              Fill Document Details
+            </span>
           </h2>
           <button
             onClick={onClose}
@@ -281,7 +285,7 @@ export default function PlaceholderForm({ docxBuffer, onGenerateDocument, onDocu
               </>
             ) : (
               <>
-                <span>📄</span>
+                <DocumentIcon size={16} className="w-4 h-4" />
                 <span>Generate & Download Document</span>
               </>
             )}

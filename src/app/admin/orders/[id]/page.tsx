@@ -9,6 +9,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError } from '@/lib/adminNotifications';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
+import { ChartIcon, DocumentIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -829,7 +830,10 @@ function OrderDetailPageContent() {
 
             {/* Status Information */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">📊 Status Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <ChartIcon size={20} className="w-5 h-5" />
+                Status Information
+              </h2>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Order Status:</span>
@@ -851,7 +855,10 @@ function OrderDetailPageContent() {
           <div className="space-y-6">
             {/* PDF Preview */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">📄 Document Preview</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <DocumentIcon size={20} className="w-5 h-5" />
+                Document Preview
+              </h2>
               
               {order.orderType === 'file' && ((order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0) || order.fileURL) ? (
                 <div className="space-y-4">
@@ -1105,7 +1112,9 @@ function OrderDetailPageContent() {
                           return (
                             <div className="w-full h-96 flex items-center justify-center bg-gray-50">
                               <div className="text-center">
-                                <div className="text-6xl mb-4">📄</div>
+                                <div className="flex justify-center mb-4">
+                                  <DocumentIcon size={64} className="w-16 h-16" />
+                                </div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                                   {currentFileName}
                                 </h3>

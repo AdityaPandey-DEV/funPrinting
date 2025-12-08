@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { fillDocxTemplate } from '@/lib/docxProcessor';
+import { DocumentIcon, WarningIcon, MemoIcon } from '@/components/SocialIcons';
 
 interface LiveWordPreviewProps {
   templateUrl: string;
@@ -126,7 +127,7 @@ const LiveWordPreview: React.FC<LiveWordPreviewProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <span className="text-2xl mr-2">📄</span>
+              <DocumentIcon size={24} className="w-6 h-6 mr-2" />
               Live Document Preview
             </h3>
             {isLoading && (
@@ -168,7 +169,9 @@ const LiveWordPreview: React.FC<LiveWordPreviewProps> = ({
       <div className="preview-content relative">
         {error ? (
           <div className="p-8 text-center">
-            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <div className="flex justify-center mb-4">
+              <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+            </div>
             <h4 className="text-lg font-semibold text-red-800 mb-2">Preview Error</h4>
             <p className="text-red-600 mb-4">{error}</p>
             <button
@@ -191,7 +194,9 @@ const LiveWordPreview: React.FC<LiveWordPreviewProps> = ({
           </div>
         ) : (
           <div className="preview-placeholder p-8 text-center">
-            <div className="text-gray-400 text-6xl mb-4">📝</div>
+            <div className="flex justify-center mb-4">
+              <MemoIcon size={64} className="w-16 h-16 text-gray-400" />
+            </div>
             <h4 className="text-lg font-semibold text-gray-600 mb-2">No Preview Available</h4>
             <p className="text-gray-500">
               {!formData || Object.keys(formData).length === 0

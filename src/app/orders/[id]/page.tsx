@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { DownloadIcon, EyeIcon, DocumentIcon, WarningIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -104,7 +105,9 @@ export default function OrderDetailsPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">Error</h3>
           <p className="text-red-600 mb-4">{error}</p>
         </div>
@@ -116,7 +119,9 @@ export default function OrderDetailsPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-gray-500 text-6xl mb-4">📄</div>
+          <div className="flex justify-center mb-4">
+            <DocumentIcon size={64} className="w-16 h-16 text-gray-500" />
+          </div>
           <h3 className="text-lg font-semibold text-gray-800 mb-2">Order Not Found</h3>
           <p className="text-gray-600 mb-4">The requested order could not be found.</p>
         </div>
@@ -232,27 +237,38 @@ export default function OrderDetailsPage() {
                       onClick={downloadPDF}
                       className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 font-medium"
                     >
-                      📥 Download PDF
+                      <span className="flex items-center gap-2">
+                        <DownloadIcon size={18} className="w-4.5 h-4.5" />
+                        Download PDF
+                      </span>
                     </button>
                     {order.filledDocxUrl && (
                       <button
                         onClick={downloadDOCX}
                         className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 font-medium"
                       >
-                        📄 Download DOCX
+                        <span className="flex items-center gap-2">
+                          <DocumentIcon size={18} className="w-4.5 h-4.5" />
+                          Download DOCX
+                        </span>
                       </button>
                     )}
                     <button
                       onClick={() => window.open(order.filledPdfUrl, '_self')}
                       className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 font-medium"
                     >
-                      👁️ View Full Screen
+                      <span className="flex items-center gap-2">
+                        <EyeIcon size={18} className="w-4.5 h-4.5" />
+                        View Full Screen
+                      </span>
                     </button>
                   </div>
                 </>
               ) : (
                 <div className="border border-gray-300 rounded-lg p-8 text-center">
-                  <div className="text-gray-500 text-4xl mb-4">📄</div>
+                  <div className="flex justify-center mb-4">
+                    <DocumentIcon size={48} className="w-12 h-12 text-gray-500" />
+                  </div>
                   <p className="text-gray-600">Document preview not available</p>
                 </div>
               )}

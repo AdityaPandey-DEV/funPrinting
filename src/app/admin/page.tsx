@@ -10,6 +10,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/adminNotifications';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
+import { PrinterIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -357,7 +358,9 @@ function AdminDashboardContent() {
                   {orders.filter(o => o.orderStatus === 'printing').length}
                 </p>
               </div>
-              <div className="text-2xl">🖨️</div>
+              <div className="flex items-center">
+                <PrinterIcon size={32} className="w-8 h-8" />
+              </div>
             </div>
           </div>
           

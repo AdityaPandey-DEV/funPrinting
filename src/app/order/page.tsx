@@ -7,6 +7,7 @@ import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFai
 import { useAuth } from '@/hooks/useAuth';
 import InlineAuthModal from '@/components/InlineAuthModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
+import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon } from '@/components/SocialIcons';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -1505,7 +1506,10 @@ export default function OrderPage() {
             {/* File Upload & Options Section */}
             <div className="space-y-8">
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">📄 Upload Your Files</h2>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+                  <DocumentIcon size={24} className="w-6 h-6" />
+                  Upload Your Files
+                </h2>
                 <p className="text-gray-600">Upload your documents and configure printing options</p>
               </div>
 
@@ -1697,7 +1701,9 @@ export default function OrderPage() {
                                file.type !== 'application/pdf' && (
                                 <div className="w-full h-full flex items-center justify-center bg-gray-50">
                                   <div className="text-center">
-                                    <div className="text-4xl mb-2">📄</div>
+                                    <div className="flex justify-center mb-2">
+                                      <DocumentIcon size={40} className="w-10 h-10" />
+                                    </div>
                                     <p className="text-sm text-gray-600">
                                       {file.type}
                                     </p>
@@ -1764,7 +1770,10 @@ export default function OrderPage() {
                                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
                                     <span className="ml-3 text-sm font-medium text-gray-700">
-                                      🗂️ Plastic file (₹10)
+                                      <span className="flex items-center gap-1">
+                                        <FolderIcon size={16} className="w-4 h-4" />
+                                        Plastic file (₹10)
+                                      </span>
                                     </span>
                                   </label>
 
@@ -2131,8 +2140,9 @@ export default function OrderPage() {
                                           {colorPagesValidations[index]?.errors && colorPagesValidations[index].errors.length > 0 && (
                                             <div className="mt-2 space-y-1">
                                               {colorPagesValidations[index].errors.map((error, idx) => (
-                                                <p key={idx} className="text-xs text-red-600">
-                                                  ⚠️ {error}
+                                                <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                                  {error}
                                                 </p>
                                               ))}
                                             </div>
@@ -2206,8 +2216,9 @@ export default function OrderPage() {
                                             const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
                                             if (totalSpecified < filePageCount) {
                                               return (
-                                                <p className="text-xs text-yellow-600 mt-2">
-                                                  ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
+                                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                                  Not all pages are specified. Unspecified pages will be printed in Black & White.
                                                 </p>
                                               );
                                             }
@@ -2505,8 +2516,9 @@ export default function OrderPage() {
                           {colorPagesValidation.errors.length > 0 && (
                             <div className="mt-2 space-y-1">
                               {colorPagesValidation.errors.map((error, idx) => (
-                                <p key={idx} className="text-xs text-red-600">
-                                  ⚠️ {error}
+                                <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                  {error}
                                 </p>
                               ))}
                             </div>
@@ -2600,8 +2612,9 @@ export default function OrderPage() {
                             }
                             if (totalSpecified < pageCount) {
                               return (
-                                <p className="text-xs text-yellow-600 mt-2">
-                                  ⚠️ Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
+                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                  Not all pages are specified. Unspecified pages will be printed in Black & White.
                                 </p>
                               );
                             }
@@ -2935,8 +2948,9 @@ export default function OrderPage() {
 
                 {!isAuthenticated && (
                   <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800 mb-3">
-                      ⚠️ <strong>Sign in required:</strong> You need to sign in to place an order.
+                    <p className="text-sm text-yellow-800 mb-3 flex items-center gap-2">
+                      <WarningIcon size={18} className="w-4.5 h-4.5" />
+                      <strong>Sign in required:</strong> You need to sign in to place an order.
                     </p>
                     <div className="flex gap-3 mt-3">
                       <button

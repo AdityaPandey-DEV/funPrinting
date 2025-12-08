@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import MicrosoftWordEditor from './MicrosoftWordEditor';
+import { WarningIcon, DocumentIcon, EditIcon, TrashIcon, DownloadIcon } from '@/components/SocialIcons';
 
 interface ProfessionalWordConverterProps {
   pdfUrl: string | null; // This will now be a DOCX URL
@@ -316,7 +317,9 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="flex justify-center mb-4">
+            <WarningIcon size={64} className="w-16 h-16 text-red-500" />
+          </div>
           <h3 className="text-lg font-semibold text-red-800 mb-2">Document Processing Error</h3>
           <p className="text-red-600 mb-4">{conversionError}</p>
           
@@ -399,7 +402,9 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center py-12">
-          <div className="text-blue-500 text-6xl mb-4">📄</div>
+          <div className="flex justify-center mb-4">
+            <DocumentIcon size={64} className="w-16 h-16 text-blue-500" />
+          </div>
           <p className="text-blue-600 text-lg mb-2">Adobe-Quality Word Converter Ready</p>
           <p className="text-gray-600 mb-4">Upload a PDF file to convert to professional Word format with Adobe-quality conversion</p>
         </div>
@@ -437,13 +442,19 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
               onClick={() => setShowWordEditor(true)}
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              ✏️ Open Embedded Word Editor
+              <span className="flex items-center gap-2">
+                <EditIcon size={18} className="w-4.5 h-4.5" />
+                Open Embedded Word Editor
+              </span>
             </button>
             <button
               onClick={downloadWordDocument}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
             >
-              📥 Download Word Document
+              <span className="flex items-center gap-2">
+                <DownloadIcon size={18} className="w-4.5 h-4.5" />
+                Download Word Document
+              </span>
             </button>
           </div>
         </div>
@@ -508,7 +519,10 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
                   onClick={downloadWordDocument}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
                 >
-                  📥 Download Word
+                  <span className="flex items-center gap-2">
+                    <DownloadIcon size={18} className="w-4.5 h-4.5" />
+                    Download Word
+                  </span>
                 </button>
               </div>
             </div>
@@ -640,7 +654,10 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
                             }}
                             className="text-red-600 hover:text-red-800 text-sm bg-red-50 px-2 py-1 rounded"
                           >
-                            🗑️ Delete
+                            <span className="flex items-center gap-1">
+                              <TrashIcon size={16} className="w-4 h-4" />
+                              Delete
+                            </span>
                           </button>
                         </div>
                       </div>
@@ -703,7 +720,9 @@ export default function ProfessionalWordConverter({ pdfUrl, onPlaceholdersExtrac
           {wordContent.paragraphs.length === 0 && (!wordContent.tables || wordContent.tables.length === 0) && (
             <div className="max-w-4xl mx-auto bg-white shadow-2xl p-8" style={{ minHeight: '800px' }}>
               <div className="text-center py-16">
-                <div className="text-6xl mb-4">📄</div>
+                <div className="flex justify-center mb-4">
+                  <DocumentIcon size={64} className="w-16 h-16" />
+                </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">No Document Content Yet</h2>
                 <p className="text-gray-600 mb-6">Upload a PDF file to convert it to Word format using Adobe PDF Services API</p>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-md mx-auto">
