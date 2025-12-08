@@ -87,7 +87,7 @@ export const LocationIcon: React.FC<IconProps> = ({ className = '', size = 24 })
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#EF4444"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -102,7 +102,7 @@ export const EmailIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#3B82F6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -117,7 +117,7 @@ export const PhoneIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#10B981"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -132,7 +132,7 @@ export const ClockIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#F59E0B"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -148,7 +148,7 @@ export const WebsiteIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#6366F1"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -164,7 +164,7 @@ export const PrinterIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#6B7280"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -180,7 +180,7 @@ export const PaletteIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#EC4899"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -195,7 +195,7 @@ export const BookIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#8B5CF6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -210,7 +210,7 @@ export const DocumentIcon: React.FC<IconProps> = ({ className = '', size = 24 })
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#2563EB"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -226,7 +226,7 @@ export const WarningIcon: React.FC<IconProps> = ({ className = '', size = 24 }) 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#F59E0B"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -241,7 +241,7 @@ export const ErrorIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#EF4444"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -256,7 +256,7 @@ export const InfoIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#3B82F6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -272,7 +272,7 @@ export const EyeIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => {
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#6366F1"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -287,7 +287,7 @@ export const DownloadIcon: React.FC<IconProps> = ({ className = '', size = 24 })
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#10B981"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -302,7 +302,7 @@ export const EditIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#3B82F6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -317,7 +317,7 @@ export const TrashIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#EF4444"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -333,7 +333,7 @@ export const MoneyIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#10B981"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -348,7 +348,7 @@ export const DollarIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#10B981"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -363,7 +363,7 @@ export const RocketIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#F59E0B"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -379,7 +379,7 @@ export const MemoIcon: React.FC<IconProps> = ({ className = '', size = 24 }) => 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#6366F1"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -395,7 +395,7 @@ export const MicroscopeIcon: React.FC<IconProps> = ({ className = '', size = 24 
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#8B5CF6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -410,7 +410,7 @@ export const ChartIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =>
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#3B82F6"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -425,7 +425,7 @@ export const TrophyIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#F59E0B"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
@@ -440,7 +440,7 @@ export const FolderIcon: React.FC<IconProps> = ({ className = '', size = 24 }) =
       width={size}
       height={size}
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#6B7280"
       className={className}
       xmlns="http://www.w3.org/2000/svg"
     >
