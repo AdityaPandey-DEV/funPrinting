@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
+import { WarningIcon, DocumentIcon, RefreshIcon } from '@/components/SocialIcons';
 
 interface Template {
   id: string;
@@ -335,7 +335,10 @@ function MyTemplatesContent() {
                 onClick={fetchTemplates}
                 className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                🔄 Refresh
+                <span className="flex items-center gap-2">
+                  <RefreshIcon size={18} className="w-4.5 h-4.5" />
+                  Refresh
+                </span>
               </button>
             </div>
           </div>

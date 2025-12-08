@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
-import { DocumentIcon } from '@/components/SocialIcons';
+import { DocumentIcon, TruckIcon } from '@/components/SocialIcons';
 
 export default function ContactPage() {
   const { adminInfo, loading } = useAdminInfo();
@@ -158,13 +158,19 @@ export default function ContactPage() {
                   href="/cancellation-refund"
                   className="block text-blue-600 hover:text-blue-800 transition-colors"
                 >
-                  📋 Cancellation & Refund Policy
+                  <span className="flex items-center gap-2">
+                    <DocumentIcon size={16} className="w-4 h-4" />
+                    Cancellation & Refund Policy
+                  </span>
                 </Link>
                 <Link 
                   href="/shipping-delivery"
                   className="block text-blue-600 hover:text-blue-800 transition-colors"
                 >
-                  🚚 Shipping & Delivery Policy
+                  <span className="flex items-center gap-2">
+                    <TruckIcon size={16} className="w-4 h-4" />
+                    Shipping & Delivery Policy
+                  </span>
                 </Link>
                 <Link 
                   href="/terms"

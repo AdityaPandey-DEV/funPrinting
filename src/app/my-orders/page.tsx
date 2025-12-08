@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { validatePendingOrderPayment, createPaymentOptions, handlePaymentSuccess, handlePaymentFailure, logPaymentEvent, checkPendingPaymentVerification } from '@/lib/paymentUtils';
+import { MoneyIcon, EyeIcon, TrashIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -185,16 +186,16 @@ export default function MyOrdersPage() {
             console.log('🔍 Payment verification result:', result);
             
             if (result.success) {
-              alert(`🎉 Payment successful! Order #${order.orderId} is now confirmed.`);
+              alert(`Payment successful! Order #${order.orderId} is now confirmed.`);
               await loadOrders(); // Refresh orders
             } else {
               console.error('❌ Payment verification failed:', result.error);
-              alert(`❌ Payment verification failed: ${result.error}`);
+              alert(`Payment verification failed: ${result.error}`);
             }
           } catch (error) {
             console.error('❌ Payment success handler error:', error);
             const failureResult = handlePaymentFailure(error, order.orderId);
-            alert(`❌ ${failureResult.error}`);
+            alert(`${failureResult.error}`);
           } finally {
             setProcessingPayment(null);
           }
@@ -220,24 +221,24 @@ export default function MyOrdersPage() {
           setTimeout(() => {
             if (processingPayment === order.orderId) {
               console.log('⚠️ Payment timeout detected for order:', order.orderId);
-              alert('⚠️ Payment is taking longer than expected. The payment may still be processing. Please check your payment status in a few minutes.');
+              alert('Payment is taking longer than expected. The payment may still be processing. Please check your payment status in a few minutes.');
               setProcessingPayment(null);
             }
           }, timeoutDuration);
           
         } catch (razorpayError) {
           logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
-          alert('❌ Failed to open payment gateway. Please try again.');
+          alert('Failed to open payment gateway. Please try again.');
           setProcessingPayment(null);
         }
       } else {
         logPaymentEvent('payment_initiation_failed', { orderId: order.orderId, error: data.error }, 'error');
-        alert(`❌ Failed to initiate payment: ${data.error}`);
+        alert(`Failed to initiate payment: ${data.error}`);
         setProcessingPayment(null);
       }
     } catch (error) {
       logPaymentEvent('payment_processing_error', { orderId: order.orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
-      alert('❌ Failed to process payment. Please try again.');
+      alert('Failed to process payment. Please try again.');
       setProcessingPayment(null);
     }
   };
@@ -246,7 +247,7 @@ export default function MyOrdersPage() {
   const handleDeleteOrder = async (order: Order) => {
     // Validate that order can be cancelled
     if (order.paymentStatus === 'completed') {
-      alert('❌ Cannot cancel a paid order. Please contact support for refunds.');
+      alert('Cannot cancel a paid order. Please contact support for refunds.');
       return;
     }
 
@@ -275,12 +276,12 @@ export default function MyOrdersPage() {
         await loadOrders(); // Refresh orders
       } else {
         logPaymentEvent('order_cancellation_failed', { orderId: order.orderId, error: data.error }, 'error');
-        alert(`❌ Failed to cancel order: ${data.error}`);
+        alert(`Failed to cancel order: ${data.error}`);
       }
     } catch (error) {
       logPaymentEvent('order_cancellation_error', { orderId: order.orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
       console.error('Error deleting order:', error);
-      alert('❌ Failed to cancel order. Please try again.');
+      alert('Failed to cancel order. Please try again.');
     } finally {
       setDeletingOrder(null);
     }
@@ -476,7 +477,14 @@ export default function MyOrdersPage() {
                             disabled={processingPayment === order._id || !isRazorpayLoaded}
                             className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {processingPayment === order._id ? 'Processing...' : '💳 Complete Payment'}
+                            {processingPayment === order._id ? (
+                              'Processing...'
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <MoneyIcon size={16} className="w-4 h-4" />
+                                Complete Payment
+                              </span>
+                            )}
                           </button>
                           {order.razorpayOrderId && (
                             <button
@@ -495,9 +503,9 @@ export default function MyOrdersPage() {
                                     // Reload orders to show updated status
                                     window.location.reload();
                                   } else if (data.payment_status === 'failed') {
-                                    alert(`❌ Payment failed: ${data.message}`);
+                                    alert(`Payment failed: ${data.message}`);
                                   } else {
-                                    alert(`ℹ️ Payment status: ${data.message}`);
+                                    alert(`Payment status: ${data.message}`);
                                   }
                                 } catch (error) {
                                   console.error('Error checking payment status:', error);
@@ -506,7 +514,10 @@ export default function MyOrdersPage() {
                               }}
                               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
-                              🔍 Check Payment Status
+                              <span className="flex items-center gap-2">
+                                <EyeIcon size={16} className="w-4 h-4" />
+                                Check Payment Status
+                              </span>
                             </button>
                           )}
                           <button
@@ -514,7 +525,14 @@ export default function MyOrdersPage() {
                             disabled={deletingOrder === order._id}
                             className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           >
-                            {deletingOrder === order._id ? 'Cancelling...' : '❌ Cancel Order'}
+                            {deletingOrder === order._id ? (
+                              'Cancelling...'
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                <TrashIcon size={16} className="w-4 h-4" />
+                                Cancel Order
+                              </span>
+                            )}
                           </button>
                         </>
                       )}

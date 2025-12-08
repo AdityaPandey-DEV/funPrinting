@@ -7,7 +7,7 @@ import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFai
 import { useAuth } from '@/hooks/useAuth';
 import InlineAuthModal from '@/components/InlineAuthModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
-import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon } from '@/components/SocialIcons';
+import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -1334,7 +1334,7 @@ export default function OrderPage() {
       if (data.success) {
         // Show order ID immediately
         if (data.orderId) {
-          alert(`📋 Order #${data.orderId} created! Please complete payment to confirm your order.`);
+          alert(`Order #${data.orderId} created! Please complete payment to confirm your order.`);
         }
 
         // Initialize Razorpay payment
@@ -1372,7 +1372,7 @@ export default function OrderPage() {
                     startTime: null,
                     polling: false,
                   });
-                  alert(`🎉 Payment successful! Your order #${data.orderId} has been placed.`);
+                  alert(`Payment successful! Your order #${data.orderId} has been placed.`);
                   window.location.href = '/my-orders';
                 },
                 (error) => {
@@ -1385,7 +1385,7 @@ export default function OrderPage() {
                     startTime: null,
                     polling: false,
                   });
-                  alert(`❌ Payment failed: ${error}`);
+                  alert(`Payment failed: ${error}`);
                 },
                 () => {
                   // Polling timeout - keep verification status active for manual check
@@ -1422,7 +1422,7 @@ export default function OrderPage() {
                   ...prev,
                   polling: true, // Allow manual check
                 }));
-                alert(`⚠️ Payment verification is taking longer than expected. Please wait or check your order status.`);
+                alert(`Payment verification is taking longer than expected. Please wait or check your order status.`);
               }
             } catch (error) {
               console.error('❌ Error in payment handler:', error);
@@ -1431,7 +1431,7 @@ export default function OrderPage() {
                 ...prev,
                 polling: true, // Allow manual check on error
               }));
-              alert(`⚠️ Payment verification encountered an issue. Please check your order status.`);
+              alert(`Payment verification encountered an issue. Please check your order status.`);
             }
           },
           modal: {
@@ -1797,8 +1797,9 @@ export default function OrderPage() {
                                       }}
                                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                     />
-                                    <span className="ml-3 text-sm font-medium text-gray-700">
-                                      ✅ Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
+                                    <span className="ml-3 text-sm font-medium text-gray-700 flex items-center gap-1">
+                                      <CheckIcon size={16} className="w-4 h-4" />
+                                      Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
                                     </span>
                                   </label>
                                 </div>
@@ -2151,8 +2152,9 @@ export default function OrderPage() {
                                           {colorPagesValidations[index]?.warnings && colorPagesValidations[index].warnings.length > 0 && colorPagesValidations[index].errors.length === 0 && (
                                             <div className="mt-2 space-y-1">
                                               {colorPagesValidations[index].warnings.map((warning, idx) => (
-                                                <p key={idx} className="text-xs text-yellow-600">
-                                                  ℹ️ {warning}
+                                                <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
+                                                  <InfoIcon size={14} className="w-3.5 h-3.5" />
+                                                  {warning}
                                                 </p>
                                               ))}
                                             </div>
@@ -2527,8 +2529,9 @@ export default function OrderPage() {
                           {colorPagesValidation.warnings.length > 0 && colorPagesValidation.errors.length === 0 && (
                             <div className="mt-2 space-y-1">
                               {colorPagesValidation.warnings.map((warning, idx) => (
-                                <p key={idx} className="text-xs text-yellow-600">
-                                  ℹ️ {warning}
+                                <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
+                                  <InfoIcon size={14} className="w-3.5 h-3.5" />
+                                  {warning}
                                 </p>
                               ))}
                             </div>
@@ -2918,7 +2921,10 @@ export default function OrderPage() {
             {/* Delivery Options Section - Inline after file upload */}
             {selectedFiles.length > 0 && (
               <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200 mt-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">🚚 Delivery Options</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <TruckIcon size={24} className="w-6 h-6" />
+                  Delivery Options
+                </h3>
                 
                 {/* Quick Customer Info - Only show if not in profile */}
                 {isAuthenticated && (!customerInfo.phone || !selectedPickupLocation) && (
@@ -2986,13 +2992,19 @@ export default function OrderPage() {
                         onChange={() => setDeliveryOption({ type: 'pickup', pickupLocationId: selectedPickupLocation?._id })}
                         className="mr-2"
                       />
-                      <span className="font-medium">🏫 Pickup from Campus (FREE)</span>
+                      <span className="font-medium flex items-center gap-1">
+                        <BuildingIcon size={18} className="w-4.5 h-4.5" />
+                        Pickup from Campus (FREE)
+                      </span>
                     </label>
                   </div>
 
                   {deliveryOption.type === 'pickup' && (
                     <div className="ml-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h4 className="font-medium text-green-800 mb-3">🏫 Select Pickup Location</h4>
+                      <h4 className="font-medium text-green-800 mb-3 flex items-center gap-1">
+                        <BuildingIcon size={18} className="w-4.5 h-4.5" />
+                        Select Pickup Location
+                      </h4>
                       
                       {pickupLocations.length > 0 ? (
                         <select
@@ -3042,7 +3054,10 @@ export default function OrderPage() {
                         onChange={() => setDeliveryOption({ type: 'delivery' })}
                         className="mr-2"
                       />
-                      <span className="font-medium">🚚 Home Delivery (₹10-50 extra)</span>
+                      <span className="font-medium flex items-center gap-1">
+                        <TruckIcon size={18} className="w-4.5 h-4.5" />
+                        Home Delivery (₹10-50 extra)
+                      </span>
                     </label>
                   </div>
 
@@ -3114,7 +3129,10 @@ export default function OrderPage() {
           <div className="lg:col-span-1">
             <div className="sticky top-6">
               <div className="bg-white rounded-lg shadow-xl p-6 border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">📋 Order Summary</h3>
+                <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                  <DocumentIcon size={24} className="w-6 h-6" />
+                  Order Summary
+                </h3>
                 
                 {/* Quick Summary */}
                 <div className="space-y-3 mb-6">
@@ -3143,8 +3161,18 @@ export default function OrderPage() {
                         </div>
                   <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Delivery:</span>
-                    <span className="font-medium text-xs">
-                      {deliveryOption.type === 'pickup' ? '🏫 Pickup' : '🚚 Delivery'}
+                    <span className="font-medium text-xs flex items-center gap-1">
+                      {deliveryOption.type === 'pickup' ? (
+                        <>
+                          <BuildingIcon size={14} className="w-3.5 h-3.5" />
+                          Pickup
+                        </>
+                      ) : (
+                        <>
+                          <TruckIcon size={14} className="w-3.5 h-3.5" />
+                          Delivery
+                        </>
+                      )}
                           </span>
                     </div>
                   </div>
@@ -3170,11 +3198,32 @@ export default function OrderPage() {
                     disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || (isAuthenticated && (selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))))}
                     className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    {!isAuthenticated ? '🔒 Sign In to Place Order' :
-                   !isRazorpayLoaded ? '⏳ Loading...' : 
-                     uploadProgress.uploading ? `📤 Uploading... (${uploadProgress.currentFile}/${uploadProgress.totalFiles})` :
-                     isProcessingPayment ? '🔄 Processing...' : 
-                   `💳 Pay ₹${amount.toFixed(2)}`}
+                    {!isAuthenticated ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <LockIcon size={20} className="w-5 h-5" />
+                        Sign In to Place Order
+                      </span>
+                    ) : !isRazorpayLoaded ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <ClockIcon size={20} className="w-5 h-5" />
+                        Loading...
+                      </span>
+                    ) : uploadProgress.uploading ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <UploadIcon size={20} className="w-5 h-5" />
+                        Uploading... ({uploadProgress.currentFile}/{uploadProgress.totalFiles})
+                      </span>
+                    ) : isProcessingPayment ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <RefreshIcon size={20} className="w-5 h-5 animate-spin" />
+                        Processing...
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">
+                        <MoneyIcon size={20} className="w-5 h-5" />
+                        Pay ₹{amount.toFixed(2)}
+                      </span>
+                    )}
                   </button>
 
                 {/* Upload Progress Indicator */}
@@ -3196,7 +3245,10 @@ export default function OrderPage() {
                     </div>
                     {uploadProgress.isSlowNetwork && (
                       <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                        ⚠️ Slow network detected. Upload is taking longer than expected. Please wait...
+                        <span className="flex items-center gap-1">
+                          <WarningIcon size={16} className="w-4 h-4" />
+                          Slow network detected. Upload is taking longer than expected. Please wait...
+                        </span>
                       </div>
                     )}
                     {uploadProgress.startTime && uploadProgress.progress > 0 && uploadProgress.progress < 100 && (
@@ -3225,7 +3277,10 @@ export default function OrderPage() {
                     </div>
                     {paymentVerificationStatus.startTime && Date.now() - paymentVerificationStatus.startTime > 60000 && (
                       <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                        ⚠️ Verification is taking longer than expected. Please wait...
+                        <span className="flex items-center gap-1">
+                          <WarningIcon size={16} className="w-4 h-4" />
+                          Verification is taking longer than expected. Please wait...
+                        </span>
                       </div>
                     )}
                     {paymentVerificationStatus.polling && (
@@ -3243,7 +3298,7 @@ export default function OrderPage() {
                               });
                               const data = await response.json();
                               if (data.success && data.payment_status === 'completed') {
-                                alert(`🎉 Payment successful! Your order #${data.order.orderId} has been placed.`);
+                                alert(`Payment successful! Your order #${data.order.orderId} has been placed.`);
                                 setPaymentVerificationStatus({
                                   verifying: false,
                                   orderId: null,
@@ -3253,7 +3308,7 @@ export default function OrderPage() {
                                 });
                                 window.location.href = '/my-orders';
                               } else if (data.payment_status === 'failed') {
-                                alert(`❌ Payment failed: ${data.message}`);
+                                alert(`Payment failed: ${data.message}`);
                                 setPaymentVerificationStatus({
                                   verifying: false,
                                   orderId: null,
@@ -3262,7 +3317,7 @@ export default function OrderPage() {
                                   polling: false,
                                 });
                               } else {
-                                alert(`ℹ️ Payment status: ${data.message}`);
+                                alert(`Payment status: ${data.message}`);
                               }
                             } catch (error) {
                               console.error('Error checking payment status:', error);
