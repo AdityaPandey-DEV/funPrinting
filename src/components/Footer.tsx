@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
-import { FacebookIcon, InstagramIcon, TwitterIcon, LinkedInIcon, YouTubeIcon } from '@/components/SocialIcons';
+import { FacebookIcon, InstagramIcon, TwitterIcon, LinkedInIcon, YouTubeIcon, LocationIcon, EmailIcon, PhoneIcon, ClockIcon, WebsiteIcon } from '@/components/SocialIcons';
 
 export default function Footer() {
   const { adminInfo, loading } = useAdminInfo();
@@ -105,12 +105,27 @@ export default function Footer() {
           <div>
             <h4 className="text-lg font-semibold mb-4">Contact Info</h4>
             <div className="space-y-2 text-gray-300">
-              <p>📍 {adminInfo?.address ? `${adminInfo.address}, ${adminInfo.city}, ${adminInfo.state} ${adminInfo.pincode}` : 'College Campus'}</p>
-              <p>📧 {adminInfo?.email || 'info@printservice.com'}</p>
-              <p>📞 {adminInfo?.phone || '+91 98765 43210'}</p>
-              <p>🕒 {adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9AM-6PM'}</p>
+              <p className="flex items-start gap-2">
+                <LocationIcon size={20} className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <span>{adminInfo?.address ? `${adminInfo.address}, ${adminInfo.city}, ${adminInfo.state} ${adminInfo.pincode}` : 'College Campus'}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <EmailIcon size={20} className="w-5 h-5 flex-shrink-0" />
+                <span>{adminInfo?.email || 'info@printservice.com'}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <PhoneIcon size={20} className="w-5 h-5 flex-shrink-0" />
+                <span>{adminInfo?.phone || '+91 98765 43210'}</span>
+              </p>
+              <p className="flex items-center gap-2">
+                <ClockIcon size={20} className="w-5 h-5 flex-shrink-0" />
+                <span>{adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9AM-6PM'}</span>
+              </p>
               {adminInfo?.website && (
-                <p>🌐 <a href={adminInfo.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">{adminInfo.website}</a></p>
+                <p className="flex items-center gap-2">
+                  <WebsiteIcon size={20} className="w-5 h-5 flex-shrink-0" />
+                  <a href={adminInfo.website} target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">{adminInfo.website}</a>
+                </p>
               )}
             </div>
           </div>
