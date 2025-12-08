@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAdminInfo } from '@/hooks/useAdminInfo';
+import { FacebookIcon, InstagramIcon, TwitterIcon, LinkedInIcon, YouTubeIcon } from '@/components/SocialIcons';
 
 export default function Footer() {
   const { adminInfo, loading } = useAdminInfo();
@@ -15,21 +16,39 @@ export default function Footer() {
     { href: '/contact', label: 'Contact Us' },
   ];
 
+  // Helper function to get the appropriate icon component
+  const getSocialIcon = (label: string) => {
+    switch (label) {
+      case 'Facebook':
+        return FacebookIcon;
+      case 'Instagram':
+        return InstagramIcon;
+      case 'Twitter':
+        return TwitterIcon;
+      case 'LinkedIn':
+        return LinkedInIcon;
+      case 'YouTube':
+        return YouTubeIcon;
+      default:
+        return null;
+    }
+  };
+
   // Default social links if admin info is not available
   const defaultSocialLinks = [
-    { href: '#', label: 'Facebook', icon: '📘' },
-    { href: '#', label: 'Twitter', icon: '🐦' },
-    { href: '#', label: 'Instagram', icon: '📷' },
-    { href: '#', label: 'LinkedIn', icon: '💼' },
+    { href: '#', label: 'Facebook' },
+    { href: '#', label: 'Twitter' },
+    { href: '#', label: 'Instagram' },
+    { href: '#', label: 'LinkedIn' },
   ];
 
   // Create social links from admin info
   const socialLinks = adminInfo?.socialMedia ? [
-    ...(adminInfo.socialMedia.facebook ? [{ href: adminInfo.socialMedia.facebook, label: 'Facebook', icon: '📘' }] : []),
-    ...(adminInfo.socialMedia.twitter ? [{ href: adminInfo.socialMedia.twitter, label: 'Twitter', icon: '🐦' }] : []),
-    ...(adminInfo.socialMedia.instagram ? [{ href: adminInfo.socialMedia.instagram, label: 'Instagram', icon: '📷' }] : []),
-    ...(adminInfo.socialMedia.linkedin ? [{ href: adminInfo.socialMedia.linkedin, label: 'LinkedIn', icon: '💼' }] : []),
-    ...(adminInfo.socialMedia.youtube ? [{ href: adminInfo.socialMedia.youtube, label: 'YouTube', icon: '📺' }] : []),
+    ...(adminInfo.socialMedia.facebook ? [{ href: adminInfo.socialMedia.facebook, label: 'Facebook' }] : []),
+    ...(adminInfo.socialMedia.twitter ? [{ href: adminInfo.socialMedia.twitter, label: 'Twitter' }] : []),
+    ...(adminInfo.socialMedia.instagram ? [{ href: adminInfo.socialMedia.instagram, label: 'Instagram' }] : []),
+    ...(adminInfo.socialMedia.linkedin ? [{ href: adminInfo.socialMedia.linkedin, label: 'LinkedIn' }] : []),
+    ...(adminInfo.socialMedia.youtube ? [{ href: adminInfo.socialMedia.youtube, label: 'YouTube' }] : []),
   ] : defaultSocialLinks;
 
   return (
@@ -45,18 +64,23 @@ export default function Footer() {
               {adminInfo?.description || 'Your trusted printing partner for all academic needs. Fast, reliable, and affordable printing services for college students.'}
             </p>
             <div className="flex space-x-4">
-              {socialLinks.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="text-gray-400 hover:text-blue-400 transition-colors"
-                  aria-label={social.label}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <span className="text-2xl">{social.icon}</span>
-                </a>
-              ))}
+              {socialLinks.map((social) => {
+                const IconComponent = getSocialIcon(social.label);
+                if (!IconComponent) return null;
+                
+                return (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    className="text-gray-400 hover:text-blue-400 transition-colors"
+                    aria-label={social.label}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <IconComponent size={28} className="w-7 h-7" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
