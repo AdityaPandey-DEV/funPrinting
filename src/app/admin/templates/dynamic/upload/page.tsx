@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
+import { CheckIcon } from '@/components/SocialIcons';
 
 function DynamicTemplateUploadContent() {
   const [file, setFile] = useState<File | null>(null);
@@ -384,7 +385,9 @@ function DynamicTemplateUploadContent() {
 
         {step === 'save' && (
           <div className="bg-white shadow rounded-lg p-8 text-center">
-            <div className="text-green-600 text-6xl mb-4">✅</div>
+            <div className="mb-4 flex justify-center">
+              <CheckIcon size={64} className="w-16 h-16 text-green-600" />
+            </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Template Saved Successfully!</h2>
             <p className="text-gray-600 mb-6">
               Your dynamic template has been saved and is now available for users to fill out.

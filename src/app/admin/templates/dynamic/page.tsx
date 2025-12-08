@@ -7,7 +7,7 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import { getCategoryIcon, getCategoryColor } from '@/lib/adminUtils';
-import { WarningIcon, DocumentIcon } from '@/components/SocialIcons';
+import { WarningIcon, DocumentIcon, RefreshIcon } from '@/components/SocialIcons';
 
 interface Template {
   id: string;
@@ -224,7 +224,10 @@ function ManageDynamicTemplatesContent() {
                 onClick={fetchTemplates}
                 className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                🔄 Refresh
+                <span className="flex items-center gap-2">
+                  <RefreshIcon size={18} className="w-4.5 h-4.5" />
+                  Refresh
+                </span>
               </button>
             </div>
           </div>

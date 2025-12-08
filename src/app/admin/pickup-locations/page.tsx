@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError } from '@/lib/adminNotifications';
+import { EditIcon, TrashIcon, LocationIcon, GlobeIcon, MemoIcon, UserIcon, PhoneIcon, ClockIcon, BuildingIcon } from '@/components/SocialIcons';
 
 interface PickupLocation {
   _id: string;
@@ -318,7 +319,7 @@ function PickupLocationsPageContent() {
                     className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                     title="Edit"
                   >
-                    ✏️
+                    <EditIcon size={20} className="w-5 h-5" />
                   </button>
                   <button
                     onClick={() => handleDeleteLocation(location._id)}
@@ -330,37 +331,43 @@ function PickupLocationsPageContent() {
                     }`}
                     title={location.isDefault ? 'Cannot delete default location' : 'Delete'}
                   >
-                    🗑️
+                    <TrashIcon size={20} className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
               {/* Location Details */}
               <div className="space-y-2 mb-4">
-                <p className="text-gray-700">
-                  <span className="font-medium">📍</span> {location.address}
+                <p className="text-gray-700 flex items-center gap-1">
+                  <LocationIcon size={18} className="w-4.5 h-4.5" />
+                  <span className="font-medium">{location.address}</span>
                 </p>
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">🌐</span> {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+                <p className="text-sm text-gray-600 flex items-center gap-1">
+                  <GlobeIcon size={16} className="w-4 h-4" />
+                  <span className="font-medium">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</span>
                 </p>
                 {location.description && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">📝</span> {location.description}
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <MemoIcon size={16} className="w-4 h-4" />
+                    <span className="font-medium">{location.description}</span>
                   </p>
                 )}
                 {location.contactPerson && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">👤</span> {location.contactPerson}
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <UserIcon size={16} className="w-4 h-4" />
+                    <span className="font-medium">{location.contactPerson}</span>
                   </p>
                 )}
                 {location.contactPhone && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">📞</span> {location.contactPhone}
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <PhoneIcon size={16} className="w-4 h-4" />
+                    <span className="font-medium">{location.contactPhone}</span>
                   </p>
                 )}
                 {location.operatingHours && (
-                  <p className="text-sm text-gray-600">
-                    <span className="font-medium">🕒</span> {location.operatingHours}
+                  <p className="text-sm text-gray-600 flex items-center gap-1">
+                    <ClockIcon size={16} className="w-4 h-4" />
+                    <span className="font-medium">{location.operatingHours}</span>
                   </p>
                 )}
               </div>
@@ -393,7 +400,9 @@ function PickupLocationsPageContent() {
         {/* Empty State */}
         {locations.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">🏫</div>
+            <div className="mb-4 flex justify-center">
+              <BuildingIcon size={64} className="w-16 h-16" />
+            </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No pickup locations found</h3>
             <p className="text-gray-600 mb-4">Get started by adding your first pickup location</p>
             <button

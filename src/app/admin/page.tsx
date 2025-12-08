@@ -10,7 +10,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/adminNotifications';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
-import { PrinterIcon, DocumentIcon, FolderIcon, LocationIcon, MoneyIcon, DollarIcon, InfoIcon, ClockIcon } from '@/components/SocialIcons';
+import { PrinterIcon, DocumentIcon, FolderIcon, LocationIcon, MoneyIcon, DollarIcon, InfoIcon, ClockIcon, RefreshIcon, BuildingIcon, TruckIcon, CalendarIcon, CheckIcon, PaperclipIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -303,11 +303,21 @@ function AdminDashboardContent() {
                   disabled={isLoading}
                   className="bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base mr-2"
                 >
-                  <span className="hidden sm:inline">
-                    {isLoading ? 'Processing...' : '🖨️ Process Pending Orders'}
+                  <span className="hidden sm:inline flex items-center gap-2">
+                    {isLoading ? 'Processing...' : (
+                      <>
+                        <PrinterIcon size={18} className="w-4.5 h-4.5" />
+                        Process Pending Orders
+                      </>
+                    )}
                   </span>
-                  <span className="sm:hidden">
-                    {isLoading ? 'Processing...' : '🖨️ Process'}
+                  <span className="sm:hidden flex items-center gap-2">
+                    {isLoading ? 'Processing...' : (
+                      <>
+                        <PrinterIcon size={18} className="w-4.5 h-4.5" />
+                        Process
+                      </>
+                    )}
                   </span>
                 </button>
                 <button
@@ -477,7 +487,10 @@ function AdminDashboardContent() {
                 }}
                 className="px-3 py-1 bg-gray-600 text-white text-sm rounded-md hover:bg-gray-700 transition-colors"
               >
-                🔄 Clear Filters
+                <span className="flex items-center gap-2">
+                  <RefreshIcon size={16} className="w-4 h-4" />
+                  Clear Filters
+                </span>
               </button>
             </div>
           </div>
@@ -543,10 +556,14 @@ function AdminDashboardContent() {
                                   return (
                                     <div key={idx} className="text-xs">
                                       <span className="text-gray-600">{fileName.substring(0, 15)}:</span>
-                                      <span className="ml-1 font-medium">
-                                        {serviceOption === 'binding' ? '📎' :
-                                         serviceOption === 'file' ? '🗂️' :
-                                         '✅'}
+                                      <span className="ml-1 font-medium flex items-center">
+                                        {serviceOption === 'binding' ? (
+                                          <PaperclipIcon size={14} className="w-3.5 h-3.5" />
+                                        ) : serviceOption === 'file' ? (
+                                          <FolderIcon size={14} className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <CheckIcon size={14} className="w-3.5 h-3.5" />
+                                        )}
                                       </span>
                                     </div>
                                   );
@@ -565,10 +582,23 @@ function AdminDashboardContent() {
                               return (
                                 <div className="mt-1 text-xs">
                                   <span className="text-gray-600">Service: </span>
-                                  <span className="font-medium">
-                                    {serviceOption === 'binding' ? '📎 Binding' :
-                                     serviceOption === 'file' ? '🗂️ File' :
-                                     '✅ Service'}
+                                  <span className="font-medium flex items-center gap-1">
+                                    {serviceOption === 'binding' ? (
+                                      <>
+                                        <PaperclipIcon size={14} className="w-3.5 h-3.5" />
+                                        Binding
+                                      </>
+                                    ) : serviceOption === 'file' ? (
+                                      <>
+                                        <FolderIcon size={14} className="w-3.5 h-3.5" />
+                                        File
+                                      </>
+                                    ) : (
+                                      <>
+                                        <CheckIcon size={14} className="w-3.5 h-3.5" />
+                                        Service
+                                      </>
+                                    )}
                                   </span>
                                 </div>
                               );
@@ -590,8 +620,18 @@ function AdminDashboardContent() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900 space-y-1">
-                        <div className="font-medium">
-                          {order.deliveryOption?.type === 'pickup' ? '🏫 Pickup' : '🚚 Delivery'}
+                        <div className="font-medium flex items-center gap-1">
+                          {order.deliveryOption?.type === 'pickup' ? (
+                            <>
+                              <BuildingIcon size={16} className="w-4 h-4" />
+                              Pickup
+                            </>
+                          ) : (
+                            <>
+                              <TruckIcon size={16} className="w-4 h-4" />
+                              Delivery
+                            </>
+                          )}
                         </div>
                         {order.deliveryOption?.type === 'pickup' && order.deliveryOption?.pickupLocation && (
                           <div className="text-xs text-gray-600">
@@ -613,12 +653,14 @@ function AdminDashboardContent() {
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
                         {order.expectedDate ? (
-                          <div className="font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                            📅 {formatDate(order.expectedDate.toString())}
+                          <div className="font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded flex items-center gap-1">
+                            <CalendarIcon size={16} className="w-4 h-4" />
+                            {formatDate(order.expectedDate.toString())}
                           </div>
                         ) : (
-                          <div className="text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                            📅 {formatDate(getDefaultExpectedDate(order.createdAt))} (Default)
+                          <div className="text-orange-600 bg-orange-50 px-2 py-1 rounded flex items-center gap-1">
+                            <CalendarIcon size={16} className="w-4 h-4" />
+                            {formatDate(getDefaultExpectedDate(order.createdAt))} (Default)
                           </div>
                         )}
                       </div>

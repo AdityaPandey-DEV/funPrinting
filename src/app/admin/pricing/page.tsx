@@ -8,6 +8,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError } from '@/lib/adminNotifications';
 import { formInputClasses, buttonClasses } from '@/lib/adminUtils';
+import { DocumentIcon, ChartIcon, TruckIcon, SettingsIcon, MoneyIcon, SaveIcon } from '@/components/SocialIcons';
 
 interface PricingData {
   basePrices: {
@@ -200,7 +201,7 @@ function AdminPricingPageContent() {
             {/* Base Prices */}
             <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-blue-50 to-indigo-50 shadow-sm">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">📄</span>
+                <DocumentIcon size={24} className="w-6 h-6 mr-2" />
                 Base Prices (per page)
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -236,7 +237,7 @@ function AdminPricingPageContent() {
             {/* Multipliers */}
             <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-green-50 to-emerald-50 shadow-sm">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">🔢</span>
+                <ChartIcon size={24} className="w-6 h-6 mr-2" />
                 Multipliers
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -272,7 +273,7 @@ function AdminPricingPageContent() {
             {/* Delivery Charges */}
             <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-orange-50 to-amber-50 shadow-sm">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">🚚</span>
+                <TruckIcon size={24} className="w-6 h-6 mr-2" />
                 Delivery Charges
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,7 +317,7 @@ function AdminPricingPageContent() {
             {/* Additional Services */}
             <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-purple-50 to-pink-50 shadow-sm">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">⚙️</span>
+                <SettingsIcon size={24} className="w-6 h-6 mr-2" />
                 Additional Services
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -384,7 +385,7 @@ function AdminPricingPageContent() {
             {/* Template Commission */}
             <div className="border border-gray-200 rounded-lg p-6 bg-gradient-to-br from-yellow-50 to-orange-50 shadow-sm">
               <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                <span className="mr-2">💰</span>
+                <MoneyIcon size={24} className="w-6 h-6 mr-2" />
                 Template Monetization
               </h2>
               <p className="text-sm text-gray-600 mb-4">
@@ -435,7 +436,10 @@ function AdminPricingPageContent() {
                 disabled={isSaving}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                {isSaving ? '💾 Saving...' : '💾 Save Pricing'}
+                <span className="flex items-center gap-2">
+                  <SaveIcon size={18} className="w-4.5 h-4.5" />
+                  {isSaving ? 'Saving...' : 'Save Pricing'}
+                </span>
               </button>
             </div>
           </div>

@@ -6,7 +6,7 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showError } from '@/lib/adminNotifications';
-import { PrinterIcon, TrashIcon } from '@/components/SocialIcons';
+import { PrinterIcon, TrashIcon, RefreshIcon, CheckIcon, ErrorIcon, DocumentIcon, ClockIcon, PauseIcon, PlayIcon } from '@/components/SocialIcons';
 
 interface PrinterStatus {
   success: boolean;
@@ -183,7 +183,16 @@ function PrinterMonitorContent() {
                 disabled={isLoading}
                 className="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
               >
-                {isLoading ? 'Refreshing...' : '🔄 Refresh'}
+                <span className="flex items-center gap-2">
+                  {isLoading ? (
+                    'Refreshing...'
+                  ) : (
+                    <>
+                      <RefreshIcon size={16} className="w-4 h-4" />
+                      Refresh
+                    </>
+                  )}
+                </span>
               </button>
             </div>
           }
@@ -197,10 +206,20 @@ function PrinterMonitorContent() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-gray-600">Printer API Status</p>
-                    <p className={`text-2xl font-bold mt-2 ${
+                    <p className={`text-2xl font-bold mt-2 flex items-center gap-2 ${
                       status.printerApi?.health?.status === 'healthy' ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {status.printerApi?.health?.status === 'healthy' ? '✅ Online' : '❌ Offline'}
+                      {status.printerApi?.health?.status === 'healthy' ? (
+                        <>
+                          <CheckIcon size={24} className="w-6 h-6" />
+                          Online
+                        </>
+                      ) : (
+                        <>
+                          <ErrorIcon size={24} className="w-6 h-6" />
+                          Offline
+                        </>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center">
@@ -217,7 +236,9 @@ function PrinterMonitorContent() {
                       {status.printerApi?.queue?.total || 0}
                     </p>
                   </div>
-                  <div className="text-3xl">📋</div>
+                  <div className="flex items-center">
+                    <DocumentIcon size={32} className="w-8 h-8" />
+                  </div>
                 </div>
               </div>
 
@@ -229,7 +250,9 @@ function PrinterMonitorContent() {
                       {status.printerApi?.queue?.pending || 0}
                     </p>
                   </div>
-                  <div className="text-3xl">⏳</div>
+                  <div className="flex items-center">
+                    <ClockIcon size={32} className="w-8 h-8" />
+                  </div>
                 </div>
               </div>
 
@@ -241,7 +264,9 @@ function PrinterMonitorContent() {
                       {status.funPrinting?.retryQueue?.total || 0}
                     </p>
                   </div>
-                  <div className="text-3xl">🔄</div>
+                  <div className="flex items-center">
+                    <RefreshIcon size={32} className="w-8 h-8" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -313,7 +338,10 @@ function PrinterMonitorContent() {
                   Print Queue ({status.printerApi?.queue?.pending || 0} pending)
                 </h2>
                   {status.printerApi?.queue?.isPaused && (
-                    <p className="text-sm text-yellow-600 mt-1">⏸️ Queue is paused</p>
+                    <p className="text-sm text-yellow-600 mt-1 flex items-center gap-1">
+                      <PauseIcon size={16} className="w-4 h-4" />
+                      Queue is paused
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -337,7 +365,10 @@ function PrinterMonitorContent() {
                       }}
                       className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                     >
-                      ▶️ Resume
+                      <span className="flex items-center gap-2">
+                        <PlayIcon size={16} className="w-4 h-4" />
+                        Resume
+                      </span>
                     </button>
                   ) : (
                     <button
@@ -361,7 +392,10 @@ function PrinterMonitorContent() {
                       }}
                       className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm"
                     >
-                      ⏸️ Pause
+                      <span className="flex items-center gap-2">
+                        <PauseIcon size={16} className="w-4 h-4" />
+                        Pause
+                      </span>
                     </button>
                   )}
                 </div>

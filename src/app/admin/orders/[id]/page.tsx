@@ -9,7 +9,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError } from '@/lib/adminNotifications';
 import { getStatusColor, getPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
-import { ChartIcon, DocumentIcon } from '@/components/SocialIcons';
+import { ChartIcon, DocumentIcon, FolderIcon, CheckIcon, TruckIcon, LocationIcon, ImageIcon, MemoIcon, PaperclipIcon, PrinterIcon, UserIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -439,7 +439,10 @@ function OrderDetailPageContent() {
           <div className="space-y-6">
             {/* Order Summary */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">📋 Order Summary</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <DocumentIcon size={24} className="w-6 h-6" />
+                Order Summary
+              </h2>
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Order Type:</span>
@@ -678,10 +681,23 @@ function OrderDetailPageContent() {
                             return (
                               <div key={idx} className="flex justify-between items-center bg-blue-50 px-3 py-2 rounded border border-blue-200">
                                 <span className="text-sm text-gray-700">{fileName}:</span>
-                                <span className="font-medium text-sm">
-                                  {serviceOption === 'binding' ? '📎 Binding' :
-                                   serviceOption === 'file' ? '🗂️ File Handling' :
-                                   '✅ Service Fee'}
+                                <span className="font-medium text-sm flex items-center gap-1">
+                                  {serviceOption === 'binding' ? (
+                                    <>
+                                      <PaperclipIcon size={14} className="w-3.5 h-3.5" />
+                                      Binding
+                                    </>
+                                  ) : serviceOption === 'file' ? (
+                                    <>
+                                      <FolderIcon size={14} className="w-3.5 h-3.5" />
+                                      File Handling
+                                    </>
+                                  ) : (
+                                    <>
+                                      <CheckIcon size={14} className="w-3.5 h-3.5" />
+                                      Service Fee
+                                    </>
+                                  )}
                                 </span>
                               </div>
                             );
@@ -696,10 +712,23 @@ function OrderDetailPageContent() {
                       return (
                   <div className="flex justify-between">
                     <span className="text-gray-600">Service Option:</span>
-                    <span className="font-medium">
-                            {serviceOption === 'binding' ? '📎 Binding' :
-                             serviceOption === 'file' ? '🗂️ File Handling' :
-                       '✅ Service Fee'}
+                    <span className="font-medium flex items-center gap-1">
+                            {serviceOption === 'binding' ? (
+                              <>
+                                <PaperclipIcon size={14} className="w-3.5 h-3.5" />
+                                Binding
+                              </>
+                            ) : serviceOption === 'file' ? (
+                              <>
+                                <FolderIcon size={14} className="w-3.5 h-3.5" />
+                                File Handling
+                              </>
+                            ) : (
+                              <>
+                                <CheckIcon size={14} className="w-3.5 h-3.5" />
+                                Service Fee
+                              </>
+                            )}
                     </span>
                   </div>
                       );
@@ -728,7 +757,10 @@ function OrderDetailPageContent() {
 
             {/* Student Information */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">👤 Customer Information</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <UserIcon size={24} className="w-6 h-6" />
+                Customer Information
+              </h2>
               <div className="space-y-3">
                 <div>
                   <span className="text-gray-600">Name:</span>
@@ -754,7 +786,10 @@ function OrderDetailPageContent() {
             {/* Delivery Information */}
             {order.deliveryOption && (
               <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">🚚 Delivery Information</h2>
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <TruckIcon size={24} className="w-6 h-6" />
+                  Delivery Information
+                </h2>
                 <div className="space-y-3">
                   <div>
                     <span className="text-gray-600">Type:</span>
@@ -802,7 +837,10 @@ function OrderDetailPageContent() {
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:text-blue-800 underline text-sm"
                           >
-                            📍 View on Google Maps
+                            <span className="flex items-center gap-1">
+                              <LocationIcon size={16} className="w-4 h-4" />
+                              View on Google Maps
+                            </span>
                           </a>
                         </div>
                       )}
@@ -867,8 +905,9 @@ function OrderDetailPageContent() {
                     <>
                       <div className="flex items-center justify-between mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                         <div className="flex items-center gap-2">
-                          <span className="text-base font-semibold text-gray-900">
-                            📁 Files in this Order
+                          <span className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                            <FolderIcon size={20} className="w-5 h-5" />
+                            Files in this Order
                           </span>
                           <span className="px-2.5 py-1 bg-blue-600 text-white text-xs font-bold rounded-full">
                             {order.fileURLs.length} {order.fileURLs.length === 1 ? 'file' : 'files'}
@@ -895,10 +934,10 @@ function OrderDetailPageContent() {
                           
                           // Get file type icon
                           const getFileIcon = () => {
-                            if (isImage) return '🖼️';
-                            if (isPDF) return '📄';
-                            if (isDoc) return '📝';
-                            return '📎';
+                            if (isImage) return <ImageIcon size={20} className="w-5 h-5" />;
+                            if (isPDF) return <DocumentIcon size={20} className="w-5 h-5" />;
+                            if (isDoc) return <MemoIcon size={20} className="w-5 h-5" />;
+                            return <PaperclipIcon size={20} className="w-5 h-5" />;
                           };
                           
                           return (
@@ -915,7 +954,7 @@ function OrderDetailPageContent() {
                               }}
                             >
                               <div className="flex items-center gap-3 flex-1 min-w-0">
-                                <span className="text-lg" title={fileType}>{getFileIcon()}</span>
+                                <span className="flex items-center" title={fileType}>{getFileIcon()}</span>
                                 <div className="flex flex-col min-w-0 flex-1">
                                   <span className="text-sm font-medium text-gray-900 truncate">{fileName}</span>
                                   <div className="flex items-center gap-2 flex-wrap">
@@ -956,9 +995,24 @@ function OrderDetailPageContent() {
                                               'Service fee selected'
                                             }
                                           >
-                                            {serviceOption === 'binding' ? '📎 Binding' :
-                                             serviceOption === 'file' ? '🗂️ File' :
-                                             '✅ Service'}
+                                            <span className="flex items-center gap-1">
+                                              {serviceOption === 'binding' ? (
+                                                <>
+                                                  <PaperclipIcon size={14} className="w-3.5 h-3.5" />
+                                                  Binding
+                                                </>
+                                              ) : serviceOption === 'file' ? (
+                                                <>
+                                                  <FolderIcon size={14} className="w-3.5 h-3.5" />
+                                                  File
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <CheckIcon size={14} className="w-3.5 h-3.5" />
+                                                  Service
+                                                </>
+                                              )}
+                                            </span>
                                           </span>
                                         );
                                       }
@@ -1216,10 +1270,8 @@ function OrderDetailPageContent() {
                   disabled={isPrinting || isUpdating || order.paymentStatus !== 'completed' || (!order.fileURL && (!order.fileURLs || order.fileURLs.length === 0))}
                   className="w-full bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  {isPrinting ? 'Sending to Print Queue...' : '🖨️ Send to Print Queue'}
+                  <PrinterIcon size={16} className="w-4 h-4" />
+                  {isPrinting ? 'Sending to Print Queue...' : 'Send to Print Queue'}
                 </button>
                 
                 <button
