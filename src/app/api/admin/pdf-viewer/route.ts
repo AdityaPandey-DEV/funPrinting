@@ -128,6 +128,7 @@ export async function GET(request: NextRequest) {
           'Content-Disposition': `inline; filename="${originalFileName}"`,
           'Content-Length': fileBuffer.byteLength.toString(),
           'Cache-Control': 'public, max-age=3600',
+          'X-Frame-Options': 'SAMEORIGIN',
         },
       });
     }
@@ -141,6 +142,7 @@ export async function GET(request: NextRequest) {
           'Content-Disposition': `inline; filename="${originalFileName}"`,
           'Content-Length': fileBuffer.byteLength.toString(),
           'Cache-Control': 'public, max-age=3600',
+          'X-Frame-Options': 'SAMEORIGIN',
         },
       });
     }
@@ -154,6 +156,7 @@ export async function GET(request: NextRequest) {
           'Content-Type': fileType,
           'Content-Disposition': `inline; filename="${originalFileName}"`,
           'Cache-Control': 'public, max-age=3600',
+          'X-Frame-Options': 'SAMEORIGIN',
         },
       });
     }
@@ -167,6 +170,7 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `inline; filename="${originalFileName}"`,
         'Content-Length': fileBuffer.byteLength.toString(),
         'Cache-Control': 'public, max-age=3600',
+        'X-Frame-Options': 'SAMEORIGIN',
       },
     });
 
