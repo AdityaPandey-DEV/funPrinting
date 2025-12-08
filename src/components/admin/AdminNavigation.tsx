@@ -51,7 +51,7 @@ export default function AdminNavigation({
 
 // Common admin card component
 interface AdminCardProps {
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
   href: string;
@@ -64,7 +64,7 @@ export function AdminCard({ icon, title, description, href, count, className = "
     <div className={`bg-white rounded-lg shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-shadow ${className}`}>
       <div className="flex items-center">
         <div className="flex-shrink-0">
-          <div className="text-2xl">{icon}</div>
+          <div className="flex items-center justify-center">{icon}</div>
         </div>
         <div className="ml-4">
           <h3 className="text-lg font-medium text-gray-900">{title}</h3>

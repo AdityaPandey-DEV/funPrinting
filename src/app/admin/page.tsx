@@ -10,7 +10,7 @@ import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showSuccess, showError, showInfo, showWarning } from '@/lib/adminNotifications';
 import { getOrderStatusColor, getOrderPaymentStatusColor, formatDate, getDefaultExpectedDate } from '@/lib/adminUtils';
-import { PrinterIcon } from '@/components/SocialIcons';
+import { PrinterIcon, DocumentIcon, FolderIcon, LocationIcon, MoneyIcon, DollarIcon, InfoIcon, ClockIcon } from '@/components/SocialIcons';
 
 interface Order {
   _id: string;
@@ -334,7 +334,9 @@ function AdminDashboardContent() {
                 <p className="text-sm font-medium text-gray-600">Total Orders</p>
                 <p className="text-2xl font-bold text-gray-900">{orders.length}</p>
               </div>
-              <div className="text-2xl">📋</div>
+              <div className="flex items-center">
+                <FolderIcon size={32} className="w-8 h-8" />
+              </div>
             </div>
           </div>
           
@@ -346,7 +348,9 @@ function AdminDashboardContent() {
                   {orders.filter(o => o.orderStatus === 'pending').length}
                 </p>
               </div>
-              <div className="text-2xl">⏳</div>
+              <div className="flex items-center">
+                <ClockIcon size={32} className="w-8 h-8" />
+              </div>
             </div>
           </div>
           
@@ -372,7 +376,9 @@ function AdminDashboardContent() {
                   {orders.filter(o => o.paymentStatus === 'pending').length}
                 </p>
               </div>
-              <div className="text-2xl">💳</div>
+              <div className="flex items-center">
+                <MoneyIcon size={32} className="w-8 h-8" />
+              </div>
             </div>
           </div>
         </div>
@@ -381,43 +387,44 @@ function AdminDashboardContent() {
         {/* Quick Navigation */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <AdminCard
-            icon="📋"
+            icon={<FolderIcon size={32} className="w-8 h-8" />}
             title="Orders"
             description="Manage print orders"
             href="/admin/orders"
             count={orders.length}
           />
-          <AdminCard            icon="📄"
+          <AdminCard
+            icon={<DocumentIcon size={32} className="w-8 h-8" />}
             title="PDF Templates"
             description="Create and manage PDF templates"
             href="/admin/templates"
           />
           <AdminCard
-            icon="📍"
+            icon={<LocationIcon size={32} className="w-8 h-8" />}
             title="Pickup Locations"
             description="Manage pickup locations for orders"
             href="/admin/pickup-locations"
           />
           <AdminCard
-            icon="💰"
+            icon={<MoneyIcon size={32} className="w-8 h-8" />}
             title="Pricing"
             description="Manage service pricing and rates"
             href="/admin/pricing"
           />
           <AdminCard
-            icon="ℹ️"
+            icon={<InfoIcon size={32} className="w-8 h-8" />}
             title="Admin Info"
             description="Manage business information"
             href="/admin/info"
           />
           <AdminCard
-            icon="🖨️"
+            icon={<PrinterIcon size={32} className="w-8 h-8" />}
             title="Printer Monitor"
             description="Monitor printer API and queue status"
             href="/admin/printer-monitor"
           />
           <AdminCard
-            icon="💰"
+            icon={<DollarIcon size={32} className="w-8 h-8" />}
             title="Creator Earnings"
             description="View and process template creator payouts"
             href="/admin/creator-earnings"
