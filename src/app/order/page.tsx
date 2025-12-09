@@ -418,6 +418,38 @@ const countPagesInFile = async (file: File): Promise<number> => {
   }
 };
 
+// Helper function to extract customer info from template form data
+// Checks multiple field name variations to find name, email, and phone
+function extractCustomerInfo(customerData: Record<string, any>): CustomerInfo {
+  if (!customerData || typeof customerData !== 'object') {
+    return { name: '', email: '', phone: '' };
+  }
+
+  // Helper to find value by multiple possible keys (case-insensitive)
+  const findField = (keys: string[]): string => {
+    for (const key of keys) {
+      // Check exact match
+      if (customerData[key] && typeof customerData[key] === 'string') {
+        return customerData[key].trim();
+      }
+      // Check case-insensitive match
+      const lowerKey = key.toLowerCase();
+      for (const dataKey in customerData) {
+        if (dataKey.toLowerCase() === lowerKey && typeof customerData[dataKey] === 'string') {
+          return customerData[dataKey].trim();
+        }
+      }
+    }
+    return '';
+  };
+
+  return {
+    name: findField(['name', 'studentName', 'fullName', 'student_name', 'full_name']),
+    email: findField(['email', 'emailAddress', 'e_mail', 'e-mail']),
+    phone: findField(['phone', 'mobile', 'contact', 'phoneNumber', 'contactNumber', 'tel', 'telephone'])
+  };
+}
+
 export default function OrderPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -485,12 +517,18 @@ export default function OrderPage() {
           const data = await response.json();
           
           if (data.success && data.profile) {
-            // Set phone number if available
+            // Set phone number if available AND current phone is empty (preserve template-loaded phone)
             if (data.profile.phone) {
-              setCustomerInfo(prev => ({
-                ...prev,
-                phone: data.profile.phone
-              }));
+              setCustomerInfo(prev => {
+                // Only update phone if it's currently empty (preserve template-loaded phone)
+                if (!prev.phone || prev.phone.trim() === '') {
+                  return {
+                    ...prev,
+                    phone: data.profile.phone
+                  };
+                }
+                return prev;
+              });
             }
             
             // Apply default location if available
@@ -687,11 +725,14 @@ export default function OrderPage() {
         
         // Set customer info from the form data
         if (orderData.customerData) {
-          setCustomerInfo({
-            name: orderData.customerData.name || orderData.customerData.studentName || '',
-            email: orderData.customerData.email || '',
-            phone: orderData.customerData.phone || orderData.customerData.mobile || ''
-          });
+          const extractedInfo = extractCustomerInfo(orderData.customerData);
+          console.log('📋 Extracted customer info from pending order:', extractedInfo);
+          // Merge with existing customerInfo to preserve any already set values
+          setCustomerInfo(prev => ({
+            name: extractedInfo.name || prev.name,
+            email: extractedInfo.email || prev.email,
+            phone: extractedInfo.phone || prev.phone
+          }));
         }
         
         // Set page count to 1 for template orders (will be updated based on actual PDF)
@@ -771,11 +812,14 @@ export default function OrderPage() {
           
           // Set customer info from the form data
           if (templateData.customerData) {
-            setCustomerInfo({
-              name: templateData.customerData.name || templateData.customerData.studentName || '',
-              email: templateData.customerData.email || '',
-              phone: templateData.customerData.phone || templateData.customerData.mobile || ''
-            });
+            const extractedInfo = extractCustomerInfo(templateData.customerData);
+            console.log('📋 Extracted customer info from template:', extractedInfo);
+            // Merge with existing customerInfo to preserve any already set values
+            setCustomerInfo(prev => ({
+              name: extractedInfo.name || prev.name,
+              email: extractedInfo.email || prev.email,
+              phone: extractedInfo.phone || prev.phone
+            }));
           }
           
           // Clear the pending template document from session storage
