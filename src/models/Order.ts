@@ -21,6 +21,8 @@ export interface IOrder {
   formData?: Record<string, string | number | boolean>;
   filledDocxUrl?: string;
   filledPdfUrl?: string;
+  pdfConversionStatus?: 'pending' | 'completed' | 'failed';
+  renderJobId?: string;
   // Legacy template data for backward compatibility
   templateData?: {
     templateType: string;
@@ -125,6 +127,11 @@ const orderSchema = new mongoose.Schema<IOrder>({
   formData: mongoose.Schema.Types.Mixed,
   filledDocxUrl: String,
   filledPdfUrl: String,
+  pdfConversionStatus: {
+    type: String,
+    enum: ['pending', 'completed', 'failed'],
+  },
+  renderJobId: String,
   // Legacy template data for backward compatibility
   templateData: {
     templateType: String,

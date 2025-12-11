@@ -3,8 +3,8 @@ import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
 import Order from '@/models/Order';
 import { fillDocxTemplate, validateFormData } from '@/lib/docxProcessor';
-import { convertDocxToPdf } from '@/lib/cloudmersive';
 import { uploadFile } from '@/lib/storage';
+import { sendDocxToRender } from '@/lib/renderService';
 import { createRazorpayOrder } from '@/lib/razorpay';
 import { getPricing } from '@/lib/pricing';
 import { v4 as uuidv4 } from 'uuid';
@@ -70,24 +70,16 @@ export async function POST(request: NextRequest) {
     console.log('Filling DOCX template with form data...');
     const filledDocxBuffer = await fillDocxTemplate(docxBuffer, formData);
 
-    // Convert filled DOCX to PDF
-    console.log('Converting filled DOCX to PDF...');
-    const pdfBuffer = await convertDocxToPdf(filledDocxBuffer);
-
-    // Upload both filled DOCX and PDF to storage
+    // Upload filled DOCX to storage (PDF will be uploaded later by Render webhook)
     const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
-    console.log(`Uploading filled documents to ${storageProvider}...`);
+    console.log(`Uploading filled DOCX to ${storageProvider}...`);
     const filledDocxUrl = await uploadFile(
       filledDocxBuffer, 
       'orders/filled-docx', 
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     );
     
-    const filledPdfUrl = await uploadFile(
-      pdfBuffer, 
-      'orders/filled-pdf', 
-      'application/pdf'
-    );
+    console.log(`✅ Filled DOCX uploaded: ${filledDocxUrl}`);
 
     // Calculate pricing
     const pricing = await getPricing();
@@ -173,9 +165,44 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Generate order ID before creating order
+    const orderId = uuidv4();
+    
+    // Prepare callback URL for Render webhook
+    let baseUrl = process.env.NEXTAUTH_URL;
+    if (!baseUrl) {
+      // Fallback to VERCEL_URL if NEXTAUTH_URL is not set
+      const vercelUrl = process.env.VERCEL_URL;
+      if (vercelUrl) {
+        baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+      } else {
+        baseUrl = 'http://localhost:3000';
+      }
+    }
+    const callbackUrl = `${baseUrl}/api/webhooks/render`;
+
+    // Send DOCX to Render for async conversion (don't wait for completion)
+    let renderJobId: string | undefined;
+    try {
+      console.log('🔄 Sending DOCX to Render for PDF conversion...');
+      const renderResponse = await sendDocxToRender(filledDocxUrl, orderId, callbackUrl);
+      
+      if (renderResponse.success && renderResponse.jobId) {
+        renderJobId = renderResponse.jobId;
+        console.log(`✅ DOCX sent to Render successfully. Job ID: ${renderJobId}`);
+      } else {
+        console.warn(`⚠️ Failed to send DOCX to Render: ${renderResponse.error}`);
+        // Continue with order creation even if Render call fails
+        // PDF conversion can be retried later
+      }
+    } catch (renderError) {
+      console.error('❌ Error sending DOCX to Render:', renderError);
+      // Continue with order creation even if Render call fails
+    }
+
     // Create order in database with monetization fields
     const orderData = {
-      orderId: uuidv4(),
+      orderId,
       customerInfo: {
         name: customerInfo.name,
         phone: customerInfo.phone,
@@ -186,7 +213,9 @@ export async function POST(request: NextRequest) {
       templateName: template.name,
       formData,
       filledDocxUrl,
-      filledPdfUrl,
+      filledPdfUrl: undefined, // Will be set when Render completes conversion
+      pdfConversionStatus: 'pending' as const,
+      renderJobId,
       printingOptions: {
         ...printingOptions,
         pageCount,
@@ -257,7 +286,9 @@ export async function POST(request: NextRequest) {
         razorpayOrderId: razorpayOrder.id,
         amount,
         pageCount,
-        filledPdfUrl, // For immediate preview
+        filledDocxUrl, // DOCX is available immediately
+        filledPdfUrl: undefined, // PDF will be available after Render conversion
+        pdfConversionStatus: 'pending',
         template: {
           id: template.id,
           name: template.name,
@@ -270,21 +301,6 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating template order:', error);
     
-    // Handle specific Cloudmersive API errors
-    if (error.message.includes('API key')) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid Cloudmersive API key. Please check your configuration.' },
-        { status: 401 }
-      );
-    }
-    
-    if (error.message.includes('quota') || error.message.includes('limit')) {
-      return NextResponse.json(
-        { success: false, error: 'API quota exceeded. Please try again later.' },
-        { status: 429 }
-      );
-    }
-
     return NextResponse.json(
       { success: false, error: 'Failed to create template order' },
       { status: 500 }

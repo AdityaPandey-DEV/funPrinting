@@ -593,3 +593,116 @@ export async function sendPaymentNotification(orderData: OrderNotificationData, 
     return false;
   }
 }
+
+/**
+ * Send PDF file to customer's email as attachment
+ * @param email - Customer email address
+ * @param pdfBuffer - PDF file buffer
+ * @param fileName - Name for the PDF file
+ * @param orderId - Order ID for reference
+ * @returns Promise<boolean> - Success status
+ */
+export async function sendPdfToCustomer(
+  email: string,
+  pdfBuffer: Buffer,
+  fileName: string,
+  orderId: string
+): Promise<boolean> {
+  try {
+    console.log(`📧 Preparing to send PDF to customer: ${email}`);
+    console.log(`   File: ${fileName}`);
+    console.log(`   Size: ${pdfBuffer.length} bytes`);
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER || 'noreply@printservice.com',
+      to: email,
+      subject: `📄 Your Document is Ready - Order #${orderId} | PrintService`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
+            .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+            .message-box { background: white; padding: 25px; border-radius: 8px; margin-bottom: 20px; }
+            .attachment-box { background: #e7f3ff; border: 2px solid #2196F3; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+            .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding: 20px; border-top: 1px solid #eee; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 28px;">📄 Your Document is Ready!</h1>
+              <p style="margin: 10px 0 0 0; font-size: 16px; opacity: 0.9;">Order #${orderId}</p>
+            </div>
+            
+            <div class="content">
+              <div class="message-box">
+                <h2 style="color: #333; margin: 0 0 15px 0;">Hello!</h2>
+                <p style="color: #333; margin: 0 0 15px 0;">
+                  Your document has been successfully converted to PDF and is ready for download.
+                </p>
+                <p style="color: #333; margin: 0;">
+                  Please find your PDF document attached to this email.
+                </p>
+              </div>
+              
+              <div class="attachment-box">
+                <h3 style="color: #1976D2; margin: 0 0 10px 0;">📎 Attached File</h3>
+                <p style="color: #333; margin: 0; font-weight: bold;">${fileName}</p>
+                <p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">
+                  Your document is ready to download and print!
+                </p>
+              </div>
+              
+              <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin: 0 0 15px 0;">Next Steps</h3>
+                <ul style="color: #333; margin: 0; padding-left: 20px;">
+                  <li>Download the attached PDF file</li>
+                  <li>Review the document to ensure everything is correct</li>
+                  <li>If you need any changes, please contact our support team</li>
+                  <li>Complete your payment to proceed with printing</li>
+                </ul>
+              </div>
+              
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/my-orders" 
+                   style="display: inline-block; background: #007bff; color: white; padding: 15px 30px; 
+                          text-decoration: none; border-radius: 5px; font-weight: bold; font-size: 16px;">
+                  View My Orders
+                </a>
+              </div>
+            </div>
+            
+            <div class="footer">
+              <p>Thank you for choosing PrintService!</p>
+              <p>For support, contact: support@printservice.com</p>
+              <p>© ${new Date().getFullYear()} PrintService. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
+    };
+
+    console.log(`📧 Sending PDF email to ${email}...`);
+    const result = await transporter.sendMail(mailOptions);
+    console.log(`✅ PDF email sent successfully: ${result.messageId}`);
+    console.log(`✅ PDF sent to customer: ${email}`);
+
+    return true;
+  } catch (error) {
+    console.error('❌ Error sending PDF to customer:', error);
+    return false;
+  }
+}
