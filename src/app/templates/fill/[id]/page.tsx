@@ -556,8 +556,12 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         }
       } catch (error) {
         console.error('❌ Error converting to PDF:', error);
-        setConversionError(error instanceof Error ? error.message : 'Failed to convert to PDF');
+        const errorMessage = error instanceof Error ? error.message : 'Failed to convert to PDF';
+        setConversionError(errorMessage);
         setIsConverting(false);
+        // Clear any PDF state to ensure Word file is used
+        setConvertedPdfUrl(null);
+        setConvertedPdfBuffer(null);
         // Fall back to Word download
         downloadWordFile();
       }

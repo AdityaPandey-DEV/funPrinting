@@ -816,11 +816,24 @@ export default function OrderPage() {
               
               const blob = await response.blob();
               
+              // Determine file type from URL or blob
+              let fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+              if (templateData.wordUrl) {
+                const urlLower = templateData.wordUrl.toLowerCase();
+                if (urlLower.endsWith('.doc')) {
+                  fileType = 'application/msword';
+                } else if (urlLower.endsWith('.docx')) {
+                  fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+                }
+              }
+              
               // Convert blob to File object
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.docx`;
               const file = new File([blob], fileName, {
-                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                type: fileType
               });
+              
+              console.log(`📄 Word file loaded: ${fileName}, type: ${fileType}, size: ${file.size} bytes`);
               
               // Add file to selectedFiles
               setSelectedFiles([file]);
@@ -831,17 +844,36 @@ export default function OrderPage() {
               setFileURLs([templateData.wordUrl]);
               
               // Count pages for Word file
-              const pageCount = await countPagesInFile(file);
-              setFilePageCounts([pageCount]);
-              setPageCount(pageCount);
+              console.log('📄 Counting pages in Word file...');
+              try {
+                const pageCount = await countPagesInFile(file);
+                console.log(`✅ Page count determined: ${pageCount}`);
+                if (pageCount > 0) {
+                  setFilePageCounts([pageCount]);
+                  setPageCount(pageCount);
+                } else {
+                  console.warn('⚠️ Page count is 0, setting to 1');
+                  setFilePageCounts([1]);
+                  setPageCount(1);
+                }
+              } catch (countError) {
+                console.error('❌ Error counting pages:', countError);
+                // Set to 1 as fallback
+                setFilePageCounts([1]);
+                setPageCount(1);
+              }
               
               setPdfLoaded(true);
               setIsCountingPages(false);
               
               console.log('✅ Word file loaded from URL and added to upload');
             } catch (error) {
-              console.error('Error loading Word file from URL:', error);
+              console.error('❌ Error loading Word file from URL:', error);
+              // Set default page count of 1 if counting fails
+              setFilePageCounts([1]);
+              setPageCount(1);
               setIsCountingPages(false);
+              setPdfLoaded(true);
             }
           } else if (templateData.pdfUrl) {
             // Legacy: Handle PDF URL if present (without isPdf flag)

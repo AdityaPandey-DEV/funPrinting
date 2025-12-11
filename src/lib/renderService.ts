@@ -233,10 +233,27 @@ export async function convertDocxToPdfRealtime(
       clearTimeout(timeoutId);
 
       if (!convertResponse.ok) {
+        // If 404, the endpoint doesn't exist (service not updated yet)
+        if (convertResponse.status === 404) {
+          return {
+            success: false,
+            error: 'PDF conversion service endpoint not available. PDF will be sent to your email after order completion.'
+          };
+        }
+        
         const errorText = await convertResponse.text();
+        // Try to parse as JSON, otherwise use text
+        let errorMessage = errorText;
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.error || errorText;
+        } catch {
+          // Not JSON, use text as is
+        }
+        
         return {
           success: false,
-          error: `Conversion failed: ${convertResponse.status} ${errorText}`
+          error: `Conversion failed: ${errorMessage}`
         };
       }
 
