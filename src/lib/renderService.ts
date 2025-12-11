@@ -203,6 +203,7 @@ export async function checkRenderServiceStatus(): Promise<{
       }
 
       // Check if /api/convert-sync endpoint exists
+      // We send a test request that the server will recognize as a health check
       let hasConvertSync = false;
       try {
         const syncCheckController = new AbortController();
@@ -214,7 +215,7 @@ export async function checkRenderServiceStatus(): Promise<{
         const syncCheckResponse = await fetch(syncCheckUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ docxUrl: 'test' }),
+          body: JSON.stringify({ docxUrl: 'health-check' }), // Use 'health-check' instead of 'test' for clarity
           signal: syncCheckController.signal
         });
         
@@ -222,14 +223,15 @@ export async function checkRenderServiceStatus(): Promise<{
         
         console.log(`  - /api/convert-sync response: ${syncCheckResponse.status}`);
         
-        // If we get 400 (missing field) or 500 (error processing), endpoint exists
+        // If we get 400 (invalid URL - endpoint exists and handled the request), endpoint exists
         // If we get 404, endpoint doesn't exist
+        // If we get 500, endpoint exists but had an error
         hasConvertSync = syncCheckResponse.status !== 404;
         
         if (!hasConvertSync) {
           console.warn('⚠️ /api/convert-sync endpoint not found on Render service. Service may need to be redeployed with latest code.');
         } else {
-          console.log('  - ✅ /api/convert-sync endpoint is available');
+          console.log(`  - ✅ /api/convert-sync endpoint is available (status: ${syncCheckResponse.status})`);
         }
       } catch (syncCheckError) {
         // If it's not a 404, assume endpoint exists but had other issues
