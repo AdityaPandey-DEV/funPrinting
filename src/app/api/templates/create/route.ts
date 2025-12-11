@@ -6,7 +6,7 @@ import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Width
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
-import { extractPlaceholders } from '@/lib/docxProcessor';
+import { extractPlaceholders, generateFormSchema } from '@/lib/docxProcessor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -208,6 +208,28 @@ export async function POST(request: NextRequest) {
       console.log('✅ Word document uploaded to cloud storage:', wordUrl);
     }
 
+    // Determine final placeholders to save
+    // If we extracted placeholders from DOCX, use those; otherwise use placeholders from request
+    const finalPlaceholders = extractedPlaceholdersList.length > 0 
+      ? extractedPlaceholdersList 
+      : (placeholders || []);
+    
+    console.log('📋 Final placeholders to save:', finalPlaceholders);
+    console.log(`📋 Total placeholders: ${finalPlaceholders.length}`);
+
+    // Generate form schema from placeholders (returns object format)
+    const schemaObject = generateFormSchema(finalPlaceholders);
+    
+    // Convert object format to array format expected by fill page
+    // Format: [{ key: string, type: string, label: string, required: boolean, placeholder: string, defaultPlaceholder: string }]
+    const formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+      key,
+      ...value,
+      defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+    }));
+    
+    console.log(`✅ Generated formSchema with ${formSchema.length} fields (array format)`);
+
     // Create new dynamic template with user context and monetization
     const template = new DynamicTemplate({
       id: templateId,
@@ -217,7 +239,8 @@ export async function POST(request: NextRequest) {
       pdfUrl: pdfUrl || '',
       wordUrl: wordUrl,
       wordContent: wordContent, // Keep JSON structure for backward compatibility
-      placeholders: extractedPlaceholdersList.length > 0 ? extractedPlaceholdersList : (placeholders || []),
+      placeholders: finalPlaceholders,
+      formSchema: formSchema,
       createdBy: user.email, // Backward compatible
       createdByUserId: user._id,
       createdByEmail: user.email,
@@ -235,7 +258,25 @@ export async function POST(request: NextRequest) {
 
     await template.save();
 
+    // Verify placeholders and formSchema were saved correctly
+    const savedTemplate = await DynamicTemplate.findOne({ id: templateId });
     console.log('✅ Template saved to database:', templateId);
+    console.log('📋 Saved placeholders count:', savedTemplate?.placeholders?.length || 0);
+    console.log('📋 Saved placeholders:', savedTemplate?.placeholders || []);
+    console.log('📋 Saved formSchema count:', savedTemplate?.formSchema?.length || 0);
+    console.log('📋 Saved formSchema:', savedTemplate?.formSchema || []);
+    
+    if (savedTemplate && savedTemplate.placeholders.length !== finalPlaceholders.length) {
+      console.warn('⚠️ WARNING: Placeholders count mismatch!');
+      console.warn(`   Expected: ${finalPlaceholders.length}`);
+      console.warn(`   Actual: ${savedTemplate.placeholders.length}`);
+    }
+    
+    if (savedTemplate && savedTemplate.formSchema && savedTemplate.formSchema.length !== formSchema.length) {
+      console.warn('⚠️ WARNING: FormSchema count mismatch!');
+      console.warn(`   Expected: ${formSchema.length}`);
+      console.warn(`   Actual: ${savedTemplate.formSchema.length}`);
+    }
 
     return NextResponse.json({
       success: true,
