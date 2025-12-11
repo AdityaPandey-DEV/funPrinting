@@ -462,6 +462,9 @@ export default function OrderPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileURLs, setFileURLs] = useState<string[]>([]);
   const [orderType, setOrderType] = useState<'file' | 'template'>('file');
+  const [templateId, setTemplateId] = useState<string | null>(null); // Store templateId from sessionStorage
+  const [templateFormData, setTemplateFormData] = useState<Record<string, any> | null>(null); // Store formData from sessionStorage
+  const [templatePdfUrl, setTemplatePdfUrl] = useState<string | null>(null); // Store PDF URL from template fill page
   const [printingOptions, setPrintingOptions] = useState<PrintingOptions>({
     pageSize: 'A4',
     color: 'bw',
@@ -758,11 +761,20 @@ export default function OrderPage() {
           const templateData = JSON.parse(pendingTemplateDoc);
           console.log('📋 Found pending template document:', templateData);
           
+          // Store template metadata for order creation
+          if (templateData.templateId) {
+            setTemplateId(templateData.templateId);
+          }
+          if (templateData.customerData) {
+            setTemplateFormData(templateData.customerData);
+          }
+          
           // Set the order type to file (since we're uploading the file)
           setOrderType('file');
           
           // Handle PDF URL if present (from real-time conversion)
           if (templateData.isPdf && templateData.pdfUrl) {
+            setTemplatePdfUrl(templateData.pdfUrl);
             setIsCountingPages(true);
             setPdfLoaded(false);
             
@@ -1415,6 +1427,15 @@ export default function OrderPage() {
         originalFileName: orderType === 'file' && originalFileNames.length > 0 ? originalFileNames[0] : undefined, // Legacy support
         fileTypes: orderType === 'file' && fileTypes.length > 0 ? fileTypes : undefined, // File types array
         filePageCounts: orderType === 'file' && filePageCounts.length > 0 ? filePageCounts : undefined, // Per-file page counts
+        // If templateId is available, send it along with formData and PDF URL (if available)
+        // This will route to template order endpoint, which now checks for PDF
+        templateId: templateId || undefined,
+        formData: templateFormData || (orderType === 'template' ? {
+          name: customerInfo.name,
+          email: customerInfo.email,
+          phone: customerInfo.phone,
+        } : undefined),
+        filledPdfUrl: templatePdfUrl || undefined, // Send PDF URL if available from real-time conversion
         templateData: orderType === 'template' ? {
           templateType: 'custom',
           formData: {

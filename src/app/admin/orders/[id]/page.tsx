@@ -46,6 +46,13 @@ interface Order {
     formData: Record<string, string | number | boolean>;
     generatedPDF?: string;
   };
+  templateId?: string;
+  templateName?: string;
+  formData?: Record<string, string | number | boolean>;
+  filledDocxUrl?: string;
+  filledPdfUrl?: string;
+  pdfConversionStatus?: 'pending' | 'completed' | 'failed';
+  renderJobId?: string;
   printingOptions: {
     pageSize: 'A4' | 'A3';
     color: 'color' | 'bw' | 'mixed';
@@ -1192,24 +1199,42 @@ function OrderDetailPageContent() {
                     </div>
                   </div>
                 </div>
-              ) : order.orderType === 'template' && order.templateData?.generatedPDF ? (
+              ) : order.orderType === 'template' && (order.filledPdfUrl || order.templateData?.generatedPDF) ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Generated Template PDF</span>
                     <a
-                      href={order.templateData.generatedPDF}
+                      href={order.filledPdfUrl || order.templateData?.generatedPDF || '#'}
                       className="bg-gray-800 text-white px-3 py-1 rounded text-sm hover:bg-black transition-colors"
                     >
                       Download PDF
                     </a>
                   </div>
                   
+                  {/* PDF Conversion Status */}
+                  {order.pdfConversionStatus && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-gray-600">Conversion Status:</span>
+                      <span className={`px-2 py-1 rounded ${
+                        order.pdfConversionStatus === 'completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : order.pdfConversionStatus === 'failed'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {order.pdfConversionStatus === 'completed' ? '✅ Completed' : 
+                         order.pdfConversionStatus === 'failed' ? '❌ Failed' : 
+                         '⏳ Pending'}
+                      </span>
+                    </div>
+                  )}
+                  
                   {/* Template PDF Preview - Same as Order Page */}
                   <div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
                     <div className="border rounded-lg overflow-hidden">
                       <iframe 
-                        src={order.templateData.generatedPDF} 
+                        src={order.filledPdfUrl || order.templateData?.generatedPDF || ''} 
                         className="w-full h-96" 
                         style={{ display: 'block' }}
                         title="Template PDF Preview"
@@ -1218,7 +1243,7 @@ function OrderDetailPageContent() {
                   </div>
                   
                   {/* Template Form Data */}
-                  {order.templateData.formData && (
+                  {order.templateData?.formData && (
                     <div className="bg-gray-50 p-4 rounded-lg">
                       <h4 className="font-medium text-gray-900 mb-2">Template Data</h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">

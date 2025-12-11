@@ -19,7 +19,9 @@ export async function POST(request: NextRequest) {
       customerInfo, 
       printingOptions, 
       deliveryOption,
-      expectedDate
+      expectedDate,
+      filledPdfUrl, // PDF URL if already converted (from real-time conversion)
+      pdfUrl // Alternative field name for PDF URL
     } = body;
 
     if (!templateId || !formData || !customerInfo || !printingOptions || !deliveryOption) {
@@ -30,6 +32,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`Processing template order for template: ${templateId}`);
+
+    // Check if PDF is already available (from real-time conversion when Render was available)
+    const availablePdfUrl = filledPdfUrl || pdfUrl;
+    const isPdfAlreadyAvailable = !!availablePdfUrl;
+
+    if (isPdfAlreadyAvailable) {
+      console.log(`✅ PDF already available from real-time conversion: ${availablePdfUrl}`);
+      console.log(`📄 Skipping Word file processing and Render conversion`);
+    }
 
     // Connect to database
     await connectDB();
@@ -58,28 +69,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Download DOCX template from Cloudinary
-    console.log('Downloading DOCX template from Cloudinary...');
-    const docxResponse = await fetch(template.wordUrl);
-    if (!docxResponse.ok) {
-      throw new Error('Failed to fetch DOCX template from Cloudinary');
+    let filledDocxUrl: string | undefined;
+    let finalPdfUrl: string | undefined;
+    let pdfConversionStatus: 'pending' | 'completed' | 'failed' = 'pending';
+    let renderJobId: string | undefined;
+
+    // If PDF is already available, use it directly
+    if (isPdfAlreadyAvailable) {
+      console.log(`✅ Using pre-converted PDF: ${availablePdfUrl}`);
+      finalPdfUrl = availablePdfUrl;
+      pdfConversionStatus = 'completed';
+      
+      // Optionally, we can still create the filled Word file for reference
+      // But it's not required since PDF is already available
+      try {
+        console.log('📄 Creating filled Word file for reference...');
+        const docxResponse = await fetch(template.wordUrl);
+        if (docxResponse.ok) {
+          const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
+          const filledDocxBuffer = await fillDocxTemplate(docxBuffer, formData);
+          filledDocxUrl = await uploadFile(
+            filledDocxBuffer, 
+            'orders/filled-docx', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+          );
+          console.log(`✅ Filled DOCX uploaded for reference: ${filledDocxUrl}`);
+        }
+      } catch (wordError) {
+        console.warn('⚠️ Could not create Word file for reference, continuing with PDF only:', wordError);
+        // Continue without Word file since PDF is available
+      }
+    } else {
+      // PDF not available - process Word file and send to Render
+      console.log('📄 PDF not available, processing Word file...');
+      
+      // Download DOCX template from Cloudinary
+      console.log('Downloading DOCX template from Cloudinary...');
+      const docxResponse = await fetch(template.wordUrl);
+      if (!docxResponse.ok) {
+        throw new Error('Failed to fetch DOCX template from Cloudinary');
+      }
+      const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
+
+      // Fill DOCX template with form data
+      console.log('Filling DOCX template with form data...');
+      const filledDocxBuffer = await fillDocxTemplate(docxBuffer, formData);
+
+      // Upload filled DOCX to storage (PDF will be uploaded later by Render webhook)
+      const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
+      console.log(`Uploading filled DOCX to ${storageProvider}...`);
+      filledDocxUrl = await uploadFile(
+        filledDocxBuffer, 
+        'orders/filled-docx', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      );
+      
+      console.log(`✅ Filled DOCX uploaded: ${filledDocxUrl}`);
     }
-    const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
-
-    // Fill DOCX template with form data
-    console.log('Filling DOCX template with form data...');
-    const filledDocxBuffer = await fillDocxTemplate(docxBuffer, formData);
-
-    // Upload filled DOCX to storage (PDF will be uploaded later by Render webhook)
-    const storageProvider = process.env.STORAGE_PROVIDER || 'cloudinary';
-    console.log(`Uploading filled DOCX to ${storageProvider}...`);
-    const filledDocxUrl = await uploadFile(
-      filledDocxBuffer, 
-      'orders/filled-docx', 
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    );
-    
-    console.log(`✅ Filled DOCX uploaded: ${filledDocxUrl}`);
 
     // Calculate pricing
     const pricing = await getPricing();
@@ -168,7 +214,7 @@ export async function POST(request: NextRequest) {
     // Generate order ID before creating order
     const orderId = uuidv4();
     
-    // Prepare callback URL for Render webhook
+    // Prepare callback URL for Render webhook (only needed if PDF is not available)
     let baseUrl = process.env.NEXTAUTH_URL;
     if (!baseUrl) {
       // Fallback to VERCEL_URL if NEXTAUTH_URL is not set
@@ -181,23 +227,26 @@ export async function POST(request: NextRequest) {
     }
     const callbackUrl = `${baseUrl}/api/webhooks/render`;
 
-    // Send DOCX to Render for async conversion (don't wait for completion)
-    let renderJobId: string | undefined;
-    try {
-      console.log('🔄 Sending DOCX to Render for PDF conversion...');
-      const renderResponse = await sendDocxToRender(filledDocxUrl, orderId, callbackUrl);
-      
-      if (renderResponse.success && renderResponse.jobId) {
-        renderJobId = renderResponse.jobId;
-        console.log(`✅ DOCX sent to Render successfully. Job ID: ${renderJobId}`);
-      } else {
-        console.warn(`⚠️ Failed to send DOCX to Render: ${renderResponse.error}`);
+    // Send DOCX to Render for async conversion (only if PDF is not already available)
+    if (!isPdfAlreadyAvailable && filledDocxUrl) {
+      try {
+        console.log('🔄 Sending DOCX to Render for PDF conversion...');
+        const renderResponse = await sendDocxToRender(filledDocxUrl, orderId, callbackUrl);
+        
+        if (renderResponse.success && renderResponse.jobId) {
+          renderJobId = renderResponse.jobId;
+          console.log(`✅ DOCX sent to Render successfully. Job ID: ${renderJobId}`);
+        } else {
+          console.warn(`⚠️ Failed to send DOCX to Render: ${renderResponse.error}`);
+          // Continue with order creation even if Render call fails
+          // PDF conversion can be retried later
+        }
+      } catch (renderError) {
+        console.error('❌ Error sending DOCX to Render:', renderError);
         // Continue with order creation even if Render call fails
-        // PDF conversion can be retried later
       }
-    } catch (renderError) {
-      console.error('❌ Error sending DOCX to Render:', renderError);
-      // Continue with order creation even if Render call fails
+    } else if (isPdfAlreadyAvailable) {
+      console.log('⏭️ Skipping Render conversion - PDF already available');
     }
 
     // Create order in database with monetization fields
@@ -213,8 +262,8 @@ export async function POST(request: NextRequest) {
       templateName: template.name,
       formData,
       filledDocxUrl,
-      filledPdfUrl: undefined, // Will be set when Render completes conversion
-      pdfConversionStatus: 'pending' as const,
+      filledPdfUrl: finalPdfUrl, // Use PDF if available, otherwise will be set by Render webhook
+      pdfConversionStatus: pdfConversionStatus,
       renderJobId,
       printingOptions: {
         ...printingOptions,
@@ -286,9 +335,9 @@ export async function POST(request: NextRequest) {
         razorpayOrderId: razorpayOrder.id,
         amount,
         pageCount,
-        filledDocxUrl, // DOCX is available immediately
-        filledPdfUrl: undefined, // PDF will be available after Render conversion
-        pdfConversionStatus: 'pending',
+        filledDocxUrl, // DOCX is available (or will be after processing)
+        filledPdfUrl: finalPdfUrl, // PDF is available if pre-converted, otherwise will be set by Render webhook
+        pdfConversionStatus: pdfConversionStatus,
         template: {
           id: template.id,
           name: template.name,
