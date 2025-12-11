@@ -166,11 +166,23 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         console.error('Error polling status:', error);
         // Continue polling even on error, but check timeout
         if (Date.now() - startTime > MAX_WAIT_TIME) {
-          clearInterval(progressInterval);
-          clearInterval(statusInterval);
+          if (progressInterval) clearInterval(progressInterval);
+          if (statusInterval) clearInterval(statusInterval);
+          // Try to get wordUrl from status state
           if (status.wordUrl) {
             router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check error. You can still download the Word document.')}`);
           } else {
+            // Try one more fetch before showing error
+            try {
+              const lastResponse = await fetch(`/api/templates/generation-status/${jobId}`);
+              const lastResult = await lastResponse.json();
+              if (lastResult.wordUrl) {
+                router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(lastResult.wordUrl)}&error=${encodeURIComponent('Status check error. You can still download the Word document.')}`);
+                return;
+              }
+            } catch (e) {
+              console.error('Error in final fetch:', e);
+            }
             setError('Failed to check status. Please try again or contact support.');
           }
           return;
@@ -184,10 +196,10 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
 
     // Cleanup intervals on unmount
     return () => {
-      clearInterval(progressInterval);
-      clearInterval(statusInterval);
+      if (progressInterval) clearInterval(progressInterval);
+      if (statusInterval) clearInterval(statusInterval);
     };
-  }, [jobId, templateId, router, status.wordUrl]);
+  }, [jobId, templateId, router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
