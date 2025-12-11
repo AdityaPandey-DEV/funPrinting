@@ -222,13 +222,20 @@ export async function POST(request: NextRequest) {
     
     // Convert object format to array format expected by fill page
     // Format: [{ key: string, type: string, label: string, required: boolean, placeholder: string, defaultPlaceholder: string }]
-    const formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+    let formSchema = Object.entries(schemaObject).map(([key, value]) => ({
       key,
       ...value,
       defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
     }));
     
+    // Ensure formSchema is always an array (never undefined or null)
+    if (!Array.isArray(formSchema)) {
+      console.warn('⚠️ formSchema is not an array, initializing as empty array');
+      formSchema = [];
+    }
+    
     console.log(`✅ Generated formSchema with ${formSchema.length} fields (array format)`);
+    console.log('📋 formSchema content:', JSON.stringify(formSchema, null, 2));
 
     // Create new dynamic template with user context and monetization
     const template = new DynamicTemplate({
@@ -239,8 +246,8 @@ export async function POST(request: NextRequest) {
       pdfUrl: pdfUrl || '',
       wordUrl: wordUrl,
       wordContent: wordContent, // Keep JSON structure for backward compatibility
-      placeholders: finalPlaceholders,
-      formSchema: formSchema,
+      placeholders: finalPlaceholders || [], // Ensure placeholders is always an array
+      formSchema: formSchema || [], // Ensure formSchema is always an array
       createdBy: user.email, // Backward compatible
       createdByUserId: user._id,
       createdByEmail: user.email,

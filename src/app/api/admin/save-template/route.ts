@@ -189,14 +189,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Use stored formSchema from database if available (preferred)
-    // Only regenerate if formSchema is missing or empty
+    // Use stored formSchema even if it's an empty array (don't require length > 0)
     let formSchema: any[] = [];
-    if (template.formSchema && Array.isArray(template.formSchema) && template.formSchema.length > 0) {
-      console.log('Using stored formSchema from database');
+    if (template.formSchema && Array.isArray(template.formSchema)) {
+      console.log(`Using stored formSchema from database (${template.formSchema.length} fields)`);
       formSchema = template.formSchema;
+      console.log('📋 Stored formSchema:', JSON.stringify(formSchema, null, 2));
     } else {
       // Fallback: Generate form schema from placeholders if stored schema not available
-      console.log('Generating formSchema from placeholders (stored schema not available)');
+      console.log('Generating formSchema from placeholders (stored schema not available or not an array)');
       if (template.placeholders && Array.isArray(template.placeholders) && template.placeholders.length > 0) {
         const schemaObject = generateFormSchema(template.placeholders);
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
@@ -204,8 +205,20 @@ export async function GET(request: NextRequest) {
           ...value,
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
+        console.log(`✅ Generated formSchema with ${formSchema.length} fields from placeholders`);
+      } else {
+        console.log('⚠️ No placeholders available to generate formSchema');
+        formSchema = []; // Ensure it's always an array
       }
     }
+    
+    // Ensure formSchema is always an array (never undefined or null)
+    if (!Array.isArray(formSchema)) {
+      console.warn('⚠️ formSchema is not an array, initializing as empty array');
+      formSchema = [];
+    }
+    
+    console.log(`📋 Final formSchema to return: ${formSchema.length} fields`);
 
     return NextResponse.json({
       success: true,
@@ -236,3 +249,4 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
