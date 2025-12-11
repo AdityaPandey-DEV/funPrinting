@@ -141,22 +141,30 @@ export async function extractPlaceholders(docxBuffer: Buffer): Promise<string[]>
     
     const xmlContent = documentXml.asText();
     
-    // Find {{placeholder}} patterns - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Find {{placeholder}} patterns - allow spaces in placeholder names
+    // Updated regex to allow spaces: [A-Za-z][A-Za-z0-9_\s]*
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const matches = xmlContent.match(placeholderRegex);
     
     if (!matches) {
+      console.log('📝 No placeholders found in XML');
       return [];
     }
+    
+    console.log('🔍 Found placeholder matches in XML:', matches);
     
     // Extract unique placeholder names (remove {{ and }} brackets)
     const extractedNames = matches.map((match: string) => {
       // Extract the placeholder name from {{placeholder}} format
-      const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
-      return matchResult ? matchResult[1] : '';
+      const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/);
+      const name = matchResult ? matchResult[1].trim() : '';
+      console.log(`  - Extracted: "${name}" from match: "${match}"`);
+      return name;
     }).filter((name: string) => name.length > 0);
+    
     const placeholders = [...new Set(extractedNames)];
-    console.log('📝 Extracted placeholders:', placeholders);
+    console.log('📝 Extracted placeholders (unique):', placeholders);
+    console.log(`📝 Total unique placeholders: ${placeholders.length}`);
     
     return placeholders;
     

@@ -32,26 +32,30 @@ export async function POST(request: NextRequest) {
     const result = await mammoth.extractRawText({ buffer });
     const text = result.value;
 
-    // Find placeholders using regex pattern {{placeholder}} - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Find placeholders using regex pattern {{placeholder}} - allow spaces in placeholder names
+    // Updated regex to allow spaces: [A-Za-z][A-Za-z0-9_\s]*
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const matches = text.match(placeholderRegex) || [];
     console.log('🔍 Found placeholder matches:', matches);
     
     const placeholders = [...new Set(
       matches
         .map(match => {
-          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
-          return matchResult ? matchResult[1] : '';
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/);
+          const name = matchResult ? matchResult[1].trim() : '';
+          console.log(`  - Extracted: "${name}" from match: "${match}"`);
+          return name;
         })
         .filter(placeholder => placeholder.length > 0)
     )];
     
-    console.log('🔍 Extracted placeholders:', placeholders);
+    console.log('🔍 Extracted placeholders (unique):', placeholders);
+    console.log(`🔍 Total unique placeholders: ${placeholders.length}`);
 
     // Sort placeholders for better UX
     const sortedPlaceholders = placeholders.sort();
 
-    console.log('📝 Extracted placeholders:', sortedPlaceholders);
+    console.log('📝 Final sorted placeholders:', sortedPlaceholders);
 
     return NextResponse.json({
       success: true,

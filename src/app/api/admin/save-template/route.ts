@@ -191,14 +191,21 @@ export async function GET(request: NextRequest) {
     // Use stored formSchema from database if available (preferred)
     // Use stored formSchema even if it's an empty array (don't require length > 0)
     let formSchema: any[] = [];
+    
+    console.log('📋 Template placeholders from database:', template.placeholders);
+    console.log(`📋 Template placeholders count: ${template.placeholders?.length || 0}`);
+    console.log('📋 Template formSchema from database:', template.formSchema);
+    console.log(`📋 Template formSchema count: ${template.formSchema?.length || 0}`);
+    
     if (template.formSchema && Array.isArray(template.formSchema)) {
-      console.log(`Using stored formSchema from database (${template.formSchema.length} fields)`);
+      console.log(`✅ Using stored formSchema from database (${template.formSchema.length} fields)`);
       formSchema = template.formSchema;
-      console.log('📋 Stored formSchema:', JSON.stringify(formSchema, null, 2));
+      console.log('📋 Stored formSchema details:', formSchema.map((f, i) => `${i + 1}. key: "${f.key}", label: "${f.label}"`).join(', '));
     } else {
       // Fallback: Generate form schema from placeholders if stored schema not available
-      console.log('Generating formSchema from placeholders (stored schema not available or not an array)');
+      console.log('⚠️ Generating formSchema from placeholders (stored schema not available or not an array)');
       if (template.placeholders && Array.isArray(template.placeholders) && template.placeholders.length > 0) {
+        console.log('📋 Placeholders to generate from:', template.placeholders);
         const schemaObject = generateFormSchema(template.placeholders);
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
@@ -206,6 +213,7 @@ export async function GET(request: NextRequest) {
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
         console.log(`✅ Generated formSchema with ${formSchema.length} fields from placeholders`);
+        console.log('📋 Generated formSchema details:', formSchema.map((f, i) => `${i + 1}. key: "${f.key}", label: "${f.label}"`).join(', '));
       } else {
         console.log('⚠️ No placeholders available to generate formSchema');
         formSchema = []; // Ensure it's always an array
@@ -219,6 +227,7 @@ export async function GET(request: NextRequest) {
     }
     
     console.log(`📋 Final formSchema to return: ${formSchema.length} fields`);
+    console.log('📋 Final formSchema keys:', formSchema.map(f => f.key).join(', '));
 
     return NextResponse.json({
       success: true,

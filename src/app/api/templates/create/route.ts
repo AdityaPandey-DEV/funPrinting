@@ -104,6 +104,7 @@ export async function POST(request: NextRequest) {
         console.log('🔍 Extracting placeholders from DOCX file...');
         extractedPlaceholdersList = await extractPlaceholders(docxBuffer);
         console.log(`✅ Extracted ${extractedPlaceholdersList.length} placeholders:`, extractedPlaceholdersList);
+        console.log('📋 Placeholder details:', extractedPlaceholdersList.map((p, i) => `${i + 1}. "${p}"`).join(', '));
 
         // Upload DOCX file directly to cloud storage (no generation)
         console.log('☁️ Uploading DOCX file to cloud storage...');
