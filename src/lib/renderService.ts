@@ -29,7 +29,7 @@ export async function sendDocxToRender(
   callbackUrl: string
 ): Promise<RenderConversionResponse> {
   try {
-    const renderServiceUrl = process.env.RENDER_SERVICE_URL;
+    let renderServiceUrl = process.env.RENDER_SERVICE_URL;
     const renderApiKey = process.env.RENDER_API_KEY;
 
     if (!renderServiceUrl) {
@@ -40,7 +40,11 @@ export async function sendDocxToRender(
       };
     }
 
+    // Normalize URL: remove trailing slashes
+    renderServiceUrl = renderServiceUrl.replace(/\/+$/, '');
+
     console.log(`🔄 Sending DOCX to Render for conversion...`);
+    console.log(`  - Render Service URL: ${renderServiceUrl}`);
     console.log(`  - Order ID: ${orderId}`);
     console.log(`  - DOCX URL: ${docxUrl}`);
     console.log(`  - Callback URL: ${callbackUrl}`);
@@ -115,14 +119,19 @@ export async function checkRenderServiceStatus(): Promise<{
   hasConvertSync?: boolean;
 }> {
   try {
-    const renderServiceUrl = process.env.RENDER_SERVICE_URL;
+    let renderServiceUrl = process.env.RENDER_SERVICE_URL;
     
     if (!renderServiceUrl) {
+      console.error('❌ RENDER_SERVICE_URL not configured');
       return {
         available: false,
         error: 'Render service URL not configured'
       };
     }
+
+    // Normalize URL: remove trailing slashes
+    renderServiceUrl = renderServiceUrl.replace(/\/+$/, '');
+    console.log(`🔍 Checking Render service status at: ${renderServiceUrl}`);
 
     const startTime = Date.now();
     
@@ -132,7 +141,10 @@ export async function checkRenderServiceStatus(): Promise<{
 
     try {
       // First check health endpoint
-      const healthResponse = await fetch(`${renderServiceUrl}/health`, {
+      const healthUrl = `${renderServiceUrl}/health`;
+      console.log(`  - Health check URL: ${healthUrl}`);
+      
+      const healthResponse = await fetch(healthUrl, {
         method: 'GET',
         signal: controller.signal
       });
@@ -140,7 +152,11 @@ export async function checkRenderServiceStatus(): Promise<{
       clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
 
+      console.log(`  - Health check response: ${healthResponse.status} ${healthResponse.statusText}`);
+
       if (!healthResponse.ok) {
+        const errorText = await healthResponse.text().catch(() => 'Unable to read error');
+        console.error(`  - Health check failed: ${healthResponse.status} - ${errorText.substring(0, 200)}`);
         return {
           available: false,
           responseTime,
@@ -148,13 +164,42 @@ export async function checkRenderServiceStatus(): Promise<{
         };
       }
 
-      const healthResult = await healthResponse.json();
-      if (healthResult.status !== 'ok') {
-        return {
-          available: false,
-          responseTime,
-          error: 'Health check returned non-ok status'
-        };
+      let healthResult;
+      try {
+        healthResult = await healthResponse.json();
+        console.log(`  - Health check result:`, JSON.stringify(healthResult));
+      } catch (parseError) {
+        // If JSON parsing fails, try to get text response
+        const textResponse = await healthResponse.text();
+        console.log(`  - Health check response (text): ${textResponse.substring(0, 200)}`);
+        
+        // If service responds with 200 OK, consider it available even if response format is unexpected
+        if (healthResponse.status === 200) {
+          console.log('  - Service responded with 200 OK, considering it available');
+          healthResult = { status: 'ok' }; // Assume ok if we get 200
+        } else {
+          return {
+            available: false,
+            responseTime,
+            error: 'Health check returned unexpected response format'
+          };
+        }
+      }
+
+      // More lenient check: accept 'ok', 'OK', or any truthy status
+      const statusValue = healthResult?.status?.toLowerCase();
+      if (statusValue && statusValue !== 'ok' && statusValue !== 'healthy' && statusValue !== 'up') {
+        console.warn(`  - Health check returned unexpected status: ${healthResult.status}`);
+        // Still consider it available if we got 200 OK response
+        if (healthResponse.status === 200) {
+          console.log('  - But service responded with 200 OK, considering it available anyway');
+        } else {
+          return {
+            available: false,
+            responseTime,
+            error: `Health check returned non-ok status: ${healthResult.status}`
+          };
+        }
       }
 
       // Check if /api/convert-sync endpoint exists
@@ -163,7 +208,10 @@ export async function checkRenderServiceStatus(): Promise<{
         const syncCheckController = new AbortController();
         const syncCheckTimeout = setTimeout(() => syncCheckController.abort(), 3000);
         
-        const syncCheckResponse = await fetch(`${renderServiceUrl}/api/convert-sync`, {
+        const syncCheckUrl = `${renderServiceUrl}/api/convert-sync`;
+        console.log(`  - Checking /api/convert-sync endpoint: ${syncCheckUrl}`);
+        
+        const syncCheckResponse = await fetch(syncCheckUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ docxUrl: 'test' }),
@@ -172,20 +220,28 @@ export async function checkRenderServiceStatus(): Promise<{
         
         clearTimeout(syncCheckTimeout);
         
+        console.log(`  - /api/convert-sync response: ${syncCheckResponse.status}`);
+        
         // If we get 400 (missing field) or 500 (error processing), endpoint exists
         // If we get 404, endpoint doesn't exist
         hasConvertSync = syncCheckResponse.status !== 404;
         
         if (!hasConvertSync) {
           console.warn('⚠️ /api/convert-sync endpoint not found on Render service. Service may need to be redeployed with latest code.');
+        } else {
+          console.log('  - ✅ /api/convert-sync endpoint is available');
         }
       } catch (syncCheckError) {
         // If it's not a 404, assume endpoint exists but had other issues
         if (syncCheckError instanceof Error && syncCheckError.name !== 'AbortError') {
           hasConvertSync = true; // Endpoint exists but had an error (expected for test request)
+          console.log('  - ✅ /api/convert-sync endpoint exists (got error, but not 404)');
+        } else {
+          console.warn('  - ⚠️ /api/convert-sync check timed out or aborted');
         }
       }
 
+      console.log(`✅ Render service is AVAILABLE (response time: ${responseTime}ms, hasConvertSync: ${hasConvertSync})`);
       return {
         available: true,
         responseTime,
@@ -197,6 +253,7 @@ export async function checkRenderServiceStatus(): Promise<{
       const responseTime = Date.now() - startTime;
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        console.error(`❌ Health check timeout after ${responseTime}ms`);
         return {
           available: false,
           responseTime,
@@ -204,6 +261,7 @@ export async function checkRenderServiceStatus(): Promise<{
         };
       }
       
+      console.error(`❌ Health check error:`, fetchError);
       return {
         available: false,
         responseTime,
@@ -213,6 +271,10 @@ export async function checkRenderServiceStatus(): Promise<{
 
   } catch (error) {
     console.error('❌ Error checking Render service status:', error);
+    if (error instanceof Error) {
+      console.error(`   Error details: ${error.message}`);
+      console.error(`   Stack: ${error.stack?.substring(0, 200)}`);
+    }
     return {
       available: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -360,7 +422,7 @@ export async function checkConversionStatus(jobId: string): Promise<{
   error?: string;
 }> {
   try {
-    const renderServiceUrl = process.env.RENDER_SERVICE_URL;
+    let renderServiceUrl = process.env.RENDER_SERVICE_URL;
     const renderApiKey = process.env.RENDER_API_KEY;
 
     if (!renderServiceUrl) {
@@ -369,6 +431,9 @@ export async function checkConversionStatus(jobId: string): Promise<{
         error: 'Render service URL not configured'
       };
     }
+
+    // Normalize URL: remove trailing slashes
+    renderServiceUrl = renderServiceUrl.replace(/\/+$/, '');
 
     const headers: Record<string, string> = {};
     if (renderApiKey) {
