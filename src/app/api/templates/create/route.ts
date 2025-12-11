@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
       finalPlaceholders = placeholders || [];
       
       // Generate formSchema from placeholders if provided
-      if (finalPlaceholders.length > 0) {
+      if (finalPlaceholders && finalPlaceholders.length > 0) {
         const schemaObject = generateFormSchema(finalPlaceholders);
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
