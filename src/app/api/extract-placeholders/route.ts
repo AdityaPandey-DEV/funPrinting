@@ -32,16 +32,16 @@ export async function POST(request: NextRequest) {
     const result = await mammoth.extractRawText({ buffer });
     const text = result.value;
 
-    // Find placeholders using regex pattern {{placeholder}} - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Find placeholders using regex pattern {{placeholder}} - allow spaces in placeholder names
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const matches = text.match(placeholderRegex) || [];
     console.log('🔍 Found placeholder matches:', matches);
     
     const placeholders = [...new Set(
       matches
         .map(match => {
-          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
-          return matchResult ? matchResult[1] : '';
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/);
+          return matchResult ? matchResult[1].trim() : '';
         })
         .filter(placeholder => placeholder.length > 0)
     )];

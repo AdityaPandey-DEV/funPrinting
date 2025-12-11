@@ -2,6 +2,15 @@ import PizZip from 'pizzip';
 import { createReport } from 'docx-templates';
 
 /**
+ * Normalize placeholder name for JavaScript execution (replace spaces with underscores)
+ * @param name - Placeholder name
+ * @returns Normalized name
+ */
+function normalizePlaceholderName(name: string): string {
+  return name.trim().replace(/\s+/g, '_');
+}
+
+/**
  * Preprocess DOCX to directly replace {{placeholder}} with form data
  * @param docxBuffer - DOCX file as Buffer
  * @param data - Form data to replace placeholders with
@@ -19,18 +28,32 @@ export async function preprocessDocxTemplate(docxBuffer: Buffer, data: Record<st
     
     let xmlContent = documentXml.asText();
     
-    // Directly replace {{placeholder}} with form data - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Directly replace {{placeholder}} with form data - allow spaces in placeholder names
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const originalContent = xmlContent;
     
     console.log('🔄 Preprocessing: Directly replacing {{placeholders}} with form data');
-    console.log('🔄 Original placeholders found:', originalContent.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g));
+    console.log('🔄 Original placeholders found:', originalContent.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g));
     console.log('🔄 Available form data:', data);
+    
+    // Create normalized data mapping (original key -> normalized key)
+    const normalizedDataMap: Record<string, string> = {};
+    for (const key of Object.keys(data)) {
+      normalizedDataMap[normalizePlaceholderName(key)] = key;
+    }
     
     // Replace each {{placeholder}} with the corresponding form data
     xmlContent = xmlContent.replace(placeholderRegex, (match, placeholderName) => {
-      const value = data[placeholderName] || data[placeholderName.toLowerCase()] || match;
-      console.log(`🔄 Replacing ${match} with: "${value}"`);
+      const trimmedName = placeholderName.trim();
+      const normalizedName = normalizePlaceholderName(trimmedName);
+      
+      // Try to find value using original name, normalized name, or lowercase
+      const value = data[trimmedName] || 
+                    data[normalizedName] || 
+                    data[normalizedDataMap[normalizedName]] ||
+                    data[trimmedName.toLowerCase()] || 
+                    match;
+      console.log(`🔄 Replacing ${match} (normalized: ${normalizedName}) with: "${value}"`);
       return value;
     });
     
@@ -76,11 +99,27 @@ export async function fillDocxTemplate(docxBuffer: Buffer, data: Record<string, 
     // Use docx-templates library which handles split placeholders correctly
     try {
       console.log('🔄 Using docx-templates library to replace placeholders...');
-      console.log('📝 Placeholders to replace:', Object.keys(data));
+      console.log('📝 Original placeholders to replace:', Object.keys(data));
+      
+      // Normalize data keys for JavaScript execution (docx-templates executes placeholders as JS)
+      // Placeholders with spaces need to be normalized to valid JS identifiers
+      const normalizedData: Record<string, any> = {};
+      const originalToNormalized: Record<string, string> = {};
+      
+      for (const [key, value] of Object.entries(data)) {
+        const normalizedKey = normalizePlaceholderName(key);
+        normalizedData[normalizedKey] = value;
+        originalToNormalized[key] = normalizedKey;
+        if (key !== normalizedKey) {
+          console.log(`📝 Normalizing "${key}" -> "${normalizedKey}" for JS execution`);
+        }
+      }
+      
+      console.log('📝 Normalized placeholders:', Object.keys(normalizedData));
       
       const report = await createReport({
         template: docxBuffer,
-        data: data,
+        data: normalizedData, // Use normalized data for docx-templates
         cmdDelimiter: ['{{', '}}'], // Use {{placeholder}} format
         processLineBreaks: true,
         noSandbox: false,
@@ -141,8 +180,8 @@ export async function extractPlaceholders(docxBuffer: Buffer): Promise<string[]>
     
     const xmlContent = documentXml.asText();
     
-    // Find {{placeholder}} patterns - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Find {{placeholder}} patterns - allow spaces in placeholder names
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const matches = xmlContent.match(placeholderRegex);
     
     if (!matches) {
@@ -152,8 +191,8 @@ export async function extractPlaceholders(docxBuffer: Buffer): Promise<string[]>
     // Extract unique placeholder names (remove {{ and }} brackets)
     const extractedNames = matches.map((match: string) => {
       // Extract the placeholder name from {{placeholder}} format
-      const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
-      return matchResult ? matchResult[1] : '';
+      const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/);
+      return matchResult ? matchResult[1].trim() : '';
     }).filter((name: string) => name.length > 0);
     const placeholders = [...new Set(extractedNames)];
     console.log('📝 Extracted placeholders:', placeholders);

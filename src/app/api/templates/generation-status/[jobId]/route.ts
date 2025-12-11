@@ -39,15 +39,19 @@ export async function GET(
       // Job found in store
       const progress = job.status === 'completed' ? 100 : job.status === 'failed' ? 50 : 50;
       
+      console.log(`✅ Job found in store: ${jobId}, status: ${job.status}, hasWordUrl: ${!!job.wordUrl}, hasPdfUrl: ${!!job.pdfUrl}`);
+      
       return NextResponse.json({
         success: true,
         status: job.status,
         progress,
         pdfUrl: job.pdfUrl,
-        wordUrl: job.wordUrl,
+        wordUrl: job.wordUrl, // Always return wordUrl, even if PDF conversion failed
         error: job.error,
       });
     }
+    
+    console.log(`⚠️ Job not found in store: ${jobId}, checking Render service...`);
 
     // Job not found in store - might be from async conversion
     // Check Render service for async job status

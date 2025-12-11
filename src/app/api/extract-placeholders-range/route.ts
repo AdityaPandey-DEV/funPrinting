@@ -36,13 +36,13 @@ export async function POST(request: NextRequest) {
       console.log(`📄 Processing pages ${start}-${end}: ${selectedParagraphs.length} paragraphs`);
     }
 
-    // Find placeholders using regex pattern {{placeholder}} - require placeholder to start with a letter
-    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/g;
+    // Find placeholders using regex pattern {{placeholder}} - allow spaces in placeholder names
+    const placeholderRegex = /\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/g;
     const placeholders = [...new Set(
       (text.match(placeholderRegex) || [])
         .map(match => {
-          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_]*)\}\}/);
-          return matchResult ? matchResult[1] : '';
+          const matchResult = match.match(/\{\{([A-Za-z][A-Za-z0-9_\s]*)\}\}/);
+          return matchResult ? matchResult[1].trim() : '';
         })
         .filter(placeholder => placeholder.length > 0)
     )];

@@ -43,8 +43,11 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
     if (!jobId) return;
 
     // Simulate progress animation while checking status
-    let progressInterval: NodeJS.Timeout;
+    let progressInterval: NodeJS.Timeout | undefined;
+    let statusInterval: NodeJS.Timeout | undefined;
     let currentProgress = 0;
+    const startTime = Date.now();
+    const MAX_WAIT_TIME = 120000; // 2 minutes timeout
 
     // Animate progress from 0 to 50% (Word generation)
     const animateProgress = () => {
@@ -63,6 +66,25 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
     // Start polling for status
     const pollStatus = async () => {
       try {
+        // Check timeout
+        if (Date.now() - startTime > MAX_WAIT_TIME) {
+          console.warn('⏱️ Timeout reached, redirecting with Word file');
+          clearInterval(progressInterval);
+          // Try to get wordUrl from last status check
+          try {
+            const lastResponse = await fetch(`/api/templates/generation-status/${jobId}`);
+            const lastResult = await lastResponse.json();
+            if (lastResult.wordUrl) {
+              router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(lastResult.wordUrl)}&error=${encodeURIComponent('PDF conversion is taking longer than expected. You can continue with the Word document.')}`);
+              return;
+            }
+          } catch (e) {
+            console.error('Error fetching final status:', e);
+          }
+          setError('PDF conversion is taking longer than expected. Please try again or contact support.');
+          return;
+        }
+
         const response = await fetch(`/api/templates/generation-status/${jobId}`);
         const result = await response.json();
 
@@ -88,7 +110,7 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           } else if (finalProgress < 100) {
             setCurrentMessage('Converting to PDF...');
             // Animate from 50 to 100
-            if (finalProgress >= 50 && finalProgress < 100) {
+            if (finalProgress >= 50 && finalProgress < 100 && !progressInterval) {
               const pdfProgressInterval = setInterval(() => {
                 if (currentProgress < 100) {
                   currentProgress += 2;
@@ -105,37 +127,67 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           // If completed, redirect to completion page
           if (result.status === 'completed' && result.pdfUrl) {
             clearInterval(progressInterval);
+            clearInterval(statusInterval);
             setTimeout(() => {
               router.push(`/templates/fill/${templateId}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
             }, 1000);
+            return; // Exit early
           } else if (result.status === 'failed') {
             clearInterval(progressInterval);
+            clearInterval(statusInterval);
             // If failed but we have wordUrl, still redirect but show warning
             if (result.wordUrl) {
               setTimeout(() => {
-                router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed')}`);
+                router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
               }, 1000);
+              return; // Exit early
             } else {
               setError(result.error || 'Generation failed. Please try again.');
             }
           }
+          
+          // If processing but we have wordUrl and it's been more than 30 seconds, allow user to continue
+          if (result.status === 'processing' && result.wordUrl && (Date.now() - startTime > 30000)) {
+            console.log('⏱️ Processing for more than 30s, allowing user to continue with Word file');
+            // Don't redirect yet, but update message to show option
+            setCurrentMessage('PDF conversion is taking longer. You can continue with Word document...');
+          }
+        } else {
+          // If status check fails, check if we have wordUrl from previous successful check
+          if (status.wordUrl) {
+            console.warn('⚠️ Status check failed but we have wordUrl, redirecting...');
+            clearInterval(progressInterval);
+            clearInterval(statusInterval);
+            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check failed. You can still download the Word document.')}`);
+            return;
+          }
         }
       } catch (error) {
         console.error('Error polling status:', error);
-        // Continue polling even on error
+        // Continue polling even on error, but check timeout
+        if (Date.now() - startTime > MAX_WAIT_TIME) {
+          clearInterval(progressInterval);
+          clearInterval(statusInterval);
+          if (status.wordUrl) {
+            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check error. You can still download the Word document.')}`);
+          } else {
+            setError('Failed to check status. Please try again or contact support.');
+          }
+          return;
+        }
       }
     };
 
     // Poll immediately, then every 2 seconds
     pollStatus();
-    const statusInterval = setInterval(pollStatus, 2000);
+    statusInterval = setInterval(pollStatus, 2000);
 
     // Cleanup intervals on unmount
     return () => {
       clearInterval(progressInterval);
       clearInterval(statusInterval);
     };
-  }, [jobId, templateId, router]);
+  }, [jobId, templateId, router, status.wordUrl]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">

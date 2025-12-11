@@ -142,15 +142,18 @@ export async function POST(request: NextRequest) {
     // In a production system, you might want to store this in a database
     // For now, we'll return the status immediately since we're using sync conversion
 
-    // Store job result for status polling
+    // Store job result for status polling (always store, even if PDF conversion failed)
+    // This ensures the loading page can retrieve the Word URL even if PDF fails
     jobStore.set(jobId, {
       jobId,
-      wordUrl,
+      wordUrl, // Always store wordUrl, even if PDF conversion failed
       pdfUrl,
       status,
       error,
       createdAt: Date.now(),
     });
+    
+    console.log(`✅ Job stored in jobStore: ${jobId}, status: ${status}, hasWordUrl: ${!!wordUrl}, hasPdfUrl: ${!!pdfUrl}`);
     
     return NextResponse.json({
       success: true,
