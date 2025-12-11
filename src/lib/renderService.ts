@@ -105,13 +105,14 @@ export async function sendDocxToRender(
 }
 
 /**
- * Check if Render service is available
+ * Check if Render service is available and has the required endpoints
  * @returns Promise with availability status
  */
 export async function checkRenderServiceStatus(): Promise<{
   available: boolean;
   responseTime?: number;
   error?: string;
+  hasConvertSync?: boolean;
 }> {
   try {
     const renderServiceUrl = process.env.RENDER_SERVICE_URL;
@@ -130,7 +131,8 @@ export async function checkRenderServiceStatus(): Promise<{
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
 
     try {
-      const response = await fetch(`${renderServiceUrl}/health`, {
+      // First check health endpoint
+      const healthResponse = await fetch(`${renderServiceUrl}/health`, {
         method: 'GET',
         signal: controller.signal
       });
@@ -138,19 +140,58 @@ export async function checkRenderServiceStatus(): Promise<{
       clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
 
-      if (response.ok) {
-        const result = await response.json();
-        return {
-          available: result.status === 'ok',
-          responseTime
-        };
-      } else {
+      if (!healthResponse.ok) {
         return {
           available: false,
           responseTime,
-          error: `Health check failed: ${response.status}`
+          error: `Health check failed: ${healthResponse.status}`
         };
       }
+
+      const healthResult = await healthResponse.json();
+      if (healthResult.status !== 'ok') {
+        return {
+          available: false,
+          responseTime,
+          error: 'Health check returned non-ok status'
+        };
+      }
+
+      // Check if /api/convert-sync endpoint exists
+      let hasConvertSync = false;
+      try {
+        const syncCheckController = new AbortController();
+        const syncCheckTimeout = setTimeout(() => syncCheckController.abort(), 3000);
+        
+        const syncCheckResponse = await fetch(`${renderServiceUrl}/api/convert-sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docxUrl: 'test' }),
+          signal: syncCheckController.signal
+        });
+        
+        clearTimeout(syncCheckTimeout);
+        
+        // If we get 400 (missing field) or 500 (error processing), endpoint exists
+        // If we get 404, endpoint doesn't exist
+        hasConvertSync = syncCheckResponse.status !== 404;
+        
+        if (!hasConvertSync) {
+          console.warn('⚠️ /api/convert-sync endpoint not found on Render service. Service may need to be redeployed with latest code.');
+        }
+      } catch (syncCheckError) {
+        // If it's not a 404, assume endpoint exists but had other issues
+        if (syncCheckError instanceof Error && syncCheckError.name !== 'AbortError') {
+          hasConvertSync = true; // Endpoint exists but had an error (expected for test request)
+        }
+      }
+
+      return {
+        available: true,
+        responseTime,
+        hasConvertSync
+      };
+
     } catch (fetchError) {
       clearTimeout(timeoutId);
       const responseTime = Date.now() - startTime;
@@ -206,6 +247,7 @@ export async function convertDocxToPdfRealtime(
     }
 
     console.log(`🔄 Starting real-time PDF conversion...`);
+    console.log(`  - Render Service URL: ${renderServiceUrl}`);
     console.log(`  - DOCX URL: ${docxUrl}`);
     console.log(`  - Timeout: ${timeout}ms`);
 
@@ -223,7 +265,10 @@ export async function convertDocxToPdfRealtime(
 
     try {
       // Use synchronous conversion endpoint
-      const convertResponse = await fetch(`${renderServiceUrl}/api/convert-sync`, {
+      const convertUrl = `${renderServiceUrl}/api/convert-sync`;
+      console.log(`  - Calling: ${convertUrl}`);
+      
+      const convertResponse = await fetch(convertUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({ docxUrl }),
@@ -233,27 +278,32 @@ export async function convertDocxToPdfRealtime(
       clearTimeout(timeoutId);
 
       if (!convertResponse.ok) {
+        const errorText = await convertResponse.text();
+        console.error(`❌ Render service error: ${convertResponse.status}`);
+        console.error(`   Error response: ${errorText.substring(0, 200)}`);
+        
         // If 404, the endpoint doesn't exist (service not updated yet)
         if (convertResponse.status === 404) {
+          console.error('⚠️ /api/convert-sync endpoint not found. Service may need to be redeployed.');
           return {
             success: false,
-            error: 'PDF conversion service endpoint not available. PDF will be sent to your email after order completion.'
+            error: 'PDF conversion service endpoint not available. Please ensure the Render service is deployed with the latest code. PDF will be sent to your email after order completion.'
           };
         }
         
-        const errorText = await convertResponse.text();
         // Try to parse as JSON, otherwise use text
         let errorMessage = errorText;
         try {
           const errorJson = JSON.parse(errorText);
           errorMessage = errorJson.error || errorText;
         } catch {
-          // Not JSON, use text as is
+          // Not JSON, use text as is (limit length)
+          errorMessage = errorText.substring(0, 200);
         }
         
         return {
           success: false,
-          error: `Conversion failed: ${errorMessage}`
+          error: `Conversion failed (${convertResponse.status}): ${errorMessage}`
         };
       }
 

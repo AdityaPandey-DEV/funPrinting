@@ -485,9 +485,19 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       const result = await response.json();
       
       if (result.success && result.available) {
-        setRenderStatus('available');
+        // Check if convert-sync endpoint is available
+        if (result.hasConvertSync === false) {
+          console.warn('⚠️ Render service is available but /api/convert-sync endpoint not found');
+          setRenderStatus('unavailable');
+          setError('PDF conversion service is being updated. Please try again in a few minutes, or continue with your order and PDF will be sent to your email.');
+        } else {
+          setRenderStatus('available');
+        }
       } else {
         setRenderStatus('unavailable');
+        if (result.error) {
+          console.error('Render service error:', result.error);
+        }
       }
     } catch (error) {
       console.error('❌ Error checking Render status:', error);
