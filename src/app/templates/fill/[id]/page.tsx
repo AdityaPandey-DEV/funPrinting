@@ -144,10 +144,11 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     setError(null);
 
     try {
-      console.log('🔄 Generating filled document...');
+      console.log('🔄 Generating filled document with PDF conversion...');
       console.log('📝 Form data:', formData);
 
-      const response = await fetch('/api/templates/generate-fill', {
+      // Use new endpoint that includes PDF conversion
+      const response = await fetch('/api/templates/generate-fill-pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -206,6 +207,13 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       const result = await response.json();
       
       if (result.success) {
+        // Redirect to loading page with job ID
+        if (result.jobId) {
+          router.push(`/templates/fill/${templateId}/loading?jobId=${result.jobId}`);
+          return; // Exit early, loading page will handle the rest
+        }
+        
+        // Fallback: If no jobId, use old flow (backward compatibility)
         setGeneratedWordUrl(result.wordUrl);
         
         // Check if template is paid

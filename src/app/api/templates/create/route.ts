@@ -6,6 +6,7 @@ import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, Width
 import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
+import { extractPlaceholders, generateFormSchema } from '@/lib/docxProcessor';
 
 export async function POST(request: NextRequest) {
   try {
@@ -77,92 +78,175 @@ export async function POST(request: NextRequest) {
     // Generate unique template ID
     const templateId = uuidv4();
 
-    console.log('📄 Creating Word document from template content...');
+    let wordUrl: string | undefined;
+    let finalPlaceholders: string[] | undefined;
+    let formSchema: any[] | undefined;
 
-    // Create Word document from the structured content
-    const doc = new Document({
-      sections: [{
-        properties: {},
-        children: [
-          // Add paragraphs
-          ...wordContent.paragraphs.map((p: any) => {
-            if (p.style === 'heading') {
-              return new Paragraph({
-                children: [new TextRun({
-                  text: p.text,
-                  bold: true,
-                  size: p.level === 1 ? 32 : p.level === 2 ? 28 : 24
-                })]
-              });
-            } else {
-              return new Paragraph({
-                children: [new TextRun({
-                  text: p.text,
-                  size: 20,
-                  color: p.isPlaceholder ? "FF0000" : undefined,
-                  bold: p.isPlaceholder ? true : undefined
-                })]
-              });
-            }
-          }),
-          
-          // Add tables
-          ...wordContent.tables.map((table: any) => {
-            return new Table({
-              width: {
-                size: 100,
-                type: WidthType.PERCENTAGE,
-              },
-              rows: [
-                // Header row
-                new TableRow({
-                  children: table.headers.map((header: string) => 
-                    new TableCell({
-                      children: [new Paragraph({
-                        children: [new TextRun({
-                          text: header,
-                          bold: true
-                        })]
-                      })]
-                    })
-                  )
-                }),
-                // Data rows
-                ...table.rows.map((row: string[]) =>
+    // Check if pdfUrl (uploaded DOCX) is provided
+    if (pdfUrl) {
+      console.log('📄 Using uploaded Word file directly...');
+      
+      try {
+        // Download DOCX from pdfUrl
+        console.log('📥 Downloading DOCX from:', pdfUrl);
+        const docxResponse = await fetch(pdfUrl);
+        if (!docxResponse.ok) {
+          throw new Error(`Failed to download DOCX: ${docxResponse.status}`);
+        }
+        const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
+        console.log(`✅ DOCX downloaded: ${docxBuffer.length} bytes`);
+
+        // Extract placeholders from uploaded DOCX
+        console.log('🔍 Extracting placeholders from uploaded DOCX...');
+        const extractedPlaceholders = await extractPlaceholders(docxBuffer);
+        console.log(`✅ Extracted ${extractedPlaceholders.length} placeholders:`, extractedPlaceholders);
+
+        // Upload DOCX directly to storage (no generation)
+        console.log('☁️ Uploading original DOCX file to storage...');
+        wordUrl = await uploadFile(
+          docxBuffer,
+          `templates/word/${templateId}`,
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        );
+        console.log('✅ Original DOCX file uploaded to cloud storage:', wordUrl);
+
+        // Generate formSchema from extracted placeholders
+        const schemaObject = generateFormSchema(extractedPlaceholders);
+        formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+          key,
+          ...value,
+          defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+        }));
+        console.log(`✅ Generated formSchema with ${formSchema.length} fields`);
+
+        // Use extracted placeholders
+        finalPlaceholders = extractedPlaceholders;
+
+      } catch (error) {
+        console.error('❌ Error processing uploaded DOCX:', error);
+        // Fallback to generation if upload processing fails
+        console.log('⚠️ Falling back to generation from wordContent...');
+        wordUrl = undefined; // Ensure it's undefined for fallback
+        finalPlaceholders = undefined;
+        formSchema = undefined;
+      }
+    }
+
+    // Fallback: Generate from wordContent if pdfUrl not provided or processing failed
+    if (!wordUrl || !finalPlaceholders || !formSchema) {
+      console.log('📄 Creating Word document from template content...');
+
+      // Create Word document from the structured content
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            // Add paragraphs
+            ...wordContent.paragraphs.map((p: any) => {
+              if (p.style === 'heading') {
+                return new Paragraph({
+                  children: [new TextRun({
+                    text: p.text,
+                    bold: true,
+                    size: p.level === 1 ? 32 : p.level === 2 ? 28 : 24
+                  })]
+                });
+              } else {
+                return new Paragraph({
+                  children: [new TextRun({
+                    text: p.text,
+                    size: 20,
+                    color: p.isPlaceholder ? "FF0000" : undefined,
+                    bold: p.isPlaceholder ? true : undefined
+                  })]
+                });
+              }
+            }),
+            
+            // Add tables
+            ...wordContent.tables.map((table: any) => {
+              return new Table({
+                width: {
+                  size: 100,
+                  type: WidthType.PERCENTAGE,
+                },
+                rows: [
+                  // Header row
                   new TableRow({
-                    children: row.map((cell: string) =>
+                    children: table.headers.map((header: string) => 
                       new TableCell({
                         children: [new Paragraph({
                           children: [new TextRun({
-                            text: cell,
-                            color: cell.includes('@') ? "FF0000" : undefined,
-                            bold: cell.includes('@') ? true : undefined
+                            text: header,
+                            bold: true
                           })]
                         })]
                       })
                     )
-                  })
-                )
-              ]
-            });
-          })
-        ]
-      }]
-    });
+                  }),
+                  // Data rows
+                  ...table.rows.map((row: string[]) =>
+                    new TableRow({
+                      children: row.map((cell: string) =>
+                        new TableCell({
+                          children: [new Paragraph({
+                            children: [new TextRun({
+                              text: cell,
+                              color: cell.includes('@') ? "FF0000" : undefined,
+                              bold: cell.includes('@') ? true : undefined
+                            })]
+                          })]
+                        })
+                      )
+                    })
+                  )
+                ]
+              });
+            })
+          ]
+        }]
+      });
 
-    // Generate Word document buffer
-    const wordBuffer = await Packer.toBuffer(doc);
-    
-    console.log('✅ Word document created, size:', wordBuffer.length, 'bytes');
+      // Generate Word document buffer
+      const wordBuffer = await Packer.toBuffer(doc);
+      
+      console.log('✅ Word document created, size:', wordBuffer.length, 'bytes');
 
-    // Upload Word document to storage
-    const wordUrl = await uploadFile(
-      wordBuffer,
-      `templates/word/${templateId}`,
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    );
+      // Upload Word document to storage
+      wordUrl = await uploadFile(
+        wordBuffer,
+        `templates/word/${templateId}`,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      );
 
-    console.log('✅ Word document uploaded to cloud storage:', wordUrl);
+      console.log('✅ Word document uploaded to cloud storage:', wordUrl);
+
+      // Use placeholders from request or empty array
+      finalPlaceholders = placeholders || [];
+      
+      // Generate formSchema from placeholders if provided
+      if (finalPlaceholders.length > 0) {
+        const schemaObject = generateFormSchema(finalPlaceholders);
+        formSchema = Object.entries(schemaObject).map(([key, value]) => ({
+          key,
+          ...value,
+          defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+        }));
+      } else {
+        formSchema = [];
+      }
+    }
+
+    // Ensure all variables are defined
+    if (!wordUrl) {
+      throw new Error('Failed to create or upload Word document');
+    }
+    if (!finalPlaceholders) {
+      finalPlaceholders = [];
+    }
+    if (!formSchema) {
+      formSchema = [];
+    }
 
     // Create new dynamic template with user context and monetization
     const template = new DynamicTemplate({
@@ -173,7 +257,8 @@ export async function POST(request: NextRequest) {
       pdfUrl: pdfUrl || '',
       wordUrl: wordUrl,
       wordContent: wordContent, // Keep JSON structure for backward compatibility
-      placeholders: placeholders || [],
+      placeholders: finalPlaceholders || [],
+      formSchema: formSchema || [],
       createdBy: user.email, // Backward compatible
       createdByUserId: user._id,
       createdByEmail: user.email,
