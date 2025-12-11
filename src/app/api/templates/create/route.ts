@@ -8,6 +8,34 @@ import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
 import { extractPlaceholders, generateFormSchema } from '@/lib/docxProcessor';
 
+/**
+ * Normalize formSchema to ensure it's always an array
+ * Converts object format to array format if needed
+ */
+function normalizeFormSchema(schema: any): any[] {
+  // If already an array, return as-is
+  if (Array.isArray(schema)) {
+    console.log('✅ formSchema is already an array');
+    return schema;
+  }
+  
+  // If it's an object, convert to array format
+  if (schema && typeof schema === 'object' && !Array.isArray(schema)) {
+    console.log('⚠️ formSchema is an object, converting to array format...');
+    const converted = Object.entries(schema).map(([key, value]: [string, any]) => ({
+      key,
+      ...value,
+      defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+    }));
+    console.log(`✅ Converted object to array: ${converted.length} fields`);
+    return converted;
+  }
+  
+  // If null, undefined, or invalid, return empty array
+  console.warn('⚠️ formSchema is invalid, returning empty array');
+  return [];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { 
@@ -220,6 +248,7 @@ export async function POST(request: NextRequest) {
 
     // Generate form schema from placeholders (returns object format)
     const schemaObject = generateFormSchema(finalPlaceholders);
+    console.log('📋 Generated schemaObject (object format):', typeof schemaObject, Object.keys(schemaObject).length, 'keys');
     
     // Convert object format to array format expected by fill page
     // Format: [{ key: string, type: string, label: string, required: boolean, placeholder: string, defaultPlaceholder: string }]
@@ -229,12 +258,13 @@ export async function POST(request: NextRequest) {
       defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
     }));
     
-    // Ensure formSchema is always an array (never undefined or null)
-    if (!Array.isArray(formSchema)) {
-      console.warn('⚠️ formSchema is not an array, initializing as empty array');
-      formSchema = [];
-    }
+    console.log('📋 formSchema after conversion:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
+    console.log('📋 formSchema length:', formSchema.length);
     
+    // Normalize formSchema: Ensure it's always an array
+    formSchema = normalizeFormSchema(formSchema);
+    
+    console.log('📋 formSchema after normalization:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
     console.log(`✅ Generated formSchema with ${formSchema.length} fields (array format)`);
     console.log('📋 formSchema content:', JSON.stringify(formSchema, null, 2));
 
@@ -248,7 +278,7 @@ export async function POST(request: NextRequest) {
       wordUrl: wordUrl,
       wordContent: wordContent, // Keep JSON structure for backward compatibility
       placeholders: finalPlaceholders || [], // Ensure placeholders is always an array
-      formSchema: formSchema || [], // Ensure formSchema is always an array
+      formSchema: normalizeFormSchema(formSchema), // Normalize to ensure it's always an array
       createdBy: user.email, // Backward compatible
       createdByUserId: user._id,
       createdByEmail: user.email,

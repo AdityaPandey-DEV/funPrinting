@@ -6,6 +6,32 @@ import { v4 as uuidv4 } from 'uuid';
 import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
 
+/**
+ * Normalize formSchema to ensure it's always an array
+ * Converts object format to array format if needed
+ */
+function normalizeFormSchema(schema: any): any[] {
+  // If already an array, return as-is
+  if (Array.isArray(schema)) {
+    return schema;
+  }
+  
+  // If it's an object, convert to array format
+  if (schema && typeof schema === 'object' && !Array.isArray(schema)) {
+    console.log('⚠️ formSchema is an object, converting to array format...');
+    const converted = Object.entries(schema).map(([key, value]: [string, any]) => ({
+      key,
+      ...value,
+      defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
+    }));
+    console.log(`✅ Converted object to array: ${converted.length} fields`);
+    return converted;
+  }
+  
+  // If null, undefined, or invalid, return empty array
+  return [];
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -41,6 +67,7 @@ export async function POST(request: NextRequest) {
       // Use manual formSchema if provided, otherwise generate from placeholders
       if (manualFormSchema && Array.isArray(manualFormSchema) && manualFormSchema.length > 0) {
         console.log('Using manual formSchema from frontend');
+        console.log('📋 Manual formSchema format:', Array.isArray(manualFormSchema) ? 'array' : typeof manualFormSchema);
         // Ensure defaultPlaceholder is set for manual formSchema
         formSchema = manualFormSchema.map((field: any) => ({
           ...field,
@@ -51,13 +78,20 @@ export async function POST(request: NextRequest) {
         console.log('Generating formSchema from manual placeholders');
         // Generate form schema from placeholders
         const schemaObject = generateFormSchema(placeholders);
+        console.log('📋 Generated schemaObject (object format):', typeof schemaObject, Object.keys(schemaObject).length, 'keys');
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
           ...value,
           // Ensure defaultPlaceholder is set if not already present
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
+        console.log('📋 formSchema after conversion:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
       }
+      
+      // Normalize formSchema before saving
+      formSchema = normalizeFormSchema(formSchema);
+      console.log('📋 formSchema after normalization:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
+      console.log('📋 formSchema length:', formSchema.length);
     } else {
       // Fallback: Extract placeholders from DOCX if manual placeholders not provided
       console.log('Manual placeholders not provided, extracting from DOCX...');
@@ -77,13 +111,20 @@ export async function POST(request: NextRequest) {
         // Generate form schema from placeholders
         if (placeholders.length > 0) {
           const schemaObject = generateFormSchema(placeholders);
+          console.log('📋 Generated schemaObject (object format):', typeof schemaObject, Object.keys(schemaObject).length, 'keys');
           formSchema = Object.entries(schemaObject).map(([key, value]) => ({
             key,
             ...value,
             // Ensure defaultPlaceholder is set if not already present
             defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
           }));
+          console.log('📋 formSchema after conversion:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
         }
+        
+        // Normalize formSchema before saving
+        formSchema = normalizeFormSchema(formSchema);
+        console.log('📋 formSchema after normalization:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
+        console.log('📋 formSchema length:', formSchema.length);
         
       } catch (error) {
         console.error('Error processing DOCX:', error);
@@ -115,7 +156,7 @@ export async function POST(request: NextRequest) {
       pdfUrl,
       wordUrl: normalizedDocxUrl,
       placeholders,
-      formSchema, // Store the form schema in MongoDB
+      formSchema: normalizeFormSchema(formSchema), // Normalize to ensure it's always an array before saving
       createdBy: adminUser ? adminUser.email : 'admin', // Backward compatible
       createdByUserId: adminUser ? adminUser._id : undefined,
       createdByEmail: adminUser ? adminUser.email : undefined,
@@ -194,24 +235,30 @@ export async function GET(request: NextRequest) {
     
     console.log('📋 Template placeholders from database:', template.placeholders);
     console.log(`📋 Template placeholders count: ${template.placeholders?.length || 0}`);
-    console.log('📋 Template formSchema from database:', template.formSchema);
-    console.log(`📋 Template formSchema count: ${template.formSchema?.length || 0}`);
+    console.log('📋 Template formSchema from database (raw):', template.formSchema);
+    console.log('📋 Template formSchema format (raw):', Array.isArray(template.formSchema) ? 'array' : typeof template.formSchema);
+    console.log(`📋 Template formSchema count (raw): ${template.formSchema?.length || 0}`);
     
-    if (template.formSchema && Array.isArray(template.formSchema)) {
-      console.log(`✅ Using stored formSchema from database (${template.formSchema.length} fields)`);
-      formSchema = template.formSchema;
+    if (template.formSchema) {
+      // Normalize formSchema: Convert object to array if needed
+      formSchema = normalizeFormSchema(template.formSchema);
+      console.log(`✅ Using stored formSchema from database (${formSchema.length} fields)`);
+      console.log('📋 Stored formSchema format (after normalization):', Array.isArray(formSchema) ? 'array' : typeof formSchema);
       console.log('📋 Stored formSchema details:', formSchema.map((f, i) => `${i + 1}. key: "${f.key}", label: "${f.label}"`).join(', '));
     } else {
       // Fallback: Generate form schema from placeholders if stored schema not available
-      console.log('⚠️ Generating formSchema from placeholders (stored schema not available or not an array)');
+      console.log('⚠️ Generating formSchema from placeholders (stored schema not available)');
       if (template.placeholders && Array.isArray(template.placeholders) && template.placeholders.length > 0) {
         console.log('📋 Placeholders to generate from:', template.placeholders);
         const schemaObject = generateFormSchema(template.placeholders);
+        console.log('📋 Generated schemaObject (object format):', typeof schemaObject, Object.keys(schemaObject).length, 'keys');
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
           ...value,
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
+        console.log('📋 formSchema after conversion:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
+        formSchema = normalizeFormSchema(formSchema);
         console.log(`✅ Generated formSchema with ${formSchema.length} fields from placeholders`);
         console.log('📋 Generated formSchema details:', formSchema.map((f, i) => `${i + 1}. key: "${f.key}", label: "${f.label}"`).join(', '));
       } else {
@@ -220,13 +267,14 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Ensure formSchema is always an array (never undefined or null)
+    // Final validation: Ensure formSchema is always an array
     if (!Array.isArray(formSchema)) {
-      console.warn('⚠️ formSchema is not an array, initializing as empty array');
+      console.warn('⚠️ formSchema is still not an array after normalization, initializing as empty array');
       formSchema = [];
     }
     
     console.log(`📋 Final formSchema to return: ${formSchema.length} fields`);
+    console.log('📋 Final formSchema format:', Array.isArray(formSchema) ? 'array' : typeof formSchema);
     console.log('📋 Final formSchema keys:', formSchema.map(f => f.key).join(', '));
 
     return NextResponse.json({
