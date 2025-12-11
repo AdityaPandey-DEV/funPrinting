@@ -761,8 +761,49 @@ export default function OrderPage() {
           // Set the order type to file (since we're uploading the file)
           setOrderType('file');
           
-          // Handle Word URL if present
-          if (templateData.wordUrl) {
+          // Handle PDF URL if present (from real-time conversion)
+          if (templateData.isPdf && templateData.pdfUrl) {
+            setIsCountingPages(true);
+            setPdfLoaded(false);
+            
+            try {
+              // Fetch PDF file from URL
+              const response = await fetch(templateData.pdfUrl);
+              if (!response.ok) {
+                throw new Error('Failed to fetch PDF file from URL');
+              }
+              
+              const blob = await response.blob();
+              
+              // Convert blob to File object
+              const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.pdf`;
+              const file = new File([blob], fileName, {
+                type: 'application/pdf'
+              });
+              
+              // Add file to selectedFiles
+              setSelectedFiles([file]);
+              
+              // Create preview URL
+              const previewUrl = URL.createObjectURL(blob);
+              setPdfUrls([previewUrl]);
+              setFileURLs([templateData.pdfUrl]);
+              
+              // Count pages for PDF file
+              const pageCount = await countPagesInFile(file);
+              setFilePageCounts([pageCount]);
+              setPageCount(pageCount);
+              
+              setPdfLoaded(true);
+              setIsCountingPages(false);
+              
+              console.log('✅ PDF file loaded from URL and added to upload');
+            } catch (error) {
+              console.error('Error loading PDF file from URL:', error);
+              setIsCountingPages(false);
+            }
+          } else if (templateData.wordUrl) {
+            // Handle Word URL if present
             setIsCountingPages(true);
             setPdfLoaded(false);
             
@@ -803,7 +844,7 @@ export default function OrderPage() {
               setIsCountingPages(false);
             }
           } else if (templateData.pdfUrl) {
-            // Legacy: Handle PDF URL if present
+            // Legacy: Handle PDF URL if present (without isPdf flag)
             setPdfUrls([templateData.pdfUrl]);
             setPdfLoaded(true);
             setFileURLs([templateData.pdfUrl]);

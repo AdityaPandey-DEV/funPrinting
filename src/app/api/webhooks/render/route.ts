@@ -105,20 +105,43 @@ export async function POST(request: NextRequest) {
 
     console.log(`📄 PDF buffer size: ${pdfBufferData.length} bytes`);
 
-    // Upload PDF to storage (replacing DOCX location)
-    // Use same folder structure but with PDF extension
-    const pdfFolder = 'orders/filled-pdf';
-    console.log(`📤 Uploading PDF to storage...`);
-    const filledPdfUrl = await uploadFile(
-      pdfBufferData,
-      pdfFolder,
-      'application/pdf'
-    );
+    // Upload PDF to storage
+    // For template orders, use filled-pdf folder
+    // For file orders, replace the Word file URL
+    let uploadedPdfUrl: string;
+    
+    if (order.orderType === 'template') {
+      // Template order: use filled-pdf folder
+      const pdfFolder = 'orders/filled-pdf';
+      console.log(`📤 Uploading PDF to storage (template order)...`);
+      uploadedPdfUrl = await uploadFile(
+        pdfBufferData,
+        pdfFolder,
+        'application/pdf'
+      );
+      order.filledPdfUrl = uploadedPdfUrl;
+    } else {
+      // File order: replace Word file with PDF
+      const pdfFolder = 'orders';
+      console.log(`📤 Uploading PDF to storage (file order, replacing Word file)...`);
+      uploadedPdfUrl = await uploadFile(
+        pdfBufferData,
+        pdfFolder,
+        'application/pdf'
+      );
+      // Replace fileURL with PDF URL
+      order.fileURL = uploadedPdfUrl;
+      // Update file type
+      if (order.fileTypes && order.fileTypes.length > 0) {
+        order.fileTypes[0] = 'application/pdf';
+      } else {
+        order.fileType = 'application/pdf';
+      }
+    }
 
-    console.log(`✅ PDF uploaded: ${filledPdfUrl}`);
+    console.log(`✅ PDF uploaded: ${uploadedPdfUrl}`);
 
     // Update order with PDF URL and status
-    order.filledPdfUrl = filledPdfUrl;
     order.pdfConversionStatus = 'completed';
     if (jobId) {
       order.renderJobId = jobId;
@@ -130,10 +153,15 @@ export async function POST(request: NextRequest) {
     // Send PDF to customer's email as attachment
     try {
       console.log(`📧 Sending PDF to customer email: ${order.customerInfo.email}`);
+      // Determine file name based on order type
+      const fileName = order.orderType === 'template' 
+        ? `${order.templateName || 'document'}_${order.orderId}.pdf`
+        : `${order.originalFileName?.replace(/\.(docx?|doc)$/i, '') || 'document'}_${order.orderId}.pdf`;
+      
       const emailSent = await sendPdfToCustomer(
         order.customerInfo.email,
         pdfBufferData,
-        `${order.templateName || 'document'}_${order.orderId}.pdf`,
+        fileName,
         order.orderId
       );
 
@@ -151,7 +179,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'PDF received and order updated successfully',
       orderId: order.orderId,
-      pdfUrl: filledPdfUrl
+      pdfUrl: uploadedPdfUrl
     });
 
   } catch (error) {

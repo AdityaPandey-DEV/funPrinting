@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { uploadFile } from '@/lib/storage';
-import { v4 as uuidv4 } from 'uuid';
 
+/**
+ * Upload PDF file to storage
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get('file') as File;
-    const metadata = formData.get('metadata') as string;
 
     if (!file) {
       return NextResponse.json(
@@ -15,62 +16,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔄 Uploading PDF via HTTPS API...');
-    console.log('📄 File size:', file.size, 'bytes');
-    console.log('📄 File type:', file.type);
-
-    // Validate PDF file
     if (file.type !== 'application/pdf') {
       return NextResponse.json(
-        { success: false, error: 'Only PDF files are allowed' },
+        { success: false, error: 'File must be a PDF' },
         { status: 400 }
       );
     }
 
-    // Convert file to buffer
-    const buffer = Buffer.from(await file.arrayBuffer());
-    
-    // Validate PDF header
-    const pdfHeader = buffer.toString('ascii', 0, 4);
-    if (pdfHeader !== '%PDF') {
-      return NextResponse.json(
-        { success: false, error: 'Invalid PDF file format' },
-        { status: 400 }
-      );
-    }
+    // Convert File to Buffer
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Upload to cloud storage
-    let pdfUrl: string;
-    try {
-      const folder = metadata ? JSON.parse(metadata).folder || 'uploads' : 'uploads';
-      pdfUrl = await uploadFile(buffer, folder, 'application/pdf');
-      console.log('✅ PDF uploaded to cloud storage:', pdfUrl);
-    } catch (error) {
-      console.error('❌ Error uploading PDF:', error);
-      return NextResponse.json(
-        { success: false, error: 'Failed to upload PDF' },
-        { status: 500 }
-      );
-    }
+    // Upload to storage
+    const url = await uploadFile(
+      buffer,
+      'orders/template-pdf',
+      'application/pdf'
+    );
 
-    // Generate unique file ID
-    const fileId = uuidv4();
+    console.log(`✅ PDF uploaded: ${url}`);
 
-    // Return success response with file information
     return NextResponse.json({
       success: true,
-      fileId: fileId,
-      pdfUrl: pdfUrl,
-      fileName: file.name,
-      fileSize: file.size,
-      uploadDate: new Date().toISOString(),
-      message: 'PDF uploaded successfully via HTTPS API'
+      url: url
     });
 
   } catch (error) {
-    console.error('❌ PDF upload error:', error);
+    console.error('❌ Error uploading PDF:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to upload PDF' },
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

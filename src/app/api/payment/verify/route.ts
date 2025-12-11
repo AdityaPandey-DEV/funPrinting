@@ -6,6 +6,7 @@ import CreatorEarning from '@/models/CreatorEarning';
 import { verifyPayment } from '@/lib/razorpay';
 import { sendPrintJobFromOrder, generateDeliveryNumber } from '@/lib/printerClient';
 import { sendInvoiceEmail } from '@/lib/invoiceEmail';
+import { sendDocxToRender } from '@/lib/renderService';
 
 export async function POST(request: NextRequest) {
   try {
@@ -288,6 +289,72 @@ export async function POST(request: NextRequest) {
       } catch (printJobError) {
         console.error('❌ Error sending print job:', printJobError);
         // Don't fail the order if print job fails - it will be retried
+      }
+    }
+
+    // Check if this is a file order with Word document that needs PDF conversion
+    if (updateResult.orderType === 'file' && updateResult.fileURL) {
+      const fileType = updateResult.fileType || '';
+      const fileName = updateResult.originalFileName || '';
+      const isWordFile = fileType.includes('wordprocessingml') || 
+                        fileType.includes('msword') || 
+                        fileName.toLowerCase().endsWith('.docx') || 
+                        fileName.toLowerCase().endsWith('.doc');
+      
+      if (isWordFile) {
+        try {
+          console.log(`🔄 Detected Word file in order ${updateResult.orderId}, sending to Render for PDF conversion...`);
+          
+          // Prepare callback URL for Render webhook
+          let baseUrl = process.env.NEXTAUTH_URL;
+          if (!baseUrl) {
+            const vercelUrl = process.env.VERCEL_URL;
+            if (vercelUrl) {
+              baseUrl = vercelUrl.startsWith('http') ? vercelUrl : `https://${vercelUrl}`;
+            } else {
+              baseUrl = 'http://localhost:3000';
+            }
+          }
+          const callbackUrl = `${baseUrl}/api/webhooks/render`;
+          
+          // Send Word file to Render for async PDF conversion
+          const renderResponse = await sendDocxToRender(
+            updateResult.fileURL,
+            updateResult.orderId,
+            callbackUrl
+          );
+          
+          if (renderResponse.success && renderResponse.jobId) {
+            // Update order with conversion status
+            await Order.findByIdAndUpdate(updateResult._id, {
+              $set: {
+                pdfConversionStatus: 'pending',
+                renderJobId: renderResponse.jobId
+              }
+            });
+            console.log(`✅ Word file sent to Render for conversion. Job ID: ${renderResponse.jobId}`);
+          } else {
+            console.warn(`⚠️ Failed to send Word file to Render: ${renderResponse.error}`);
+            // Update order with failed status but don't block the order
+            await Order.findByIdAndUpdate(updateResult._id, {
+              $set: {
+                pdfConversionStatus: 'failed'
+              }
+            });
+          }
+        } catch (renderError) {
+          console.error('❌ Error sending Word file to Render:', renderError);
+          // Don't fail the order if Render call fails
+          try {
+            await Order.findByIdAndUpdate(updateResult._id, {
+              $set: {
+                pdfConversionStatus: 'failed'
+              }
+            });
+          } catch (updateError) {
+            console.error('❌ Error updating order conversion status:', updateError);
+          }
+        }
       }
     }
 
