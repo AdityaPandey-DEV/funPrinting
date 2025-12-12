@@ -782,19 +782,26 @@ export default function OrderPage() {
               }
               
               const blob = await response.blob();
-              console.log('✅ PDF blob fetched:', blob.size, 'bytes');
+              console.log('✅ PDF blob fetched:', blob.size, 'bytes', 'type:', blob.type);
               
-              // Convert blob to File object
+              // Explicitly set blob type to ensure it's recognized as PDF
+              const pdfBlob = blob.type === 'application/pdf' 
+                ? blob 
+                : new Blob([blob], { type: 'application/pdf' });
+              
+              console.log('✅ PDF blob type verified:', pdfBlob.type);
+              
+              // Convert blob to File object with explicit MIME type
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.pdf`;
-              const file = new File([blob], fileName, {
-                type: 'application/pdf'
+              const file = new File([pdfBlob], fileName, {
+                type: 'application/pdf' // Explicitly set MIME type
               });
               
               // Add file to selectedFiles
               setSelectedFiles([file]);
               
-              // Create preview URL
-              const previewUrl = URL.createObjectURL(blob);
+              // Create preview URL from the correctly typed PDF blob
+              const previewUrl = URL.createObjectURL(pdfBlob);
               setPdfUrls([previewUrl]);
               setFileURLs([templateData.pdfUrl]);
               
@@ -809,7 +816,10 @@ export default function OrderPage() {
               
               console.log('✅ PDF file loaded from URL and added to upload');
               console.log('  - File name:', fileName);
+              console.log('  - File type:', file.type);
+              console.log('  - File size:', file.size, 'bytes');
               console.log('  - Page count:', pageCount);
+              console.log('  - Preview URL created:', previewUrl.substring(0, 50) + '...');
               
               // PDF loaded successfully - exit early, don't load Word
               // Customer info will be set below after this block
