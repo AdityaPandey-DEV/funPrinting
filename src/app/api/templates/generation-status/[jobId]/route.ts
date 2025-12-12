@@ -1,16 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { checkConversionStatus } from '@/lib/renderPdfService';
-
-// In-memory store for job results (shared with generate-fill-pdf)
-// Note: In production, use Redis or database for shared state
-const jobStore = new Map<string, {
-  jobId: string;
-  wordUrl: string;
-  pdfUrl?: string;
-  status: 'processing' | 'completed' | 'failed';
-  error?: string;
-  createdAt: number;
-}>();
+import { jobStore } from '@/lib/jobStore';
 
 /**
  * Check generation and conversion status

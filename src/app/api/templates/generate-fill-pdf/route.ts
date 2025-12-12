@@ -3,30 +3,7 @@ import { fillDocxTemplate } from '@/lib/docxProcessor';
 import { uploadFile } from '@/lib/storage';
 import { convertDocxToPdfSync, checkServiceHealth } from '@/lib/renderPdfService';
 import { v4 as uuidv4 } from 'uuid';
-
-// In-memory store for job results (for status polling)
-// In production, use Redis or database
-// Note: This is a simple in-memory store. For production, use a shared cache like Redis
-const jobStore = new Map<string, {
-  jobId: string;
-  wordUrl: string;
-  pdfUrl?: string;
-  status: 'processing' | 'completed' | 'failed';
-  error?: string;
-  createdAt: number;
-}>();
-
-// Cleanup old jobs (older than 1 hour)
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    const oneHourAgo = Date.now() - 60 * 60 * 1000;
-    for (const [jobId, job] of jobStore.entries()) {
-      if (job.createdAt < oneHourAgo) {
-        jobStore.delete(jobId);
-      }
-    }
-  }, 10 * 60 * 1000); // Run cleanup every 10 minutes
-}
+import { jobStore } from '@/lib/jobStore';
 
 /**
  * Generate filled Word document and convert to PDF
