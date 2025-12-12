@@ -149,14 +149,16 @@ const conversionQueue = new ConversionQueue();
 function isRetryableError(error: { success: boolean; error?: string }): boolean {
   if (!error.success && error.error) {
     const errorMsg = error.error.toLowerCase();
-    // Retry on: timeout, 500 errors, network errors, service unavailable
+    // Retry on: timeout, 500 errors, network errors, service unavailable, LibreOffice failures, service not ready
     return (
       errorMsg.includes('timeout') ||
       errorMsg.includes('500') ||
       errorMsg.includes('network') ||
       errorMsg.includes('fetch') ||
       errorMsg.includes('service unavailable') ||
-      errorMsg.includes('conversion failed: 500')
+      errorMsg.includes('conversion failed: 500') ||
+      errorMsg.includes('libreoffice conversion failed') ||
+      errorMsg.includes('service not ready')
     );
   }
   return false;
@@ -172,7 +174,7 @@ function isRetryableError(error: { success: boolean; error?: string }): boolean 
  */
 export async function convertDocxToPdfSync(
   docxUrl: string,
-  timeout: number = 60000,
+  timeout: number = 90000, // Increased to 90 seconds to allow for service startup delays
   retries: number = 3
 ): Promise<{ success: boolean; pdfBuffer?: string; error?: string }> {
   try {
