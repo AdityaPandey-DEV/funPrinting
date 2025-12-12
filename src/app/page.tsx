@@ -164,7 +164,7 @@ export default function Home() {
       <section className="bg-gradient-to-r from-gray-900 to-black text-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Fun Printing Services
+            Professional Printing Service
           </h1>
           <p className="text-xl md:text-2xl mb-8 text-gray-300">
             Your trusted printing service for fast, reliable, and affordable printing solutions. 
@@ -221,7 +221,7 @@ export default function Home() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-                Why Choose Fun Printing Service?
+                Why Choose Professional Printing Service?
               </h2>
               <div className="space-y-4">
                 <div className="flex items-start">
