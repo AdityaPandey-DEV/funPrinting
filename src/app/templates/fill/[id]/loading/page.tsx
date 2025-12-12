@@ -38,6 +38,10 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
       console.log('[LOADING] Template ID:', templateId);
       console.log('[LOADING] Form data keys:', Object.keys(formData));
       
+      // Start progress animation immediately (don't wait for API response)
+      setCurrentMessage('Generating file...');
+      setStatus(prev => ({ ...prev, status: 'processing', progress: 0 }));
+      
       // Make API call
       const response = await fetch('/api/templates/generate-fill-pdf', {
         method: 'POST',
@@ -62,6 +66,7 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         }
         console.error('❌ Generation error:', errorMessage);
         setError(errorMessage);
+        setStatus(prev => ({ ...prev, status: 'failed', progress: 0 }));
         return;
       }
 
@@ -80,29 +85,34 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         // If already complete, redirect immediately
         if (result.status === 'completed' && result.pdfUrl) {
           console.log('✅ Generation completed immediately, redirecting to complete page');
+          setStatus(prev => ({ ...prev, status: 'completed', progress: 100 }));
           setTimeout(() => {
             router.push(`/templates/fill/${templateIdParam}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
           }, 500);
           return;
         } else if (result.status === 'failed' && result.wordUrl) {
           console.log('⚠️ Generation failed but Word file available, redirecting to complete page');
+          setStatus(prev => ({ ...prev, status: 'failed', progress: 50 }));
           setTimeout(() => {
             router.push(`/templates/fill/${templateIdParam}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
           }, 500);
           return;
         } else if (result.wordUrl) {
           // Store wordUrl for fallback during polling
-          setStatus(prev => ({ ...prev, wordUrl: result.wordUrl }));
+          setStatus(prev => ({ ...prev, wordUrl: result.wordUrl, progress: 50 }));
+          setCurrentMessage('Converting to PDF...');
         }
         
         // If we have a jobId, the polling useEffect will handle the rest
         // If not, we'll continue with the progress animation
       } else {
         setError(result.error || 'Failed to generate document');
+        setStatus(prev => ({ ...prev, status: 'failed', progress: 0 }));
       }
     } catch (error) {
       console.error('❌ Error starting generation:', error);
       setError('Failed to start document generation. Please try again.');
+      setStatus(prev => ({ ...prev, status: 'failed', progress: 0 }));
     }
   }, [router]);
 
@@ -158,25 +168,63 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
     getParams();
   }, [params, searchParams, router, startGeneration]);
 
+  // Start progress animation immediately when page loads (for immediate redirect flow)
+  // This runs while waiting for the API response (before jobId is set)
+  useEffect(() => {
+    // Only start animation if we don't have a jobId yet (waiting for API response)
+    if (jobId) return;
+    
+    let progressInterval: NodeJS.Timeout | undefined;
+    let currentProgress = 0;
+    
+    // Animate progress from 0 to 50% (Word generation phase)
+    const animateProgress = () => {
+      progressInterval = setInterval(() => {
+        currentProgress += 1.5; // Increment progress
+        if (currentProgress >= 50) {
+          currentProgress = 50; // Cap at 50%
+          clearInterval(progressInterval);
+        }
+        setStatus(prev => {
+          // Only update if we haven't reached 50% yet
+          if (prev.progress < 50) {
+            return { ...prev, progress: Math.min(currentProgress, 50) };
+          }
+          return prev;
+        });
+      }, 150);
+    };
+
+    // Start animation immediately
+    animateProgress();
+
+    return () => {
+      if (progressInterval) clearInterval(progressInterval);
+    };
+  }, [jobId]); // Only depend on jobId, not status.progress
+
   useEffect(() => {
     if (!jobId) return;
 
     // Simulate progress animation while checking status
     let progressInterval: NodeJS.Timeout | undefined;
-    let currentProgress = 0;
+    let currentProgress = status.progress || 50; // Start from 50% if Word is done
     const startTime = Date.now();
     const MAX_WAIT_TIME = 120000; // 2 minutes timeout
 
-    // Animate progress from 0 to 50% (Word generation)
+    // Animate progress from 50 to 100% (PDF conversion phase)
     const animateProgress = () => {
-      progressInterval = setInterval(() => {
-        if (currentProgress < 50) {
-          currentProgress += 2;
-          setStatus(prev => ({ ...prev, progress: currentProgress }));
-        } else {
-          clearInterval(progressInterval);
-        }
-      }, 100);
+      // If we're already at 50%, continue to 100%
+      if (currentProgress >= 50 && currentProgress < 100) {
+        progressInterval = setInterval(() => {
+          if (currentProgress < 100) {
+            currentProgress += 1;
+            setStatus(prev => ({ ...prev, progress: Math.min(currentProgress, 100) }));
+          } else {
+            clearInterval(progressInterval);
+          }
+        }, 200);
+      }
     };
 
     animateProgress();
