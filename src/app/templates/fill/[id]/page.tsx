@@ -223,9 +223,26 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       const result = await response.json();
       
       if (result.success) {
-        // Redirect to loading page with job ID
-        if (result.jobId) {
-          router.push(`/templates/fill/${templateId}/loading?jobId=${result.jobId}`);
+        // Since generation is synchronous, check if it's already complete
+        // If complete, go directly to complete page; otherwise show loading page
+        if (result.status === 'completed' && result.pdfUrl) {
+          // Already complete with PDF - go directly to complete page
+          router.push(`/templates/fill/${templateId}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
+          return;
+        } else if (result.status === 'failed' && result.wordUrl) {
+          // Failed but has Word file - go to complete page with error
+          router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
+          return;
+        } else if (result.jobId) {
+          // Still processing or status unknown - pass all info via URL params for loading page
+          const params = new URLSearchParams({
+            jobId: result.jobId,
+            status: result.status || 'processing',
+          });
+          if (result.wordUrl) params.set('wordUrl', result.wordUrl);
+          if (result.pdfUrl) params.set('pdfUrl', result.pdfUrl);
+          if (result.error) params.set('error', result.error);
+          router.push(`/templates/fill/${templateId}/loading?${params.toString()}`);
           return; // Exit early, loading page will handle the rest
         }
         
