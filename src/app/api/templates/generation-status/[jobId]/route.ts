@@ -26,10 +26,20 @@ export async function GET(
     const job = jobStore.get(jobId);
     
     if (job) {
-      // Job found in store
-      const progress = job.status === 'completed' ? 100 : job.status === 'failed' ? 50 : 50;
+      // Job found in store - calculate progress based on status
+      let progress = 50; // Word generation done
+      if (job.status === 'completed' && job.pdfUrl) {
+        progress = 100; // PDF conversion complete
+      } else if (job.status === 'processing' && job.wordUrl && !job.pdfUrl) {
+        // PDF conversion in progress - estimate progress based on elapsed time
+        const elapsed = Date.now() - job.createdAt;
+        // Progress from 50% to 90% over 60 seconds
+        progress = 50 + Math.min((elapsed / 60000) * 40, 40);
+      } else if (job.status === 'failed') {
+        progress = 50; // Word done, PDF failed
+      }
       
-      console.log(`✅ Job found in store: ${jobId}, status: ${job.status}, hasWordUrl: ${!!job.wordUrl}, hasPdfUrl: ${!!job.pdfUrl}`);
+      console.log(`✅ Job found in store: ${jobId}, status: ${job.status}, progress: ${progress}%, hasWordUrl: ${!!job.wordUrl}, hasPdfUrl: ${!!job.pdfUrl}`);
       
       return NextResponse.json({
         success: true,

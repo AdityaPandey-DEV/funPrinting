@@ -94,6 +94,16 @@ export async function POST(request: NextRequest) {
     );
     console.log('✅ Filled Word document uploaded:', wordUrl);
 
+    // Store job in jobStore BEFORE starting PDF conversion
+    // This allows polling to start and see the job while PDF conversion is happening
+    jobStore.set(jobId, {
+      jobId,
+      wordUrl,
+      status: 'processing', // Set to processing before PDF conversion
+      createdAt: Date.now(),
+    });
+    console.log(`✅ Job stored in jobStore (before PDF conversion): ${jobId}, status: processing, hasWordUrl: ${!!wordUrl}`);
+
     // Step 2: Convert to PDF if service is available
     let pdfUrl: string | undefined;
     let status: 'processing' | 'completed' | 'failed' = 'completed';
@@ -134,22 +144,19 @@ export async function POST(request: NextRequest) {
       error = `PDF conversion service not available: ${healthCheck.error || 'Health check failed'}`;
     }
 
-    // Store job status temporarily (for status polling)
-    // In a production system, you might want to store this in a database
-    // For now, we'll return the status immediately since we're using sync conversion
-
-    // Store job result for status polling (always store, even if PDF conversion failed)
-    // This ensures the loading page can retrieve the Word URL even if PDF fails
+    // Update job status after PDF conversion completes
+    // Job was already stored before PDF conversion, now update it with final status
+    const existingJob = jobStore.get(jobId);
     jobStore.set(jobId, {
       jobId,
       wordUrl, // Always store wordUrl, even if PDF conversion failed
       pdfUrl,
       status,
       error,
-      createdAt: Date.now(),
+      createdAt: existingJob?.createdAt || Date.now(), // Keep original creation time
     });
     
-    console.log(`✅ Job stored in jobStore: ${jobId}, status: ${status}, hasWordUrl: ${!!wordUrl}, hasPdfUrl: ${!!pdfUrl}`);
+    console.log(`✅ Job updated in jobStore: ${jobId}, status: ${status}, hasWordUrl: ${!!wordUrl}, hasPdfUrl: ${!!pdfUrl}`);
     
     return NextResponse.json({
       success: true,

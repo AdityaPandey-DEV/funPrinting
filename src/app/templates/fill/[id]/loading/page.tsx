@@ -80,12 +80,22 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         // Set jobId to trigger polling
         if (result.jobId) {
           setJobId(result.jobId);
+          // Update URL with jobId for persistence
+          router.replace(`/templates/fill/${templateIdParam}/loading?jobId=${result.jobId}`);
+          // Store in sessionStorage as backup
+          if (typeof window !== 'undefined') {
+            sessionStorage.setItem(`template_${templateIdParam}_jobId`, result.jobId);
+          }
         }
         
         // If already complete, redirect immediately
         if (result.status === 'completed' && result.pdfUrl) {
           console.log('✅ Generation completed immediately, redirecting to complete page');
           setStatus(prev => ({ ...prev, status: 'completed', progress: 100 }));
+          // Clean up sessionStorage
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(`template_${templateIdParam}_jobId`);
+          }
           setTimeout(() => {
             router.push(`/templates/fill/${templateIdParam}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
           }, 500);
@@ -93,6 +103,10 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         } else if (result.status === 'failed' && result.wordUrl) {
           console.log('⚠️ Generation failed but Word file available, redirecting to complete page');
           setStatus(prev => ({ ...prev, status: 'failed', progress: 50 }));
+          // Clean up sessionStorage
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(`template_${templateIdParam}_jobId`);
+          }
           setTimeout(() => {
             router.push(`/templates/fill/${templateIdParam}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
           }, 500);
@@ -127,20 +141,39 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
       const wordUrlParam = searchParams.get('wordUrl');
       const errorParam = searchParams.get('error');
       
-      // Check if we have a jobId from URL params (existing flow)
-      if (jobIdParam) {
-        setJobId(jobIdParam);
+      // Check for jobId in URL params first, then sessionStorage (for refresh case)
+      let jobId = jobIdParam;
+      if (!jobId && typeof window !== 'undefined') {
+        const jobIdFromStorage = sessionStorage.getItem(`template_${resolvedParams.id}_jobId`);
+        if (jobIdFromStorage) {
+          jobId = jobIdFromStorage;
+          // Update URL if we found it in storage but not in URL
+          router.replace(`/templates/fill/${resolvedParams.id}/loading?jobId=${jobIdFromStorage}`);
+        }
+      }
+      
+      // Check if we have a jobId from URL params or sessionStorage
+      if (jobId) {
+        setJobId(jobId);
         
         // If status, URLs, or error are provided in URL params, use them immediately
         // This handles the case where generation completed synchronously
         if (statusParam === 'completed' && pdfUrlParam) {
           // Already complete - redirect immediately
+          // Clean up sessionStorage
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(`template_${resolvedParams.id}_jobId`);
+          }
           setTimeout(() => {
             router.push(`/templates/fill/${resolvedParams.id}/complete?pdfUrl=${encodeURIComponent(pdfUrlParam)}&wordUrl=${encodeURIComponent(wordUrlParam || '')}`);
           }, 500);
           return;
         } else if (statusParam === 'failed' && wordUrlParam) {
           // Failed but has Word file - redirect immediately
+          // Clean up sessionStorage
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(`template_${resolvedParams.id}_jobId`);
+          }
           setTimeout(() => {
             router.push(`/templates/fill/${resolvedParams.id}/complete?wordUrl=${encodeURIComponent(wordUrlParam)}&error=${encodeURIComponent(errorParam || 'PDF conversion failed. You can still download the Word document.')}`);
           }, 500);
@@ -150,7 +183,7 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           setStatus(prev => ({ ...prev, wordUrl: wordUrlParam }));
         }
       } else {
-        // No jobId in URL - check for form data in sessionStorage (new immediate redirect flow)
+        // No jobId in URL or storage - check for form data in sessionStorage (new immediate redirect flow)
         if (typeof window !== 'undefined') {
           const storedData = sessionStorage.getItem('pendingTemplateFormData');
           if (storedData) {
@@ -256,36 +289,59 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         const result = await response.json();
 
         if (result.success) {
-          // Update progress - if we got a real status, use it; otherwise continue animation
-          if (result.progress !== undefined && result.progress > currentProgress) {
-            currentProgress = result.progress;
-            clearInterval(progressInterval);
+          // Use real progress from API if available, otherwise use animated progress
+          let finalProgress = result.progress;
+          if (finalProgress === undefined) {
+            finalProgress = currentProgress;
+          } else {
+            // If API returned real progress, update currentProgress and stop animation
+            if (finalProgress > currentProgress) {
+              currentProgress = finalProgress;
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = undefined;
+              }
+            }
+          }
+
+          // If job is processing with wordUrl but no pdfUrl, estimate progress based on time
+          if (result.status === 'processing' && result.wordUrl && !result.pdfUrl) {
+            // PDF conversion in progress - show progress between 50-90%
+            const elapsed = Date.now() - startTime;
+            const estimatedProgress = 50 + Math.min((elapsed / 60000) * 40, 40); // 50-90% based on time
+            finalProgress = Math.max(finalProgress || 50, estimatedProgress);
+            currentProgress = finalProgress;
           }
 
           setStatus({
             status: result.status,
-            progress: result.progress || currentProgress,
+            progress: finalProgress,
             pdfUrl: result.pdfUrl,
             wordUrl: result.wordUrl,
             error: result.error,
           });
 
           // Update message based on progress
-          const finalProgress = result.progress || currentProgress;
           if (finalProgress < 50) {
             setCurrentMessage('Generating file...');
           } else if (finalProgress < 100) {
             setCurrentMessage('Converting to PDF...');
-            // Animate from 50 to 100
+            // Continue animation if not already running and progress is between 50-100
             if (finalProgress >= 50 && finalProgress < 100 && !progressInterval) {
-              const pdfProgressInterval = setInterval(() => {
+              progressInterval = setInterval(() => {
                 if (currentProgress < 100) {
-                  currentProgress += 2;
-                  setStatus(prev => ({ ...prev, progress: currentProgress }));
+                  currentProgress += 0.5; // Slower increment to sync with polling
+                  setStatus(prev => {
+                    // Only update if status is still processing
+                    if (prev.status === 'processing') {
+                      return { ...prev, progress: Math.min(currentProgress, 95) };
+                    }
+                    return prev;
+                  });
                 } else {
-                  clearInterval(pdfProgressInterval);
+                  if (progressInterval) clearInterval(progressInterval);
                 }
-              }, 150);
+              }, 200);
             }
           } else {
             setCurrentMessage('Complete!');
@@ -295,6 +351,10 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           if (result.status === 'completed' && result.pdfUrl) {
             if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
+            // Clean up sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem(`template_${templateId}_jobId`);
+            }
             setTimeout(() => {
               router.push(`/templates/fill/${templateId}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
             }, 1000);
@@ -302,6 +362,10 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           } else if (result.status === 'failed') {
             if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
+            // Clean up sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem(`template_${templateId}_jobId`);
+            }
             // If failed but we have wordUrl, still redirect but show warning
             if (result.wordUrl) {
               setTimeout(() => {
@@ -321,11 +385,16 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           }
         } else {
           // If status check fails, check if we have wordUrl from previous successful check
-          if (status.wordUrl) {
+          const currentStatus = status;
+          if (currentStatus.wordUrl) {
             console.warn('⚠️ Status check failed but we have wordUrl, redirecting...');
             if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
-            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check failed. You can still download the Word document.')}`);
+            // Clean up sessionStorage
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem(`template_${templateId}_jobId`);
+            }
+            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(currentStatus.wordUrl)}&error=${encodeURIComponent('Status check failed. You can still download the Word document.')}`);
             return;
           }
         }
@@ -335,9 +404,14 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         if (Date.now() - startTime > MAX_WAIT_TIME) {
           if (progressInterval) clearInterval(progressInterval);
           if (statusInterval) clearInterval(statusInterval);
+          // Clean up sessionStorage
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem(`template_${templateId}_jobId`);
+          }
           // Try to get wordUrl from status state
-          if (status.wordUrl) {
-            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check error. You can still download the Word document.')}`);
+          const currentStatus = status;
+          if (currentStatus.wordUrl) {
+            router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(currentStatus.wordUrl)}&error=${encodeURIComponent('Status check error. You can still download the Word document.')}`);
           } else {
             // Try one more fetch before showing error
             try {
