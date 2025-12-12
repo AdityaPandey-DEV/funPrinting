@@ -44,7 +44,6 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
 
     // Simulate progress animation while checking status
     let progressInterval: NodeJS.Timeout | undefined;
-    let statusInterval: NodeJS.Timeout | undefined;
     let currentProgress = 0;
     const startTime = Date.now();
     const MAX_WAIT_TIME = 120000; // 2 minutes timeout
@@ -69,7 +68,8 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
         // Check timeout
         if (Date.now() - startTime > MAX_WAIT_TIME) {
           console.warn('⏱️ Timeout reached, redirecting with Word file');
-          clearInterval(progressInterval);
+          if (progressInterval) clearInterval(progressInterval);
+          clearInterval(statusInterval);
           // Try to get wordUrl from last status check
           try {
             const lastResponse = await fetch(`/api/templates/generation-status/${jobId}`);
@@ -126,14 +126,14 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
 
           // If completed, redirect to completion page
           if (result.status === 'completed' && result.pdfUrl) {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
             setTimeout(() => {
               router.push(`/templates/fill/${templateId}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
             }, 1000);
             return; // Exit early
           } else if (result.status === 'failed') {
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
             // If failed but we have wordUrl, still redirect but show warning
             if (result.wordUrl) {
@@ -156,7 +156,7 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           // If status check fails, check if we have wordUrl from previous successful check
           if (status.wordUrl) {
             console.warn('⚠️ Status check failed but we have wordUrl, redirecting...');
-            clearInterval(progressInterval);
+            if (progressInterval) clearInterval(progressInterval);
             clearInterval(statusInterval);
             router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(status.wordUrl)}&error=${encodeURIComponent('Status check failed. You can still download the Word document.')}`);
             return;
@@ -192,12 +192,12 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
 
     // Poll immediately, then every 2 seconds
     pollStatus();
-    statusInterval = setInterval(pollStatus, 2000);
+    const statusInterval = setInterval(pollStatus, 2000);
 
     // Cleanup intervals on unmount
     return () => {
       if (progressInterval) clearInterval(progressInterval);
-      if (statusInterval) clearInterval(statusInterval);
+      clearInterval(statusInterval);
     };
   }, [jobId, templateId, router]);
 
