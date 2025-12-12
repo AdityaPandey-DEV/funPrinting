@@ -38,6 +38,9 @@ export async function POST(request: NextRequest) {
     
     const { templateId, formData } = await request.json();
 
+    console.log('[GENERATE-FILL] Received formData keys:', Object.keys(formData || {}));
+    console.log('[GENERATE-FILL] Received formData:', formData);
+
     if (!templateId || !formData) {
       return NextResponse.json(
         { success: false, error: 'templateId and formData are required' },
@@ -77,8 +80,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const template = templateJson.data.template as { name: string; wordUrl: string };
+    const template = templateJson.data.template as { name: string; wordUrl: string; formSchema?: any[]; placeholders?: string[] };
     console.log(`✅ Template found: ${template.name}`);
+    console.log('[GENERATE-FILL] Template formSchema:', template.formSchema);
+    console.log('[GENERATE-FILL] Template formSchema keys:', template.formSchema?.map((f: any) => f.key) || []);
+    console.log('[GENERATE-FILL] Template placeholders:', template.placeholders);
+    console.log('[GENERATE-FILL] FormData keys received:', Object.keys(formData));
+    console.log('[GENERATE-FILL] Missing fields in formData:', 
+      template.formSchema?.filter((f: any) => !formData[f.key])?.map((f: any) => f.key) || 
+      template.placeholders?.filter((p: string) => !formData[p]) || []
+    );
 
     // Fetch the DOCX file
     const sourceRes = await fetch(template.wordUrl);
