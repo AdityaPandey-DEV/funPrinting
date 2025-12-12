@@ -476,6 +476,7 @@ export default function OrderPage() {
   const [filePageCounts, setFilePageCounts] = useState<number[]>([]); // Track page count for each file
   const [pdfUrls, setPdfUrls] = useState<string[]>([]);
   const [pdfLoaded, setPdfLoaded] = useState(false);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [isCountingPages, setIsCountingPages] = useState(false);
   
   // Step 2: Details, delivery, and payment
@@ -769,6 +770,7 @@ export default function OrderPage() {
             console.log('  - isPdf flag:', templateData.isPdf);
             console.log('  - Word URL available:', !!templateData.wordUrl);
             
+            setIsLoadingPdf(true); // Mark that we're loading PDF
             setIsCountingPages(true);
             setPdfLoaded(false);
             
@@ -802,27 +804,44 @@ export default function OrderPage() {
               setPageCount(pageCount);
               
               setPdfLoaded(true);
+              setIsLoadingPdf(false);
               setIsCountingPages(false);
               
               console.log('✅ PDF file loaded from URL and added to upload');
               console.log('  - File name:', fileName);
               console.log('  - Page count:', pageCount);
+              
+              // PDF loaded successfully - exit early, don't load Word
+              // Customer info will be set below after this block
+              // Clear the pending template document
+              sessionStorage.removeItem('pendingTemplateDocument');
+              
+              // Set customer info from the form data (for PDF case)
+              if (templateData.customerData) {
+                const extractedInfo = extractCustomerInfo(templateData.customerData);
+                console.log('📋 Extracted customer info from template:', extractedInfo);
+                setCustomerInfo(prev => ({
+                  name: extractedInfo.name || prev.name,
+                  phone: extractedInfo.phone || prev.phone,
+                  email: extractedInfo.email || prev.email,
+                }));
+              }
+              
+              return; // Exit early - PDF loaded successfully, don't load Word
             } catch (error) {
               console.error('❌ Error loading PDF file from URL:', error);
+              setIsLoadingPdf(false);
               setIsCountingPages(false);
-              // Fallback to Word if PDF fails
-              if (templateData.wordUrl) {
-                console.log('⚠️ PDF loading failed, falling back to Word file...');
-                // Continue with Word file handling below (don't return, let it fall through)
-              } else {
-                console.error('❌ No Word file available as fallback');
-                return;
-              }
+              // PDF failed - will fall through to Word fallback below
+              console.log('⚠️ PDF loading failed, will try Word file fallback...');
             }
           }
           
-          // Fallback: Handle Word URL if PDF not available or PDF loading failed
-          if (!pdfLoaded && templateData.wordUrl) {
+          // Fallback: Handle Word URL only if:
+          // 1. PDF URL is not available, AND
+          // 2. PDF loading is not in progress, AND
+          // 3. PDF was not successfully loaded
+          if (!templateData.pdfUrl && !isLoadingPdf && !pdfLoaded && templateData.wordUrl) {
             // Fallback: Handle Word URL if PDF not available or failed to load
             console.log('📄 Loading Word file from template generation (PDF not available or failed)...');
             console.log('  - Word URL:', templateData.wordUrl);
@@ -873,7 +892,7 @@ export default function OrderPage() {
           // Note: PDF handling is done above with priority
           // If we reach here without pdfLoaded being true, it means:
           // 1. PDF URL was not provided, OR
-          // 2. PDF loading failed AND Word fallback also failed or wasn't available
+          // 2. PDF loading failed (and we're now trying Word fallback)
           
           // Set customer info from the form data
           if (templateData.customerData) {
