@@ -99,7 +99,8 @@ export async function POST(request: NextRequest) {
         // Extract placeholders from uploaded DOCX
         console.log('🔍 Extracting placeholders from uploaded DOCX...');
         const extractedPlaceholders = await extractPlaceholders(docxBuffer);
-        console.log(`✅ Extracted ${extractedPlaceholders.length} placeholders:`, extractedPlaceholders);
+        console.log(`[CREATE] Extracted ${extractedPlaceholders.length} placeholders:`, extractedPlaceholders);
+        console.log(`[CREATE] Placeholder keys:`, extractedPlaceholders.map(p => p));
 
         // Upload DOCX directly to storage (no generation)
         console.log('☁️ Uploading original DOCX file to storage...');
@@ -112,12 +113,14 @@ export async function POST(request: NextRequest) {
 
         // Generate formSchema from extracted placeholders
         const schemaObject = generateFormSchema(extractedPlaceholders);
+        console.log(`[CREATE] Generated formSchema object keys:`, Object.keys(schemaObject));
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
           ...value,
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
-        console.log(`✅ Generated formSchema with ${formSchema.length} fields`);
+        console.log(`[CREATE] FormSchema array (${formSchema.length} fields):`, formSchema.map(f => ({ key: f.key, label: f.label })));
+        console.log(`[CREATE] FormSchema keys array:`, formSchema.map(f => f.key));
 
         // Use extracted placeholders
         finalPlaceholders = extractedPlaceholders;
@@ -249,6 +252,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new dynamic template with user context and monetization
+    console.log(`[CREATE] Saving to database: placeholders=[${finalPlaceholders?.length || 0}], formSchema=[${formSchema?.length || 0}]`);
+    console.log(`[CREATE] Placeholders to save:`, finalPlaceholders);
+    console.log(`[CREATE] FormSchema keys to save:`, formSchema?.map(f => f.key) || []);
+    
     const template = new DynamicTemplate({
       id: templateId,
       name: templateName,
@@ -276,7 +283,12 @@ export async function POST(request: NextRequest) {
 
     await template.save();
 
-    console.log('✅ Template saved to database:', templateId);
+    // Verify what was actually saved
+    const savedTemplate = await DynamicTemplate.findOne({ id: templateId });
+    console.log(`[CREATE] ✅ Template saved to database: ${templateId}`);
+    console.log(`[CREATE] Verified saved placeholders:`, savedTemplate?.placeholders);
+    console.log(`[CREATE] Verified saved formSchema count:`, savedTemplate?.formSchema?.length || 0);
+    console.log(`[CREATE] Verified saved formSchema keys:`, savedTemplate?.formSchema?.map((f: any) => f.key) || []);
 
     return NextResponse.json({
       success: true,

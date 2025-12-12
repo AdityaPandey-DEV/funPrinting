@@ -211,6 +211,7 @@ export async function extractPlaceholders(docxBuffer: Buffer): Promise<string[]>
  * @returns Object - Form schema for dynamic form generation
  */
 export function generateFormSchema(placeholders: string[]): Record<string, any> {
+  console.log('[generateFormSchema] Input placeholders:', placeholders);
   const schema: Record<string, any> = {};
   
   placeholders.forEach(placeholder => {
@@ -222,8 +223,11 @@ export function generateFormSchema(placeholders: string[]): Record<string, any> 
       placeholder: defaultPlaceholder,
       defaultPlaceholder: defaultPlaceholder // Store default value for reset functionality
     };
+    console.log(`[generateFormSchema] Added schema for "${placeholder}" -> key: "${placeholder}", label: "${schema[placeholder].label}"`);
   });
   
+  console.log('[generateFormSchema] Generated schema keys:', Object.keys(schema));
+  console.log('[generateFormSchema] Schema count:', Object.keys(schema).length);
   return schema;
 }
 

@@ -191,19 +191,30 @@ export async function GET(request: NextRequest) {
     // Use stored formSchema from database if available (preferred)
     // Only regenerate if formSchema is missing or empty
     let formSchema: any[] = [];
+    console.log(`[RETRIEVE] Template found: ${template.id}`);
+    console.log(`[RETRIEVE] Stored placeholders:`, template.placeholders);
+    console.log(`[RETRIEVE] Stored formSchema exists:`, !!template.formSchema);
+    console.log(`[RETRIEVE] Stored formSchema is array:`, Array.isArray(template.formSchema));
+    console.log(`[RETRIEVE] Stored formSchema length:`, template.formSchema?.length || 0);
+    
     if (template.formSchema && Array.isArray(template.formSchema) && template.formSchema.length > 0) {
-      console.log('Using stored formSchema from database');
+      console.log('[RETRIEVE] Using stored formSchema from database');
       formSchema = template.formSchema;
+      console.log(`[RETRIEVE] Retrieved formSchema from DB: ${formSchema.length} fields`);
+      console.log(`[RETRIEVE] FormSchema keys:`, formSchema.map((f: any) => f.key));
+      console.log(`[RETRIEVE] FormSchema fields:`, formSchema.map((f: any) => ({ key: f.key, label: f.label })));
     } else {
       // Fallback: Generate form schema from placeholders if stored schema not available
-      console.log('Generating formSchema from placeholders (stored schema not available)');
+      console.log('[RETRIEVE] Generating formSchema from placeholders (stored schema not available)');
       if (template.placeholders && Array.isArray(template.placeholders) && template.placeholders.length > 0) {
         const schemaObject = generateFormSchema(template.placeholders);
+        console.log(`[RETRIEVE] Generated formSchema object keys:`, Object.keys(schemaObject));
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
           key,
           ...value,
           defaultPlaceholder: value.defaultPlaceholder || value.placeholder || `Enter ${key}`
         }));
+        console.log(`[RETRIEVE] Generated formSchema array (${formSchema.length} fields):`, formSchema.map(f => ({ key: f.key, label: f.label })));
       }
     }
 

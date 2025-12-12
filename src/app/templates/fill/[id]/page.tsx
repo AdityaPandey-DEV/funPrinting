@@ -72,22 +72,33 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       const result = await response.json();
 
       if (result.success) {
+        console.log('[RENDER] Received template from API');
+        console.log('[RENDER] Template placeholders:', result.data.template.placeholders);
+        console.log('[RENDER] Template formSchema exists:', !!result.data.template.formSchema);
+        console.log('[RENDER] Template formSchema is array:', Array.isArray(result.data.template.formSchema));
+        console.log('[RENDER] Template formSchema length:', result.data.template.formSchema?.length || 0);
+        
         setTemplate(result.data.template);
         // Initialize form data with empty values
         const initialFormData: FormData = {};
         
         // Check if formSchema exists and is an array
         if (result.data.template.formSchema && Array.isArray(result.data.template.formSchema)) {
+          console.log('[RENDER] Using formSchema to initialize form data');
+          console.log('[RENDER] FormSchema fields:', result.data.template.formSchema.map((f: FormField) => ({ key: f.key, label: f.label })));
+          console.log('[RENDER] FormSchema keys:', result.data.template.formSchema.map((f: FormField) => f.key));
           result.data.template.formSchema.forEach((field: FormField) => {
             initialFormData[field.key] = '';
           });
         } else if (result.data.template.placeholders && Array.isArray(result.data.template.placeholders)) {
           // Fallback: use placeholders array to create form data
+          console.log('[RENDER] Using placeholders array as fallback');
           result.data.template.placeholders.forEach((placeholder: string) => {
             initialFormData[placeholder] = '';
           });
         }
         
+        console.log('[RENDER] Initialized formData keys:', Object.keys(initialFormData));
         setFormData(initialFormData);
       } else {
         setError(result.error || 'Template not found');
@@ -819,15 +830,23 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                 <div className="space-y-4">
                   {template.formSchema && Array.isArray(template.formSchema) ? (
                     // Use formSchema if available
-                    template.formSchema.map((field) => (
-                      <div key={field.key} className={field.type === 'textarea' ? 'col-span-2' : ''}>
-                        <label htmlFor={field.key} className="block text-sm font-medium text-gray-700">
-                          {field.label}
-                          {field.required && <span className="text-red-500 ml-1">*</span>}
-                        </label>
-                        {renderFormField(field)}
-                      </div>
-                    ))
+                    (() => {
+                      console.log('[RENDER] Rendering formSchema fields');
+                      console.log('[RENDER] FormSchema count:', template.formSchema.length);
+                      console.log('[RENDER] FormSchema keys to render:', template.formSchema.map(f => f.key));
+                      return template.formSchema.map((field) => {
+                        console.log(`[RENDER] Rendering field: ${field.key} (label: ${field.label})`);
+                        return (
+                          <div key={field.key} className={field.type === 'textarea' ? 'col-span-2' : ''}>
+                            <label htmlFor={field.key} className="block text-sm font-medium text-gray-700">
+                              {field.label}
+                              {field.required && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {renderFormField(field)}
+                          </div>
+                        );
+                      });
+                    })()
                   ) : template.placeholders && Array.isArray(template.placeholders) ? (
                     // Fallback: use placeholders to create form fields
                     template.placeholders.map((placeholder) => (
