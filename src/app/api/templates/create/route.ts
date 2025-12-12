@@ -96,10 +96,19 @@ export async function POST(request: NextRequest) {
         const docxBuffer = Buffer.from(await docxResponse.arrayBuffer());
         console.log(`✅ DOCX downloaded: ${docxBuffer.length} bytes`);
 
-        // Extract placeholders from uploaded DOCX
-        console.log('🔍 Extracting placeholders from uploaded DOCX...');
-        const extractedPlaceholders = await extractPlaceholders(docxBuffer);
-        console.log(`[CREATE] Extracted ${extractedPlaceholders.length} placeholders:`, extractedPlaceholders);
+        // PRIORITIZE placeholders from frontend (more accurate, handles split placeholders)
+        // Only re-extract if placeholders not provided from frontend
+        let extractedPlaceholders: string[] = [];
+        if (placeholders && Array.isArray(placeholders) && placeholders.length > 0) {
+          console.log(`[CREATE] Using placeholders from frontend:`, placeholders);
+          extractedPlaceholders = placeholders;
+        } else {
+          // Fallback: Extract placeholders from uploaded DOCX
+          console.log('🔍 Extracting placeholders from uploaded DOCX (fallback)...');
+          extractedPlaceholders = await extractPlaceholders(docxBuffer);
+          console.log(`[CREATE] Extracted ${extractedPlaceholders.length} placeholders from DOCX:`, extractedPlaceholders);
+        }
+        console.log(`[CREATE] Final placeholders to use:`, extractedPlaceholders);
         console.log(`[CREATE] Placeholder keys:`, extractedPlaceholders.map(p => p));
 
         // Upload DOCX directly to storage (no generation)
@@ -111,7 +120,7 @@ export async function POST(request: NextRequest) {
         );
         console.log('✅ Original DOCX file uploaded to cloud storage:', wordUrl);
 
-        // Generate formSchema from extracted placeholders
+        // Generate formSchema from placeholders (prioritize frontend placeholders)
         const schemaObject = generateFormSchema(extractedPlaceholders);
         console.log(`[CREATE] Generated formSchema object keys:`, Object.keys(schemaObject));
         formSchema = Object.entries(schemaObject).map(([key, value]) => ({
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
         console.log(`[CREATE] FormSchema array (${formSchema.length} fields):`, formSchema.map(f => ({ key: f.key, label: f.label })));
         console.log(`[CREATE] FormSchema keys array:`, formSchema.map(f => f.key));
 
-        // Use extracted placeholders
+        // Use placeholders (from frontend or extracted)
         finalPlaceholders = extractedPlaceholders;
 
       } catch (error) {
