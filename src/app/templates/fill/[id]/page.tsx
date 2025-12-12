@@ -158,9 +158,9 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       console.log('🔄 Generating filled document with PDF conversion...');
       console.log('[SUBMIT] Form data keys:', Object.keys(formData));
       console.log('[SUBMIT] Form data:', formData);
-      console.log('[SUBMIT] Template formSchema keys:', template.formSchema?.map(f => f.key) || []);
+      console.log('[SUBMIT] Template formSchema keys:', template?.formSchema?.map(f => f.key) || []);
       console.log('[SUBMIT] Missing fields in formData:', 
-        template.formSchema?.filter(f => !formData[f.key])?.map(f => f.key) || []
+        template?.formSchema?.filter(f => !formData[f.key])?.map(f => f.key) || []
       );
 
       // Use new endpoint that includes PDF conversion
