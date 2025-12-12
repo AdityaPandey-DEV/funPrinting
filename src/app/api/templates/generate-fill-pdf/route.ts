@@ -101,12 +101,17 @@ export async function POST(request: NextRequest) {
 
     if (healthCheck.available) {
       console.log('📄 Step 2: Converting Word to PDF...');
+      console.log(`📊 Word file URL: ${wordUrl}`);
+      console.log(`📊 Word file size: ${filledBuffer.length} bytes`);
       
-      const conversionResult = await convertDocxToPdfSync(wordUrl, 60000);
+      // Attempt conversion with retry logic (3 retries)
+      const conversionResult = await convertDocxToPdfSync(wordUrl, 60000, 3);
       
       if (conversionResult.success && conversionResult.pdfBuffer) {
         // Upload PDF to storage
         const pdfBuffer = Buffer.from(conversionResult.pdfBuffer, 'base64');
+        console.log(`📊 PDF buffer size: ${pdfBuffer.length} bytes`);
+        
         pdfUrl = await uploadFile(
           pdfBuffer,
           `filled-documents/${jobId}`,
@@ -115,15 +120,18 @@ export async function POST(request: NextRequest) {
         console.log('✅ PDF uploaded to storage:', pdfUrl);
         status = 'completed';
       } else {
-        console.warn('⚠️ PDF conversion failed, using Word file:', conversionResult.error);
+        const errorMsg = conversionResult.error || 'PDF conversion failed';
+        console.warn('⚠️ PDF conversion failed after retries, using Word file');
+        console.warn('⚠️ Error details:', errorMsg);
         status = 'failed';
-        error = conversionResult.error;
+        error = errorMsg;
         // Continue with Word file - don't fail the request
       }
     } else {
       console.log('⚠️ Render service not available, skipping PDF conversion');
+      console.log(`⚠️ Health check error: ${healthCheck.error || 'Service unavailable'}`);
       status = 'failed';
-      error = 'PDF conversion service not available';
+      error = `PDF conversion service not available: ${healthCheck.error || 'Health check failed'}`;
     }
 
     // Store job status temporarily (for status polling)
