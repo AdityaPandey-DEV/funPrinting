@@ -762,8 +762,13 @@ export default function OrderPage() {
           setOrderType('file');
           
           // Priority: Handle PDF URL if present (new flow with PDF conversion)
-          if (templateData.pdfUrl && templateData.isPdf) {
-            console.log('📄 Loading PDF file from template generation...');
+          // Check for PDF first - prioritize PDF over Word when both are available
+          if (templateData.pdfUrl) {
+            console.log('📄 PDF URL found, prioritizing PDF file...');
+            console.log('  - PDF URL:', templateData.pdfUrl);
+            console.log('  - isPdf flag:', templateData.isPdf);
+            console.log('  - Word URL available:', !!templateData.wordUrl);
+            
             setIsCountingPages(true);
             setPdfLoaded(false);
             
@@ -771,10 +776,11 @@ export default function OrderPage() {
               // Fetch PDF file from URL
               const response = await fetch(templateData.pdfUrl);
               if (!response.ok) {
-                throw new Error('Failed to fetch PDF file from URL');
+                throw new Error(`Failed to fetch PDF file from URL: ${response.status}`);
               }
               
               const blob = await response.blob();
+              console.log('✅ PDF blob fetched:', blob.size, 'bytes');
               
               // Convert blob to File object
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.pdf`;
@@ -799,18 +805,27 @@ export default function OrderPage() {
               setIsCountingPages(false);
               
               console.log('✅ PDF file loaded from URL and added to upload');
+              console.log('  - File name:', fileName);
+              console.log('  - Page count:', pageCount);
             } catch (error) {
-              console.error('Error loading PDF file from URL:', error);
+              console.error('❌ Error loading PDF file from URL:', error);
               setIsCountingPages(false);
               // Fallback to Word if PDF fails
               if (templateData.wordUrl) {
-                console.log('⚠️ Falling back to Word file...');
-                // Continue with Word file handling below
+                console.log('⚠️ PDF loading failed, falling back to Word file...');
+                // Continue with Word file handling below (don't return, let it fall through)
+              } else {
+                console.error('❌ No Word file available as fallback');
+                return;
               }
             }
-          } else if (templateData.wordUrl) {
-            // Fallback: Handle Word URL if PDF not available
-            console.log('📄 Loading Word file from template generation...');
+          }
+          
+          // Fallback: Handle Word URL if PDF not available or PDF loading failed
+          if (!pdfLoaded && templateData.wordUrl) {
+            // Fallback: Handle Word URL if PDF not available or failed to load
+            console.log('📄 Loading Word file from template generation (PDF not available or failed)...');
+            console.log('  - Word URL:', templateData.wordUrl);
             setIsCountingPages(true);
             setPdfLoaded(false);
             
@@ -818,10 +833,11 @@ export default function OrderPage() {
               // Fetch Word file from URL
               const response = await fetch(templateData.wordUrl);
               if (!response.ok) {
-                throw new Error('Failed to fetch Word file from URL');
+                throw new Error(`Failed to fetch Word file from URL: ${response.status}`);
               }
               
               const blob = await response.blob();
+              console.log('✅ Word blob fetched:', blob.size, 'bytes');
               
               // Convert blob to File object
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.docx`;
@@ -846,17 +862,18 @@ export default function OrderPage() {
               setIsCountingPages(false);
               
               console.log('✅ Word file loaded from URL and added to upload');
+              console.log('  - File name:', fileName);
+              console.log('  - Page count:', pageCount);
             } catch (error) {
-              console.error('Error loading Word file from URL:', error);
+              console.error('❌ Error loading Word file from URL:', error);
               setIsCountingPages(false);
             }
-          } else if (templateData.pdfUrl) {
-            // Legacy: Handle PDF URL if present (without isPdf flag)
-            setPdfUrls([templateData.pdfUrl]);
-            setPdfLoaded(true);
-            setFileURLs([templateData.pdfUrl]);
-            setPageCount(1);
           }
+          
+          // Note: PDF handling is done above with priority
+          // If we reach here without pdfLoaded being true, it means:
+          // 1. PDF URL was not provided, OR
+          // 2. PDF loading failed AND Word fallback also failed or wasn't available
           
           // Set customer info from the form data
           if (templateData.customerData) {

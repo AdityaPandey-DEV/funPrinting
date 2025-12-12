@@ -82,15 +82,32 @@ export default function TemplateCompletePage({ params }: { params: Promise<{ id:
       }
     }
 
+    // Prioritize PDF: if PDF is available, use it; otherwise use Word
+    const hasPdf = !!pdfUrl;
+    
+    console.log('📋 Continue to Order - File selection:');
+    console.log('  - PDF URL:', pdfUrl || 'Not available');
+    console.log('  - Word URL:', wordUrl || 'Not available');
+    console.log('  - Will use:', hasPdf ? 'PDF' : 'Word');
+
     // Store order data in sessionStorage for the order page
+    // Always include both URLs for fallback, but prioritize PDF with isPdf flag
     const orderData = {
       templateId: templateId,
+      templateName: undefined, // Will be set if needed
       pdfUrl: pdfUrl || undefined,
       wordUrl: wordUrl || undefined,
       customerData: customerData,
       isTemplateDocument: true,
-      isPdf: !!pdfUrl, // Flag to indicate PDF is available
+      isPdf: hasPdf, // Explicitly set flag: true if PDF exists, false otherwise
     };
+
+    console.log('📦 Storing order data:', {
+      templateId: orderData.templateId,
+      hasPdfUrl: !!orderData.pdfUrl,
+      hasWordUrl: !!orderData.wordUrl,
+      isPdf: orderData.isPdf
+    });
 
     sessionStorage.setItem('pendingTemplateDocument', JSON.stringify(orderData));
 
