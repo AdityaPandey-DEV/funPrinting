@@ -28,39 +28,39 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
     const getParams = async () => {
       const resolvedParams = await params;
       setTemplateId(resolvedParams.id);
+      
+      const jobIdParam = searchParams.get('jobId');
+      const statusParam = searchParams.get('status');
+      const pdfUrlParam = searchParams.get('pdfUrl');
+      const wordUrlParam = searchParams.get('wordUrl');
+      const errorParam = searchParams.get('error');
+      
+      if (jobIdParam) {
+        setJobId(jobIdParam);
+        
+        // If status, URLs, or error are provided in URL params, use them immediately
+        // This handles the case where generation completed synchronously
+        if (statusParam === 'completed' && pdfUrlParam) {
+          // Already complete - redirect immediately
+          setTimeout(() => {
+            router.push(`/templates/fill/${resolvedParams.id}/complete?pdfUrl=${encodeURIComponent(pdfUrlParam)}&wordUrl=${encodeURIComponent(wordUrlParam || '')}`);
+          }, 500);
+          return;
+        } else if (statusParam === 'failed' && wordUrlParam) {
+          // Failed but has Word file - redirect immediately
+          setTimeout(() => {
+            router.push(`/templates/fill/${resolvedParams.id}/complete?wordUrl=${encodeURIComponent(wordUrlParam)}&error=${encodeURIComponent(errorParam || 'PDF conversion failed. You can still download the Word document.')}`);
+          }, 500);
+          return;
+        } else if (wordUrlParam) {
+          // Store wordUrl for fallback
+          setStatus(prev => ({ ...prev, wordUrl: wordUrlParam }));
+        }
+      } else {
+        setError('Job ID not found. Please go back and try again.');
+      }
     };
     getParams();
-    
-    const jobIdParam = searchParams.get('jobId');
-    const statusParam = searchParams.get('status');
-    const pdfUrlParam = searchParams.get('pdfUrl');
-    const wordUrlParam = searchParams.get('wordUrl');
-    const errorParam = searchParams.get('error');
-    
-    if (jobIdParam) {
-      setJobId(jobIdParam);
-      
-      // If status, URLs, or error are provided in URL params, use them immediately
-      // This handles the case where generation completed synchronously
-      if (statusParam === 'completed' && pdfUrlParam) {
-        // Already complete - redirect immediately
-        setTimeout(() => {
-          router.push(`/templates/fill/${resolvedParams.id}/complete?pdfUrl=${encodeURIComponent(pdfUrlParam)}&wordUrl=${encodeURIComponent(wordUrlParam || '')}`);
-        }, 500);
-        return;
-      } else if (statusParam === 'failed' && wordUrlParam) {
-        // Failed but has Word file - redirect immediately
-        setTimeout(() => {
-          router.push(`/templates/fill/${resolvedParams.id}/complete?wordUrl=${encodeURIComponent(wordUrlParam)}&error=${encodeURIComponent(errorParam || 'PDF conversion failed. You can still download the Word document.')}`);
-        }, 500);
-        return;
-      } else if (wordUrlParam) {
-        // Store wordUrl for fallback
-        setStatus(prev => ({ ...prev, wordUrl: wordUrlParam }));
-      }
-    } else {
-      setError('Job ID not found. Please go back and try again.');
-    }
   }, [params, searchParams, router]);
 
   useEffect(() => {
