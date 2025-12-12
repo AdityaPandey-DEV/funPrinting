@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
@@ -24,6 +24,88 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
   const [currentMessage, setCurrentMessage] = useState('Generating file...');
   const [error, setError] = useState<string | null>(null);
 
+  // Function to start generation from form data
+  const startGeneration = useCallback(async (storedData: string, templateIdParam: string) => {
+    try {
+      const { templateId, formData } = JSON.parse(storedData);
+      
+      // Clear stored data immediately
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('pendingTemplateFormData');
+      }
+      
+      console.log('🔄 Making API call to generate document...');
+      console.log('[LOADING] Template ID:', templateId);
+      console.log('[LOADING] Form data keys:', Object.keys(formData));
+      
+      // Make API call
+      const response = await fetch('/api/templates/generate-fill-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          templateId,
+          formData
+        }),
+      });
+
+      // Handle error response
+      if (!response.ok) {
+        let errorMessage = 'Failed to generate document';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          const errorText = await response.text().catch(() => 'Unknown error');
+          errorMessage = errorText || errorMessage;
+        }
+        console.error('❌ Generation error:', errorMessage);
+        setError(errorMessage);
+        return;
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Generation API call successful');
+        console.log('[LOADING] Job ID:', result.jobId);
+        console.log('[LOADING] Status:', result.status);
+        
+        // Set jobId to trigger polling
+        if (result.jobId) {
+          setJobId(result.jobId);
+        }
+        
+        // If already complete, redirect immediately
+        if (result.status === 'completed' && result.pdfUrl) {
+          console.log('✅ Generation completed immediately, redirecting to complete page');
+          setTimeout(() => {
+            router.push(`/templates/fill/${templateIdParam}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
+          }, 500);
+          return;
+        } else if (result.status === 'failed' && result.wordUrl) {
+          console.log('⚠️ Generation failed but Word file available, redirecting to complete page');
+          setTimeout(() => {
+            router.push(`/templates/fill/${templateIdParam}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
+          }, 500);
+          return;
+        } else if (result.wordUrl) {
+          // Store wordUrl for fallback during polling
+          setStatus(prev => ({ ...prev, wordUrl: result.wordUrl }));
+        }
+        
+        // If we have a jobId, the polling useEffect will handle the rest
+        // If not, we'll continue with the progress animation
+      } else {
+        setError(result.error || 'Failed to generate document');
+      }
+    } catch (error) {
+      console.error('❌ Error starting generation:', error);
+      setError('Failed to start document generation. Please try again.');
+    }
+  }, [router]);
+
   useEffect(() => {
     const getParams = async () => {
       const resolvedParams = await params;
@@ -35,6 +117,7 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
       const wordUrlParam = searchParams.get('wordUrl');
       const errorParam = searchParams.get('error');
       
+      // Check if we have a jobId from URL params (existing flow)
       if (jobIdParam) {
         setJobId(jobIdParam);
         
@@ -57,11 +140,23 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
           setStatus(prev => ({ ...prev, wordUrl: wordUrlParam }));
         }
       } else {
-        setError('Job ID not found. Please go back and try again.');
+        // No jobId in URL - check for form data in sessionStorage (new immediate redirect flow)
+        if (typeof window !== 'undefined') {
+          const storedData = sessionStorage.getItem('pendingTemplateFormData');
+          if (storedData) {
+            // We have form data - make API call
+            console.log('📝 Found form data in sessionStorage, starting generation...');
+            startGeneration(storedData, resolvedParams.id);
+            return;
+          }
+        }
+        
+        // No jobId and no stored data - show error
+        setError('Job ID or form data not found. Please go back and try again.');
       }
     };
     getParams();
-  }, [params, searchParams, router]);
+  }, [params, searchParams, router, startGeneration]);
 
   useEffect(() => {
     if (!jobId) return;

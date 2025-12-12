@@ -155,7 +155,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
     setError(null);
 
     try {
-      console.log('🔄 Generating filled document with PDF conversion...');
+      console.log('🔄 Preparing to generate filled document...');
       console.log('[SUBMIT] Form data keys:', Object.keys(formData));
       console.log('[SUBMIT] Form data:', formData);
       console.log('[SUBMIT] Template formSchema keys:', template?.formSchema?.map(f => f.key) || []);
@@ -163,125 +163,29 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         template?.formSchema?.filter(f => !formData[f.key])?.map(f => f.key) || []
       );
 
-      // Use new endpoint that includes PDF conversion
-      const response = await fetch('/api/templates/generate-fill-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          templateId: template?.id,
+      // Store form data in sessionStorage for loading page
+      // This allows immediate redirect without waiting for API response
+      if (typeof window !== 'undefined' && template?.id) {
+        sessionStorage.setItem('pendingTemplateFormData', JSON.stringify({
+          templateId: template.id,
           formData
-        }),
-      });
-
-      // Try to parse error response
-      let errorMessage = 'Failed to generate document';
-      if (!response.ok) {
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.error || errorMessage;
-          console.error('❌ Generation error response:', errorData);
-        } catch (parseError) {
-          // If JSON parsing fails, try to get text
-          try {
-            const errText = await response.text();
-            console.error('❌ Generation error response (text):', errText);
-            // Try to extract error message from text if it's JSON-like
-            if (errText.includes('error')) {
-              try {
-                const parsed = JSON.parse(errText);
-                errorMessage = parsed.error || errorMessage;
-              } catch {
-                // If it's not JSON, use a user-friendly message based on status
-                if (response.status === 404) {
-                  errorMessage = 'Template not found. Please try again or contact support.';
-                } else if (response.status === 500) {
-                  errorMessage = 'Server error occurred. Please try again later.';
-                } else if (response.status >= 400 && response.status < 500) {
-                  errorMessage = 'Invalid request. Please check your form data and try again.';
-                } else {
-                  errorMessage = 'Failed to generate document. Please try again.';
-                }
-              }
-            }
-          } catch (textError) {
-            console.error('❌ Could not parse error response:', textError);
-            // Use status-based error message
-            if (response.status === 404) {
-              errorMessage = 'Template not found. Please try again or contact support.';
-            } else if (response.status === 500) {
-              errorMessage = 'Server error occurred. Please try again later.';
-            } else {
-              errorMessage = 'Failed to generate document. Please try again.';
-            }
-          }
-        }
-        throw new Error(errorMessage);
+        }));
+        console.log('✅ Form data stored in sessionStorage, redirecting to loading page...');
       }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // Since generation is synchronous, check if it's already complete
-        // If complete, go directly to complete page; otherwise show loading page
-        if (result.status === 'completed' && result.pdfUrl) {
-          // Already complete with PDF - go directly to complete page
-          router.push(`/templates/fill/${templateId}/complete?pdfUrl=${encodeURIComponent(result.pdfUrl)}&wordUrl=${encodeURIComponent(result.wordUrl || '')}`);
-          return;
-        } else if (result.status === 'failed' && result.wordUrl) {
-          // Failed but has Word file - go to complete page with error
-          router.push(`/templates/fill/${templateId}/complete?wordUrl=${encodeURIComponent(result.wordUrl)}&error=${encodeURIComponent(result.error || 'PDF conversion failed. You can still download the Word document.')}`);
-          return;
-        } else if (result.jobId) {
-          // Still processing or status unknown - pass all info via URL params for loading page
-          const params = new URLSearchParams({
-            jobId: result.jobId,
-            status: result.status || 'processing',
-          });
-          if (result.wordUrl) params.set('wordUrl', result.wordUrl);
-          if (result.pdfUrl) params.set('pdfUrl', result.pdfUrl);
-          if (result.error) params.set('error', result.error);
-          router.push(`/templates/fill/${templateId}/loading?${params.toString()}`);
-          return; // Exit early, loading page will handle the rest
-        }
-        
-        // Fallback: If no jobId, use old flow (backward compatibility)
-        setGeneratedWordUrl(result.wordUrl);
-        
-        // Check if template is paid
-        if (template?.isPaid && (template.price ?? 0) > 0) {
-          // Move to payment step
-          setStep('payment');
-        } else {
-          // Free template - show options directly
-          setStep('complete');
-        }
-      } else {
-        throw new Error(result.error || 'Failed to generate document');
-      }
+      // Immediately redirect to loading page
+      // Loading page will make the API call and handle the response
+      router.push(`/templates/fill/${templateId}/loading`);
       
     } catch (error) {
-      console.error('❌ Error generating document:', error);
-      let errorMessage = 'Failed to generate document. Please try again.';
+      console.error('❌ Error preparing document generation:', error);
+      let errorMessage = 'Failed to prepare document generation. Please try again.';
       
       if (error instanceof Error) {
         errorMessage = error.message;
       }
       
-      // Provide user-friendly error messages for common scenarios
-      if (errorMessage.includes('Template not found') || errorMessage.includes('template')) {
-        errorMessage = 'Template not found. Please go back and try again.';
-      } else if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Network')) {
-        errorMessage = 'Network error. Please check your connection and try again.';
-      } else if (errorMessage.includes('Storage') || errorMessage.includes('upload')) {
-        errorMessage = 'Failed to save document. Please try again.';
-      } else if (errorMessage.includes('Document processing') || errorMessage.includes('DOCX')) {
-        errorMessage = 'Error processing document. Please check your form data and try again.';
-      }
-      
       setError(errorMessage);
-    } finally {
       setIsSubmitting(false);
     }
   };
