@@ -163,6 +163,27 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         template?.formSchema?.filter(f => !formData[f.key])?.map(f => f.key) || []
       );
 
+      // Check if template is paid - if so, show payment page immediately (no document generation yet)
+      if (template?.isPaid && (template.price ?? 0) > 0) {
+        console.log('💰 Paid template detected, showing payment step...');
+        
+        // Store form data in sessionStorage before showing payment
+        // This will be used by loading page after payment is completed
+        if (typeof window !== 'undefined' && template?.id) {
+          sessionStorage.setItem('pendingTemplateFormData', JSON.stringify({
+            templateId: template.id,
+            formData: formData
+          }));
+          console.log('✅ Form data stored in sessionStorage for post-payment generation');
+        }
+        
+        // Show payment step immediately (no document generation yet)
+        setStep('payment');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Free template - store form data and redirect to loading page
       // Store form data in sessionStorage for loading page
       // This allows immediate redirect without waiting for API response
       if (typeof window !== 'undefined' && template?.id) {
@@ -191,7 +212,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
   };
 
   const handlePayment = async () => {
-    if (!template || !generatedWordUrl) return;
+    if (!template) return;
     
     if (!isRazorpayLoaded) {
       setError('Payment gateway is loading. Please wait a moment and try again.');
@@ -215,6 +236,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
       });
 
       // Create template payment order
+      // Note: pdfUrl is not required for payment-first flow (document will be generated after payment)
       const response = await fetch('/api/templates/pay', {
         method: 'POST',
         headers: {
@@ -222,7 +244,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
         },
         body: JSON.stringify({
           templateId: templateId,
-          pdfUrl: generatedWordUrl, // Pass Word URL as pdfUrl parameter
+          pdfUrl: '', // Empty for payment-first flow, document will be generated after payment
           formData: formData,
           amount: template.price
         })
@@ -319,7 +341,7 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                   templateId: data.templateId,
-                  pdfUrl: data.pdfUrl,
+                  pdfUrl: '', // Empty for payment-first flow
                   formData: formData,
                   templateCommissionPercent: data.templateCommissionPercent,
                   creatorShareAmount: data.creatorShareAmount,
@@ -343,8 +365,18 @@ export default function TemplateFillPage({ params }: { params: Promise<{ id: str
               const verifyData = await verifyResponse.json();
               
               if (verifyData.success) {
-                console.log('✅ Payment verified successfully');
-                setStep('complete');
+                console.log('✅ Payment verified successfully, redirecting to loading page for document generation...');
+                // Store form data in sessionStorage for loading page
+                // Loading page will generate the document after payment
+                if (typeof window !== 'undefined' && templateId) {
+                  sessionStorage.setItem('pendingTemplateFormData', JSON.stringify({
+                    templateId: templateId,
+                    formData: formData,
+                    paymentCompleted: true // Flag to indicate payment was completed
+                  }));
+                }
+                // Redirect to loading page to generate document
+                router.push(`/templates/fill/${templateId}/loading`);
               } else {
                 throw new Error(verifyData.error || 'Payment verification failed');
               }

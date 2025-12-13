@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import CreatorEarning from '@/models/CreatorEarning';
+import DynamicTemplate from '@/models/DynamicTemplate';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +25,26 @@ export async function GET(request: NextRequest) {
       .skip(skip)
       .limit(limit);
     
+    // Fetch template details for each earning
+    const earningsWithTemplates = await Promise.all(
+      earnings.map(async (earning) => {
+        const earningObj = earning.toObject();
+        try {
+          // Fetch template details using templateId
+          const template = await DynamicTemplate.findOne({ id: earning.templateId });
+          if (template) {
+            earningObj.templateName = template.name;
+          } else {
+            earningObj.templateName = undefined; // Template might be deleted
+          }
+        } catch (error) {
+          console.error(`Error fetching template ${earning.templateId}:`, error);
+          earningObj.templateName = undefined;
+        }
+        return earningObj;
+      })
+    );
+    
     // Calculate summary
     const allEarnings = await CreatorEarning.find({});
     const summary = {
@@ -42,7 +63,7 @@ export async function GET(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      earnings,
+      earnings: earningsWithTemplates,
       summary,
     });
   } catch (error) {

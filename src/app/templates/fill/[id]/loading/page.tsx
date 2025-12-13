@@ -27,7 +27,8 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
   // Function to start generation from form data
   const startGeneration = useCallback(async (storedData: string, templateIdParam: string) => {
     try {
-      const { templateId, formData } = JSON.parse(storedData);
+      const parsedData = JSON.parse(storedData);
+      const { templateId, formData, wordUrl: existingWordUrl, paymentCompleted } = parsedData;
       
       // Clear stored data immediately
       if (typeof window !== 'undefined') {
@@ -37,6 +38,13 @@ export default function TemplateLoadingPage({ params }: { params: Promise<{ id: 
       console.log('🔄 Making API call to generate document...');
       console.log('[LOADING] Template ID:', templateId);
       console.log('[LOADING] Form data keys:', Object.keys(formData));
+      console.log('[LOADING] Payment completed:', paymentCompleted || false);
+      console.log('[LOADING] Existing Word URL:', existingWordUrl || 'None');
+      
+      // If payment was completed, this is a post-payment generation
+      if (paymentCompleted) {
+        console.log('✅ Payment already completed, proceeding with document generation...');
+      }
       
       // Start progress animation immediately (don't wait for API response)
       setCurrentMessage('Generating file...');

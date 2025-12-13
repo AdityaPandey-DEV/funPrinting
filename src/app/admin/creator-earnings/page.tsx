@@ -17,6 +17,7 @@ interface CreatorEarning {
     email: string;
   } | string;
   templateId: string;
+  templateName?: string; // Template name fetched from API
   orderId: string;
   razorpayPaymentId?: string;
   amount: number;
@@ -246,6 +247,9 @@ function AdminCreatorEarningsContent() {
                     Creator
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Template
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Payout To
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -268,7 +272,7 @@ function AdminCreatorEarningsContent() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {earnings.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
                       No earnings found
                     </td>
                   </tr>
@@ -280,6 +284,12 @@ function AdminCreatorEarningsContent() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">{creator.name}</div>
                           <div className="text-sm text-gray-500">{creator.email}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {earning.templateName || 'Unknown Template'}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono">{earning.templateId}</div>
                         </td>
                         <td className="px-6 py-4">
                           {creator.upiId ? (

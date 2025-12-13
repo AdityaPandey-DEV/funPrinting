@@ -105,8 +105,8 @@ export default function EditTemplatePage() {
 
     setFormData(prev => {
       const newFormData = {
-        ...prev,
-        [name]: type === 'checkbox' ? checked : type === 'number' ? parseFloat(value) || 0 : value
+      ...prev,
+      [name]: type === 'checkbox' ? checked : type === 'number' ? parseFloat(value) || 0 : value
       };
       
       // #region agent log

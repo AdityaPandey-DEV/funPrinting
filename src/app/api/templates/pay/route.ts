@@ -36,12 +36,18 @@ export async function POST(request: NextRequest) {
       formData: formData ? 'Present' : 'Missing'
     });
 
-    if (!templateId || !pdfUrl || !amount || amount <= 0) {
+    if (!templateId || !amount || amount <= 0) {
       console.error('❌ Missing required fields:', { templateId: !!templateId, pdfUrl: !!pdfUrl, amount });
       return NextResponse.json(
-        { success: false, error: 'Template ID, document URL, and valid amount are required' },
+        { success: false, error: 'Template ID and valid amount are required' },
         { status: 400 }
       );
+    }
+    
+    // pdfUrl is optional for payment-first flow (document will be generated after payment)
+    // If pdfUrl is provided, it means document was already generated
+    if (pdfUrl && pdfUrl.trim() === '') {
+      pdfUrl = undefined; // Treat empty string as undefined
     }
 
     // Validate amount is reasonable (prevent manipulation)
