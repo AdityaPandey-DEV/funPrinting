@@ -118,6 +118,14 @@ export async function PUT(
     const body = await request.json();
     const { name, description, category, placeholders, formSchema, isPublic, isPaid, price, allowFreeDownload } = body;
 
+    // #region agent log
+    const fs = require('fs');
+    const logPath = 'c:\\Users\\kings\\OneDrive\\Desktop\\New folder\\.cursor\\debug.log';
+    try {
+      fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:118',message:'PUT request body received',data:{body,extractedFields:{isPaid,price,allowFreeDownload}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
+    } catch(e) {}
+    // #endregion
+
     await connectDB();
     
     const template = await DynamicTemplate.findOne({ id });
@@ -151,7 +159,19 @@ export async function PUT(
     if (price !== undefined) template.price = Math.max(0, Number(price) || 0);
     if (allowFreeDownload !== undefined) template.allowFreeDownload = allowFreeDownload !== false;
 
+    // #region agent log
+    try {
+      fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:152',message:'Before save - template monetization fields',data:{templateIsPaid:template.isPaid,templatePrice:template.price,templateAllowFreeDownload:template.allowFreeDownload},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
+    } catch(e) {}
+    // #endregion
+
     await template.save();
+
+    // #region agent log
+    try {
+      fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:154',message:'After save - template monetization fields',data:{templateIsPaid:template.isPaid,templatePrice:template.price,templateAllowFreeDownload:template.allowFreeDownload},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
+    } catch(e) {}
+    // #endregion
 
     return NextResponse.json({
       success: true,
