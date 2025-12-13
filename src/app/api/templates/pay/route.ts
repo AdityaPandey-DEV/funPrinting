@@ -46,9 +46,8 @@ export async function POST(request: NextRequest) {
     
     // pdfUrl is optional for payment-first flow (document will be generated after payment)
     // If pdfUrl is provided, it means document was already generated
-    if (pdfUrl && pdfUrl.trim() === '') {
-      pdfUrl = undefined; // Treat empty string as undefined
-    }
+    // Process pdfUrl: treat empty string as undefined
+    const processedPdfUrl = pdfUrl && pdfUrl.trim() !== '' ? pdfUrl : undefined;
 
     // Validate amount is reasonable (prevent manipulation)
     if (amount > 100000) { // Max ₹1,00,000
@@ -156,7 +155,7 @@ export async function POST(request: NextRequest) {
       amount: amount,
       key: process.env.RAZORPAY_KEY_ID,
       templateId: templateId,
-      pdfUrl: pdfUrl,
+      pdfUrl: processedPdfUrl,
       formData: formData,
       templateCommissionPercent: templateCommissionPercent,
       creatorShareAmount: creatorShareAmount,
