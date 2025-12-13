@@ -21,6 +21,7 @@ export default function PayoutSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [password, setPassword] = useState('');
   
   const [settings, setSettings] = useState<PayoutSettings>({
     upiId: '',
@@ -68,13 +69,14 @@ export default function PayoutSettingsPage() {
       const response = await fetch('/api/user/payout-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, password }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setMessage({ type: 'success', text: 'Payout settings saved successfully!' });
+        setPassword(''); // Clear password after successful save
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to save settings' });
       }
@@ -235,6 +237,23 @@ export default function PayoutSettingsPage() {
               <li>• Earnings are accumulated and paid out periodically.</li>
               <li>• UPI is the preferred and fastest payment method.</li>
             </ul>
+          </div>
+
+          {/* Password Section */}
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Password (required to update)
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter your password"
+              />
+            </div>
           </div>
 
           {/* Save Button */}
