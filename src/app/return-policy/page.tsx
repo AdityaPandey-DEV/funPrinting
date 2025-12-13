@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useAdminInfo } from '@/hooks/useAdminInfo';
 
 export default function ReturnPolicyPage() {
+  const { adminInfo } = useAdminInfo();
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,9 +59,9 @@ export default function ReturnPolicyPage() {
                 For return requests, please contact us:
               </p>
               <ul className="list-none pl-6 text-gray-700 mb-4">
-                <li>Email: returns@funprinting.com</li>
-                <li>Phone: +91 98765 43210</li>
-                <li>Business Hours: Mon-Sat 9AM-6PM</li>
+                <li>Email: {adminInfo?.email || 'info@printservice.com'}</li>
+                <li>Phone: {adminInfo?.phone || '+91 98765 43210'}</li>
+                <li>Business Hours: {adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9AM-6PM'}</li>
               </ul>
             </section>
           </div>

@@ -70,7 +70,7 @@ export default function ContactPage() {
                   <h3 className="text-lg font-medium text-gray-900">Phone</h3>
                   <p className="text-gray-600">{adminInfo?.phone || '+91 98765 43210'}</p>
                   <p className="text-sm text-gray-500">
-                    {adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9:00 AM - 6:00 PM'}
+                    {adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9AM-6PM'}
                   </p>
                 </div>
               </div>
@@ -85,7 +85,7 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-medium text-gray-900">Email</h3>
-                  <p className="text-gray-600">{adminInfo?.email || 'support@funprinting.com'}</p>
+                  <p className="text-gray-600">{adminInfo?.email || 'info@printservice.com'}</p>
                   <p className="text-sm text-gray-500">We respond within 24 hours</p>
                 </div>
               </div>

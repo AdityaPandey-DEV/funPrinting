@@ -4,6 +4,7 @@ import DynamicTemplate from '@/models/DynamicTemplate';
 import User from '@/models/User';
 import { getCurrentUser, canViewTemplate, canEditTemplate, canDeleteTemplate, isAdminUser } from '@/lib/templateAuth';
 import { generateFormSchema } from '@/lib/docxProcessor';
+import fs from 'fs';
 
 // GET: Get template details (if public or owned by user)
 export async function GET(
@@ -119,11 +120,10 @@ export async function PUT(
     const { name, description, category, placeholders, formSchema, isPublic, isPaid, price, allowFreeDownload } = body;
 
     // #region agent log
-    const fs = require('fs');
     const logPath = 'c:\\Users\\kings\\OneDrive\\Desktop\\New folder\\.cursor\\debug.log';
     try {
       fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:118',message:'PUT request body received',data:{body,extractedFields:{isPaid,price,allowFreeDownload}},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
-    } catch(e) {}
+    } catch(_e) {}
     // #endregion
 
     await connectDB();
@@ -162,7 +162,7 @@ export async function PUT(
     // #region agent log
     try {
       fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:152',message:'Before save - template monetization fields',data:{templateIsPaid:template.isPaid,templatePrice:template.price,templateAllowFreeDownload:template.allowFreeDownload},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
-    } catch(e) {}
+    } catch(_e) {}
     // #endregion
 
     await template.save();
@@ -170,7 +170,7 @@ export async function PUT(
     // #region agent log
     try {
       fs.appendFileSync(logPath, JSON.stringify({location:'api/templates/[id]/route.ts:154',message:'After save - template monetization fields',data:{templateIsPaid:template.isPaid,templatePrice:template.price,templateAllowFreeDownload:template.allowFreeDownload},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})+'\n');
-    } catch(e) {}
+    } catch(_e) {}
     // #endregion
 
     return NextResponse.json({

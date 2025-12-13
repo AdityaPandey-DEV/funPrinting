@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useAdminInfo } from '@/hooks/useAdminInfo';
 
 export default function TermsPage() {
+  const { adminInfo } = useAdminInfo();
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -108,9 +110,9 @@ export default function TermsPage() {
                 For questions about these terms, please contact us:
               </p>
               <ul className="list-none pl-6 text-gray-700 mb-4">
-                <li>Email: support@funprinting.com</li>
-                <li>Phone: +91 98765 43210</li>
-                <li>Address: [Your Business Address]</li>
+                <li>Email: {adminInfo?.email || 'info@printservice.com'}</li>
+                <li>Phone: {adminInfo?.phone || '+91 98765 43210'}</li>
+                <li>Address: {adminInfo?.address ? `${adminInfo.address}, ${adminInfo.city}, ${adminInfo.state} ${adminInfo.pincode}` : 'College Campus'}</li>
               </ul>
             </section>
           </div>

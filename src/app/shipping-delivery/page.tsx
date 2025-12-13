@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { EmailIcon, PhoneIcon, ClockIcon } from '@/components/SocialIcons';
+import { useAdminInfo } from '@/hooks/useAdminInfo';
 
 export default function ShippingDeliveryPage() {
+  const { adminInfo } = useAdminInfo();
   return (
     <div className="min-h-screen bg-gray-50 py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -228,15 +230,15 @@ export default function ShippingDeliveryPage() {
                 <ul className="text-blue-700 space-y-1">
                   <li className="flex items-center gap-2">
                     <EmailIcon size={16} className="w-4 h-4" />
-                    Email: delivery@funprinting.com
+                    Email: {adminInfo?.email || 'info@printservice.com'}
                   </li>
                   <li className="flex items-center gap-2">
                     <PhoneIcon size={16} className="w-4 h-4" />
-                    Phone: +91 98765 43210
+                    Phone: {adminInfo?.phone || '+91 98765 43210'}
                   </li>
                   <li className="flex items-center gap-2">
                     <ClockIcon size={16} className="w-4 h-4" />
-                    Support Hours: Mon-Sat 9AM-6PM
+                    Support Hours: {adminInfo?.businessHours ? `${adminInfo.businessHours.monday} - ${adminInfo.businessHours.saturday}` : 'Mon-Sat: 9AM-6PM'}
                   </li>
                 </ul>
               </div>
