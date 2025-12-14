@@ -499,15 +499,37 @@ export default function OrderPage() {
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
   // Update customer info when user authentication changes
+  // This takes priority over template data - authenticated user info should never be overwritten
   useEffect(() => {
-    if (user) {
+    if (user && isAuthenticated) {
       setCustomerInfo(prev => ({
-        ...prev,
+        // Always use authenticated user info if available, only fall back to prev if user info is missing
         name: user.name || prev.name,
         email: user.email || prev.email,
+        // Preserve phone if user doesn't have one yet
+        phone: prev.phone || '',
       }));
     }
-  }, [user]);
+  }, [user, isAuthenticated]);
+
+  // Re-merge user info after authentication if template data exists
+  // This ensures authenticated user info takes priority even if template data was loaded first
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const pendingTemplateDoc = sessionStorage.getItem('pendingTemplateDocument');
+      if (pendingTemplateDoc) {
+        // Template data exists - ensure authenticated user info is preserved
+        setCustomerInfo(prev => ({
+          // Always prioritize authenticated user info
+          name: user.name || prev.name,
+          email: user.email || prev.email,
+          // Preserve phone - don't overwrite if already set
+          phone: prev.phone || '',
+        }));
+        console.log('✅ Re-merged authenticated user info after signup (template data present)');
+      }
+    }
+  }, [isAuthenticated, user]);
 
   // Load user profile and apply default location
   useEffect(() => {
@@ -725,16 +747,28 @@ export default function OrderPage() {
         }
         
         // Set customer info from the form data
+        // IMPORTANT: If user is authenticated, authenticated user info takes priority
         if (orderData.customerData) {
           const extractedInfo = extractCustomerInfo(orderData.customerData);
           console.log('📋 Extracted customer info from pending order:', extractedInfo);
-          // Merge with existing customerInfo to preserve any already set values
-          // Only update fields that have non-empty values to preserve existing user info
-          setCustomerInfo(prev => ({
-            name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
-            email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
-            phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
-          }));
+          setCustomerInfo(prev => {
+            // If user is authenticated, never overwrite authenticated user info with template data
+            if (isAuthenticated && user) {
+              return {
+                // Always preserve authenticated user info
+                name: user.name || prev.name,
+                email: user.email || prev.email,
+                // Only use template phone if user doesn't have one and template has it
+                phone: prev.phone || ((extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : ''),
+              };
+            }
+            // If not authenticated, only update fields that have non-empty values
+            return {
+              name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+              email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
+              phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
+            };
+          });
         }
         
         // Set page count to 1 for template orders (will be updated based on actual PDF)
@@ -828,15 +862,28 @@ export default function OrderPage() {
               sessionStorage.removeItem('pendingTemplateDocument');
               
               // Set customer info from the form data (for PDF case)
+              // IMPORTANT: If user is authenticated, authenticated user info takes priority
               if (templateData.customerData) {
                 const extractedInfo = extractCustomerInfo(templateData.customerData);
                 console.log('📋 Extracted customer info from template:', extractedInfo);
-                setCustomerInfo(prev => ({
-                  // Only update fields that have non-empty values to preserve existing user info
-                  name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
-                  phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone,
-                  email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
-                }));
+                setCustomerInfo(prev => {
+                  // If user is authenticated, never overwrite authenticated user info with template data
+                  if (isAuthenticated && user) {
+                    return {
+                      // Always preserve authenticated user info
+                      name: user.name || prev.name,
+                      email: user.email || prev.email,
+                      // Only use template phone if user doesn't have one and template has it
+                      phone: prev.phone || ((extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : ''),
+                    };
+                  }
+                  // If not authenticated, only update fields that have non-empty values
+                  return {
+                    name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+                    phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone,
+                    email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
+                  };
+                });
               }
               
               return; // Exit early - PDF loaded successfully, don't load Word
@@ -907,16 +954,28 @@ export default function OrderPage() {
           // 2. PDF loading failed (and we're now trying Word fallback)
           
           // Set customer info from the form data
+          // IMPORTANT: If user is authenticated, authenticated user info takes priority
           if (templateData.customerData) {
             const extractedInfo = extractCustomerInfo(templateData.customerData);
             console.log('📋 Extracted customer info from template:', extractedInfo);
-            // Merge with existing customerInfo to preserve any already set values
-            // Only update fields that have non-empty values to preserve existing user info
-            setCustomerInfo(prev => ({
-              name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
-              email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
-              phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
-            }));
+            setCustomerInfo(prev => {
+              // If user is authenticated, never overwrite authenticated user info with template data
+              if (isAuthenticated && user) {
+                return {
+                  // Always preserve authenticated user info
+                  name: user.name || prev.name,
+                  email: user.email || prev.email,
+                  // Only use template phone if user doesn't have one and template has it
+                  phone: prev.phone || ((extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : ''),
+                };
+              }
+              // If not authenticated, only update fields that have non-empty values
+              return {
+                name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+                email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
+                phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
+              };
+            });
           }
           
           // Clear the pending template document from session storage
