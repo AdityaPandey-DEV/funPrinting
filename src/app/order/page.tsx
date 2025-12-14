@@ -729,10 +729,11 @@ export default function OrderPage() {
           const extractedInfo = extractCustomerInfo(orderData.customerData);
           console.log('📋 Extracted customer info from pending order:', extractedInfo);
           // Merge with existing customerInfo to preserve any already set values
+          // Only update fields that have non-empty values to preserve existing user info
           setCustomerInfo(prev => ({
-            name: extractedInfo.name || prev.name,
-            email: extractedInfo.email || prev.email,
-            phone: extractedInfo.phone || prev.phone
+            name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+            email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
+            phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
           }));
         }
         
@@ -831,9 +832,10 @@ export default function OrderPage() {
                 const extractedInfo = extractCustomerInfo(templateData.customerData);
                 console.log('📋 Extracted customer info from template:', extractedInfo);
                 setCustomerInfo(prev => ({
-                  name: extractedInfo.name || prev.name,
-                  phone: extractedInfo.phone || prev.phone,
-                  email: extractedInfo.email || prev.email,
+                  // Only update fields that have non-empty values to preserve existing user info
+                  name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+                  phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone,
+                  email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
                 }));
               }
               
@@ -909,10 +911,11 @@ export default function OrderPage() {
             const extractedInfo = extractCustomerInfo(templateData.customerData);
             console.log('📋 Extracted customer info from template:', extractedInfo);
             // Merge with existing customerInfo to preserve any already set values
+            // Only update fields that have non-empty values to preserve existing user info
             setCustomerInfo(prev => ({
-              name: extractedInfo.name || prev.name,
-              email: extractedInfo.email || prev.email,
-              phone: extractedInfo.phone || prev.phone
+              name: (extractedInfo.name && extractedInfo.name.trim()) ? extractedInfo.name.trim() : prev.name,
+              email: (extractedInfo.email && extractedInfo.email.trim()) ? extractedInfo.email.trim() : prev.email,
+              phone: (extractedInfo.phone && extractedInfo.phone.trim()) ? extractedInfo.phone.trim() : prev.phone
             }));
           }
           
