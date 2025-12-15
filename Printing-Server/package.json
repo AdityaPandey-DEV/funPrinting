@@ -1,0 +1,37 @@
+{
+  "name": "printing-server",
+  "version": "1.0.0",
+  "description": "MongoDB-based printing server for funPrinting",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node src/index.ts",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "printing",
+    "mongodb",
+    "windows"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "mongoose": "^8.18.0",
+    "pdf-to-printer": "^5.6.0",
+    "axios": "^1.7.9",
+    "node-fetch": "^2.7.0",
+    "uuid": "^11.1.0",
+    "pdf-lib": "^1.17.1",
+    "pdfkit": "^0.15.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.13",
+    "@types/uuid": "^10.0.0",
+    "@types/pdfkit": "^0.13.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
+

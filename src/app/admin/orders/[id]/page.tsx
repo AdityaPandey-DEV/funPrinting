@@ -99,6 +99,25 @@ interface Order {
   orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'cancelled';
   amount: number;
   expectedDate?: string | Date;
+  printStatus?: 'pending' | 'printing' | 'printed';
+  printError?: string;
+  printSegments?: Array<{
+    segmentId: string;
+    pageRange?: {
+      start: number;
+      end: number;
+    };
+    printMode?: 'color' | 'bw';
+    copies?: number;
+    paperSize?: 'A4' | 'A3';
+    duplex?: boolean;
+    status: 'pending' | 'printing' | 'completed' | 'failed';
+    printJobId?: string;
+    startedAt?: string | Date;
+    completedAt?: string | Date;
+    error?: string;
+    executionOrder?: number;
+  }>;
   createdAt: string;
 }
 
@@ -192,10 +211,10 @@ function OrderDetailPageContent() {
             : [];
 
           // Convert legacy single fields, if present
-          if ((orderData.fileURLs?.length ?? 0) === 0 && orderData.fileURL) {
+          if ((!orderData.fileURLs || !Array.isArray(orderData.fileURLs) || orderData.fileURLs.length === 0) && orderData.fileURL) {
             orderData.fileURLs = [orderData.fileURL];
           }
-          if ((orderData.originalFileNames?.length ?? 0) === 0 && orderData.originalFileName) {
+          if ((!orderData.originalFileNames || !Array.isArray(orderData.originalFileNames) || orderData.originalFileNames.length === 0) && orderData.originalFileName) {
             orderData.originalFileNames = [orderData.originalFileName];
           }
 
@@ -754,6 +773,104 @@ function OrderDetailPageContent() {
                 </div>
               </div>
             </div>
+
+            {/* Print Segments Section */}
+            {order.printSegments && Array.isArray(order.printSegments) && order.printSegments.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg p-6">
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <PrinterIcon size={24} className="w-6 h-6" />
+                  Print Segments
+                </h2>
+                <div className="space-y-3">
+                  <p className="text-sm text-gray-600 mb-4">
+                    This order will be printed in {order.printSegments.length} segment(s) with reverse order execution.
+                    Order Summary page will appear on top of the physical stack.
+                  </p>
+                  <div className="space-y-2">
+                    {order.printSegments.map((segment: any, index: number) => {
+                      const executionOrder = segment?.executionOrder || (order.printSegments!.length - index);
+                      return (
+                        <div
+                          key={segment?.segmentId || index}
+                          className={`border rounded-lg p-4 ${
+                            segment?.status === 'completed' ? 'bg-green-50 border-green-200' :
+                            segment?.status === 'printing' ? 'bg-blue-50 border-blue-200' :
+                            segment?.status === 'failed' ? 'bg-red-50 border-red-200' :
+                            'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900">
+                                Segment {index + 1}
+                              </span>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                segment?.status === 'completed' ? 'bg-green-100 text-green-800' :
+                                segment?.status === 'printing' ? 'bg-blue-100 text-blue-800' :
+                                segment?.status === 'failed' ? 'bg-red-100 text-red-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {(segment?.status || 'pending').toUpperCase()}
+                              </span>
+                              <span className={`px-2 py-1 rounded text-xs ${
+                                segment?.printMode === 'color' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {segment?.printMode === 'color' ? 'Color' : 'B&W'}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              Execution Order: #{executionOrder}
+                            </span>
+                          </div>
+                          {segment?.pageRange && (
+                            <div className="text-sm text-gray-700 mb-2">
+                              <span className="font-medium">Pages:</span> {segment.pageRange.start} - {segment.pageRange.end}
+                            </div>
+                          )}
+                          <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                            <div>
+                              <span className="font-medium">Copies:</span> {segment?.copies || 1}
+                            </div>
+                            <div>
+                              <span className="font-medium">Paper:</span> {segment?.paperSize || 'A4'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Duplex:</span> {segment?.duplex ? 'Yes' : 'No'}
+                            </div>
+                            {segment?.printJobId && (
+                              <div>
+                                <span className="font-medium">Job ID:</span> {segment.printJobId.substring(0, 8)}...
+                              </div>
+                            )}
+                          </div>
+                          {segment?.startedAt && (
+                            <div className="text-xs text-gray-500 mt-2">
+                              Started: {formatDate(segment.startedAt.toString())}
+                            </div>
+                          )}
+                          {segment?.completedAt && (
+                            <div className="text-xs text-gray-500">
+                              Completed: {formatDate(segment.completedAt.toString())}
+                            </div>
+                          )}
+                          {segment?.error && (
+                            <div className="mt-2 p-2 bg-red-100 rounded text-xs text-red-700">
+                              Error: {segment.error}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-xs text-blue-800">
+                      <strong>Note:</strong> Segments are printed in reverse order (last segment first) so the final physical stack has pages in correct order.
+                      Order Summary page is printed last (appears first on top of stack).
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Student Information */}
             <div className="bg-white rounded-lg shadow-lg p-6">

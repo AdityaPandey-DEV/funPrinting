@@ -20,7 +20,8 @@
     "test-libreoffice": "node scripts/test-libreoffice.js",
     "test-api-endpoint": "node scripts/test-api-endpoint.js",
     "test-integration": "node scripts/test-integration-complete.js",
-    "fix-filetypes": "ts-node scripts/fix-filetype-in-orders.ts"
+    "fix-filetypes": "ts-node scripts/fix-filetype-in-orders.ts",
+    "migrate-print-status": "ts-node scripts/migrate-print-status.ts"
   },
   "dependencies": {
     "@thasmorato/docx-parser": "^1.4.0",

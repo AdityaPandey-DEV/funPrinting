@@ -92,6 +92,35 @@ export interface IOrder {
   templateCreatorUserId?: string; // Reference to template creator user ID (string for simplicity)
   expectedDate?: Date;
   deliveryNumber?: string; // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
+  // Print status fields (MongoDB-based printing system)
+  printStatus?: 'pending' | 'printing' | 'printed'; // Required for printing system
+  printError?: string; // Error message if printing fails
+  printerId?: string; // Reference to printer that processed the order
+  printerName?: string; // Printer name for display
+  printStartedAt?: Date; // When printing started
+  printCompletedAt?: Date; // When printing completed
+  // Production-critical: Idempotency and ownership
+  printJobId?: string; // UUID for print job idempotency
+  printAttempt?: number; // Number of print attempts (default: 0)
+  maxPrintAttempts?: number; // Maximum print attempts before requiring admin action (default: 3)
+  printingBy?: string; // Worker ID that owns this print job
+  printingHeartbeatAt?: Date; // Last heartbeat update while printing (for stale job detection)
+  printSegments?: Array<{ // For mixed printing (color/BW segments)
+    segmentId: string;
+    pageRange?: {
+      start: number;
+      end: number;
+    };
+    printMode?: 'color' | 'bw';
+    copies?: number;
+    paperSize?: 'A4' | 'A3';
+    duplex?: boolean;
+    status: 'pending' | 'printing' | 'completed' | 'failed';
+    printJobId?: string;
+    startedAt?: Date;
+    completedAt?: Date;
+    error?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -264,12 +293,52 @@ const orderSchema = new mongoose.Schema<IOrder>({
     }
   },
   deliveryNumber: String, // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
+  // Print status fields (MongoDB-based printing system)
+  printStatus: {
+    type: String,
+    enum: ['pending', 'printing', 'printed'],
+    default: undefined, // Will be set by migration or when payment completes
+    index: true,
+  },
+  printError: String, // Error message if printing fails
+  printerId: String, // Reference to printer that processed the order
+  printerName: String, // Printer name for display
+  printStartedAt: Date, // When printing started
+  printCompletedAt: Date, // When printing completed
+  // Production-critical: Idempotency and ownership
+  printJobId: { type: String, index: true, sparse: true, unique: true }, // UUID for print job idempotency
+  printAttempt: { type: Number, default: 0 }, // Number of print attempts
+  maxPrintAttempts: { type: Number, default: 3 }, // Maximum print attempts before requiring admin action
+  printingBy: { type: String, index: true }, // Worker ID that owns this print job
+  printingHeartbeatAt: { type: Date, index: true }, // Last heartbeat update while printing (for stale job detection)
+  printSegments: [{ // For mixed printing (color/BW segments)
+    segmentId: String,
+    pageRange: {
+      start: Number,
+      end: Number,
+    },
+    printMode: { type: String, enum: ['color', 'bw'] },
+    copies: Number,
+    paperSize: { type: String, enum: ['A4', 'A3'] },
+    duplex: Boolean,
+    status: { type: String, enum: ['pending', 'printing', 'completed', 'failed'] },
+    printJobId: String,
+    startedAt: Date,
+    completedAt: Date,
+    error: String,
+  }],
 }, {
   timestamps: true,
 });
 
-// Generate order ID before saving
+// Pre-save hook: Set printStatus and generate order ID
 orderSchema.pre('save', async function(next) {
+  // Set printStatus to 'pending' when payment is completed
+  if (this.paymentStatus === 'completed' && !this.printStatus) {
+    this.printStatus = 'pending';
+  }
+  
+  // Generate order ID before saving
   if (this.isNew && !this.orderId) {
     let attempts = 0;
     const maxAttempts = 10;
