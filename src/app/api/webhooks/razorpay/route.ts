@@ -221,6 +221,7 @@ async function handlePaymentCaptured(payment: any, retryCount: number = 0): Prom
           razorpayPaymentId: payment.id,
           status: 'paid',
           orderStatus: 'pending', // Ready for processing
+          printStatus: 'pending', // Ready for printing
           updatedAt: new Date()
         }
       },

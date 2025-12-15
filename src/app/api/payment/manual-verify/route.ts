@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
           paymentStatus: 'completed',
           status: 'paid',
           orderStatus: 'pending',
+          printStatus: 'pending', // Ready for printing
           updatedAt: new Date()
         }
       },

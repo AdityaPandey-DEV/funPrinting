@@ -166,6 +166,7 @@ async function updateOrderStatus(orderId: string, paymentId: string, amount: num
           razorpayPaymentId: paymentId,
           status: 'paid',
           orderStatus: 'pending', // Ready for processing
+          printStatus: 'pending', // Ready for printing
           updatedAt: new Date()
         }
       },

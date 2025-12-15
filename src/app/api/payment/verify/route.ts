@@ -165,6 +165,7 @@ export async function POST(request: NextRequest) {
           razorpayPaymentId: razorpay_payment_id,
           status: 'paid',
           orderStatus: 'pending', // Ready for processing
+          printStatus: 'pending', // Ready for printing
           updatedAt: new Date()
         }
       },
