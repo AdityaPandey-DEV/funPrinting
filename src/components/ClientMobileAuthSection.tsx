@@ -2,20 +2,70 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import Image from 'next/image';
 
 interface ClientMobileAuthSectionProps {
   onMenuClose: () => void;
+}
+
+// Helper function to get user initial
+function getUserInitial(name?: string | null, email?: string | null): string {
+  if (name) {
+    return name.charAt(0).toUpperCase();
+  }
+  if (email) {
+    return email.charAt(0).toUpperCase();
+  }
+  return '?';
+}
+
+// Helper function to get background color based on initial
+function getInitialColor(initial: string): string {
+  const colors = [
+    'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500',
+    'bg-pink-500', 'bg-indigo-500', 'bg-red-500', 'bg-teal-500'
+  ];
+  const index = initial.charCodeAt(0) % colors.length;
+  return colors[index];
 }
 
 export default function ClientMobileAuthSection({ onMenuClose }: ClientMobileAuthSectionProps) {
   const { user, isAuthenticated, logout } = useAuth();
 
   if (isAuthenticated) {
+    const profileImage = user?.image || (user as any)?.profilePicture;
+    const initial = getUserInitial(user?.name, user?.email);
+    const bgColor = getInitialColor(initial);
+
     return (
       <div className="px-3 py-2">
-        <div className="text-sm text-gray-600 font-medium mb-3 truncate">
-          Welcome, {user?.name || user?.email}
-        </div>
+        <Link
+          href="/profile"
+          onClick={onMenuClose}
+          className="flex items-center space-x-3 mb-3 p-2 rounded-md hover:bg-gray-100 transition-colors"
+        >
+          <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 flex-shrink-0">
+            {profileImage ? (
+              <Image
+                src={profileImage}
+                alt={user?.name || 'Profile'}
+                width={40}
+                height={40}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className={`w-full h-full ${bgColor} flex items-center justify-center text-white font-semibold text-lg`}>
+                {initial}
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm text-gray-900 font-medium truncate">
+              {user?.name || user?.email}
+            </div>
+            <div className="text-xs text-gray-500">View Profile</div>
+          </div>
+        </Link>
         <button
           onClick={() => {
             logout();

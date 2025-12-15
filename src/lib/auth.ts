@@ -129,12 +129,42 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.image = user.image;
       }
+      
+      // Refresh profile picture from database on each JWT update
+      if (token.id) {
+        try {
+          await connectDB();
+          const dbUser = await User.findById(token.id);
+          if (dbUser && dbUser.profilePicture) {
+            token.image = dbUser.profilePicture;
+          }
+        } catch (error) {
+          console.error('Error fetching user profile picture in JWT:', error);
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         (session.user as any).id = token.id as string;
+        // Include profile picture from token
+        if (token.image) {
+          session.user.image = token.image as string;
+        } else {
+          // Only fetch from database if not in token
+          try {
+            await connectDB();
+            const user = await User.findById(token.id);
+            if (user && user.profilePicture) {
+              session.user.image = user.profilePicture;
+            }
+          } catch (error) {
+            console.error('Error fetching user profile picture:', error);
+          }
+        }
       }
       return session;
     }
