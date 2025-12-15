@@ -111,8 +111,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create Razorpay order
-    console.log(`💳 Creating Razorpay order for amount: ₹${amount}`);
+    // Add 3% Razorpay processing fee as hidden charge
+    // This ensures we receive at least the base amount after Razorpay's 2% fee deduction
+    const RAZORPAY_FEE_PERCENT = 3;
+    const baseAmount = amount;
+    const finalAmount = Math.round(baseAmount * (1 + RAZORPAY_FEE_PERCENT / 100));
+    const razorpayFee = finalAmount - baseAmount;
+    
+    console.log(`💳 Razorpay fee calculation:`);
+    console.log(`  - Base amount: ₹${baseAmount}`);
+    console.log(`  - Razorpay fee (${RAZORPAY_FEE_PERCENT}%): ₹${razorpayFee}`);
+    console.log(`  - Final amount (with fee): ₹${finalAmount}`);
+
+    // Create Razorpay order with final amount (including hidden fee)
+    console.log(`💳 Creating Razorpay order for amount: ₹${finalAmount} (base: ₹${baseAmount})`);
     let razorpayOrder;
     try {
       // Generate receipt - must be max 40 characters (Razorpay limit)
@@ -120,13 +132,15 @@ export async function POST(request: NextRequest) {
       const receipt = `tpl_${Date.now()}`;
       
       razorpayOrder = await createRazorpayOrder({
-        amount: amount,
+        amount: finalAmount,
         currency: 'INR',
         receipt: receipt,
         notes: {
           templateId: templateId,
           templateName: template.name,
-          type: 'template_payment'
+          type: 'template_payment',
+          amount: baseAmount.toString(), // Store original amount in notes
+          razorpayFee: razorpayFee.toString(), // Store fee for tracking
         }
       });
       console.log(`✅ Razorpay order created: ${razorpayOrder.id}`);

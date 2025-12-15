@@ -286,24 +286,37 @@ export async function POST(request: NextRequest) {
 
     console.log(`💰 Payment initiation - calculated amount: ₹${calculatedAmount}`);
 
+    // Add 3% Razorpay processing fee as hidden charge
+    // This ensures we receive at least the base amount after Razorpay's 2% fee deduction
+    const RAZORPAY_FEE_PERCENT = 3;
+    const baseAmount = calculatedAmount;
+    const finalAmount = Math.round(baseAmount * (1 + RAZORPAY_FEE_PERCENT / 100));
+    const razorpayFee = finalAmount - baseAmount;
+    
+    console.log(`💳 Razorpay fee calculation:`);
+    console.log(`  - Base amount: ₹${baseAmount}`);
+    console.log(`  - Razorpay fee (${RAZORPAY_FEE_PERCENT}%): ₹${razorpayFee}`);
+    console.log(`  - Final amount (with fee): ₹${finalAmount}`);
+
     // Validate calculated amount is reasonable
-    if (calculatedAmount <= 0 || calculatedAmount > 100000) { // Max ₹1,00,000
-      console.error(`❌ Invalid calculated amount: ₹${calculatedAmount}`);
+    if (baseAmount <= 0 || baseAmount > 100000) { // Max ₹1,00,000
+      console.error(`❌ Invalid calculated amount: ₹${baseAmount}`);
       return NextResponse.json(
         { success: false, error: 'Invalid order amount. Please contact support.' },
         { status: 400 }
       );
     }
 
-    // Create Razorpay order
+    // Create Razorpay order with final amount (including hidden fee)
     const razorpayOrder = await createRazorpayOrder({
-      amount: calculatedAmount,
+      amount: finalAmount,
       receipt: `payment_${Date.now()}`,
       notes: {
         orderType,
         customerName: customerInfo.name,
         pageCount: pageCount.toString(),
-        amount: calculatedAmount.toString(),
+        amount: baseAmount.toString(), // Store original amount in notes
+        razorpayFee: razorpayFee.toString(), // Store fee for tracking
       },
     });
 

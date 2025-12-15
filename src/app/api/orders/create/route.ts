@@ -233,14 +233,28 @@ export async function POST(request: NextRequest) {
     console.log(`  - Delivery: ${deliveryOption.type === 'delivery' ? `₹${deliveryOption.deliveryCharge}` : 'Free pickup'}`);
     console.log(`  - Total: ₹${amount}`);
 
-    // Create Razorpay order
+    // Add 3% Razorpay processing fee as hidden charge
+    // This ensures we receive at least the base amount after Razorpay's 2% fee deduction
+    const RAZORPAY_FEE_PERCENT = 3;
+    const baseAmount = amount;
+    const finalAmount = Math.round(baseAmount * (1 + RAZORPAY_FEE_PERCENT / 100));
+    const razorpayFee = finalAmount - baseAmount;
+    
+    console.log(`💳 Razorpay fee calculation:`);
+    console.log(`  - Base amount: ₹${baseAmount}`);
+    console.log(`  - Razorpay fee (${RAZORPAY_FEE_PERCENT}%): ₹${razorpayFee}`);
+    console.log(`  - Final amount (with fee): ₹${finalAmount}`);
+
+    // Create Razorpay order with final amount (including hidden fee)
     const razorpayOrder = await createRazorpayOrder({
-      amount,
+      amount: finalAmount,
       receipt: `order_${Date.now()}`,
       notes: {
         orderType,
         customerName: customerInfo.name,
         pageCount: pageCount.toString(),
+        amount: baseAmount.toString(), // Store original amount in notes
+        razorpayFee: razorpayFee.toString(), // Store fee for tracking
       },
     });
 
