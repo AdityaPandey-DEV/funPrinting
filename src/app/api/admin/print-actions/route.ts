@@ -162,8 +162,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * PUT /api/admin/print-actions/cancel
- * Cancel a pending order
+ * PUT /api/admin/print-actions/remove
+ * Remove order from print queue (doesn't cancel the order)
+ * Can be used for pending, printing, or printed orders
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -200,33 +201,50 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    if (order.printStatus !== 'pending') {
+    // Check if payment is completed - cannot remove if payment completed
+    if (order.paymentStatus === 'completed') {
       return NextResponse.json(
-        { success: false, error: 'Only pending orders can be cancelled' },
+        { success: false, error: 'Cannot remove order from queue if payment is completed. Order must remain in system.' },
         { status: 400 }
       );
     }
 
     const previousStatus = order.printStatus;
+    const previousOrderStatus = order.orderStatus;
+    const previousMainStatus = order.status;
 
-    // Cancel order
+    // Remove from print queue - doesn't cancel the order
+    // If order was previously cancelled, reset to pending
+    const newOrderStatus = previousOrderStatus === 'cancelled' ? 'pending' : previousOrderStatus;
+    const newMainStatus = previousMainStatus === 'cancelled' ? 'pending_payment' : previousMainStatus;
+
     await Order.findByIdAndUpdate(order._id, {
+      $unset: {
+        printStatus: '',
+        printStartedAt: '',
+        printCompletedAt: '',
+        printerId: '',
+        printerName: '',
+        printingBy: '',
+        printJobId: '',
+        printingHeartbeatAt: '',
+        printError: '',
+      },
       $set: {
-        printStatus: undefined, // Remove print status
-        orderStatus: 'cancelled',
-        status: 'cancelled',
+        orderStatus: newOrderStatus,
+        status: newMainStatus,
       },
     });
 
     // Log action
-    await logAction('cancel', orderId, auth.adminEmail!, previousStatus, 'cancelled', reason, order.printJobId);
+    await logAction('remove_from_queue', orderId, auth.adminEmail!, previousStatus || 'none', 'removed', reason, order.printJobId);
 
     return NextResponse.json({
       success: true,
-      message: 'Order cancelled',
+      message: 'Order removed from print queue',
     });
   } catch (error) {
-    console.error('Error in cancel action:', error);
+    console.error('Error in remove action:', error);
     return NextResponse.json(
       {
         success: false,

@@ -172,8 +172,8 @@ function PrinterMonitorContent() {
     }
   };
 
-  const handleCancel = async (orderId: string) => {
-    if (!confirm(`Cancel order ${orderId}?`)) return;
+  const handleRemove = async (orderId: string) => {
+    if (!confirm(`Remove order ${orderId} from print queue?`)) return;
 
     try {
       const response = await fetch('/api/admin/print-actions', {
@@ -182,18 +182,18 @@ function PrinterMonitorContent() {
           'Content-Type': 'application/json',
           'x-admin-email': adminEmail,
         },
-        body: JSON.stringify({ orderId, reason: 'Admin cancelled order' }),
+        body: JSON.stringify({ orderId, reason: 'Admin removed from print queue' }),
       });
 
       const result = await response.json();
       if (result.success) {
-        showSuccess('Order cancelled');
+        showSuccess('Order removed from print queue');
         fetchData();
       } else {
-        showError(result.error || 'Failed to cancel order');
+        showError(result.error || 'Failed to remove order from queue');
       }
     } catch (error) {
-      showError('Error cancelling order');
+      showError('Error removing order from queue');
     }
   };
 
@@ -456,10 +456,11 @@ function PrinterMonitorContent() {
                           Reprint
                         </button>
                         <button
-                          onClick={() => handleCancel(order.orderId)}
+                          onClick={() => handleRemove(order.orderId)}
                           className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700"
+                          title="Remove from print queue"
                         >
-                          Cancel
+                          Remove
                         </button>
                       </div>
                     </div>
@@ -580,7 +581,16 @@ function PrinterMonitorContent() {
                       </div>
                       <p className="text-sm text-gray-700 mb-1">{order.fileName}</p>
                       <p className="text-xs text-gray-500 mb-1">Printer: {order.printerName || 'N/A'}</p>
-                      <p className="text-xs text-gray-500">Completed: {formatDate(order.printCompletedAt)}</p>
+                      <p className="text-xs text-gray-500 mb-2">Completed: {formatDate(order.printCompletedAt)}</p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleRemove(order.orderId)}
+                          className="text-xs bg-gray-600 text-white px-2 py-1 rounded hover:bg-gray-700"
+                          title="Remove from print queue (if printed manually)"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
