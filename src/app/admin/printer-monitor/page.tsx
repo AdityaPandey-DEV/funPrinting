@@ -6,7 +6,7 @@ import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
 import NotificationProvider from '@/components/admin/NotificationProvider';
 import { showError, showSuccess } from '@/lib/adminNotifications';
-import { PrinterIcon, RefreshIcon, CheckIcon, ErrorIcon, DocumentIcon, ClockIcon, XIcon, RotateCcwIcon } from '@/components/SocialIcons';
+import { PrinterIcon, RefreshIcon, ErrorIcon } from '@/components/SocialIcons';
 
 interface PrintSegment {
   segmentId: string;

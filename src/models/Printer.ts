@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPrinter extends Document {
-  _id: string;
   name: string;
   printerModel: string;
   manufacturer: string;

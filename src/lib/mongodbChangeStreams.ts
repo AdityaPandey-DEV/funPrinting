@@ -15,7 +15,11 @@ let isReplicaSet = false;
 async function checkReplicaSet(): Promise<boolean> {
   try {
     await connectDB();
-    const admin = mongoose.connection.db.admin();
+    const db = mongoose.connection.db;
+    if (!db) {
+      return false;
+    }
+    const admin = db.admin();
     const status = await admin.command({ isMaster: 1 });
     return !!(status.setName || status.ismaster);
   } catch (error) {

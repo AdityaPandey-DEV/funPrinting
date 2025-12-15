@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPrintJob extends Document {
-  _id: string;
   orderId: string;
   orderNumber: string;
   customerName: string;

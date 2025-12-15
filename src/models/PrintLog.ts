@@ -1,7 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IPrintLog extends Document {
-  _id: string;
   action: string; // e.g., "reprint", "cancel", "reset_state", "force_printed", "server_shutdown"
   orderId: string; // Order ID (indexed)
   printJobId?: string; // Print job ID for idempotency tracking

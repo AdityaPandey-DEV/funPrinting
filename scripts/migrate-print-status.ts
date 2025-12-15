@@ -32,8 +32,8 @@ async function migrate() {
   try {
     console.log('🔄 Starting migration...');
     
-    // Connect to MongoDB
-    await mongoose.connect(MONGODB_URI);
+    // Connect to MongoDB (MONGODB_URI is guaranteed to be string after the check above)
+    await mongoose.connect(MONGODB_URI as string);
     console.log('✅ Connected to MongoDB');
 
     // Step 1: Add printStatus to orders with completed payment
