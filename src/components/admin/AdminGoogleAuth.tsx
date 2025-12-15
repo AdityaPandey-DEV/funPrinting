@@ -76,6 +76,8 @@ export default function AdminGoogleAuth({
       
       if (data.isAdmin) {
         console.log('✅ Admin authenticated:', email);
+        // Store admin email in localStorage
+        localStorage.setItem('adminEmail', email);
       } else {
         console.log('❌ User is not an admin:', email);
       }
@@ -128,6 +130,8 @@ export default function AdminGoogleAuth({
       if (data.success) {
         // Persist admin authentication in localStorage
         adminAuth.setAuthenticated();
+        // Store admin email in localStorage
+        localStorage.setItem('adminEmail', passwordCredentials.email);
         setLocalStorageAuth(true);
         setPasswordAuthenticated(true);
         setIsAdmin(true);

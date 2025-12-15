@@ -6,15 +6,11 @@ import { validatePrintTransition } from '@/utils/printStateMachine';
 
 /**
  * Verify admin authentication
- * For now, we'll accept admin email from request header or body
+ * Accepts admin email as parameter (from header or body)
  * In production, you should use proper session/JWT authentication
  */
-async function verifyAdmin(request: NextRequest): Promise<{ isAdmin: boolean; adminEmail?: string }> {
+async function verifyAdmin(adminEmail: string | null): Promise<{ isAdmin: boolean; adminEmail?: string }> {
   try {
-    // Get admin email from header or body
-    const adminEmail = request.headers.get('x-admin-email') || 
-                      (await request.json().catch(() => ({}))).adminEmail;
-
     if (!adminEmail) {
       return { isAdmin: false };
     }
@@ -77,16 +73,20 @@ async function logAction(
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await verifyAdmin(request);
+    // Read body once
+    const body = await request.json();
+    const { orderId, reason, adminEmail: bodyAdminEmail } = body;
+    
+    // Get admin email from header or body
+    const adminEmail = request.headers.get('x-admin-email') || bodyAdminEmail;
+    
+    const auth = await verifyAdmin(adminEmail);
     if (!auth.isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const body = await request.json();
-    const { orderId, reason } = body;
 
     if (!orderId) {
       return NextResponse.json(
@@ -167,16 +167,20 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await verifyAdmin(request);
+    // Read body once
+    const body = await request.json();
+    const { orderId, reason, adminEmail: bodyAdminEmail } = body;
+    
+    // Get admin email from header or body
+    const adminEmail = request.headers.get('x-admin-email') || bodyAdminEmail;
+    
+    const auth = await verifyAdmin(adminEmail);
     if (!auth.isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const body = await request.json();
-    const { orderId, reason } = body;
 
     if (!orderId) {
       return NextResponse.json(
@@ -239,16 +243,20 @@ export async function PUT(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await verifyAdmin(request);
+    // Read body once
+    const body = await request.json();
+    const { orderId, reason, adminEmail: bodyAdminEmail } = body;
+    
+    // Get admin email from header or body
+    const adminEmail = request.headers.get('x-admin-email') || bodyAdminEmail;
+    
+    const auth = await verifyAdmin(adminEmail);
     if (!auth.isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const body = await request.json();
-    const { orderId, reason } = body;
 
     if (!orderId) {
       return NextResponse.json(
@@ -327,16 +335,20 @@ export async function PATCH(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await verifyAdmin(request);
+    // Read body once
+    const body = await request.json();
+    const { orderId, reason, confirmed, adminEmail: bodyAdminEmail } = body;
+    
+    // Get admin email from header or body
+    const adminEmail = request.headers.get('x-admin-email') || bodyAdminEmail;
+    
+    const auth = await verifyAdmin(adminEmail);
     if (!auth.isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
       );
     }
-
-    const body = await request.json();
-    const { orderId, reason, confirmed } = body;
 
     if (!orderId) {
       return NextResponse.json(

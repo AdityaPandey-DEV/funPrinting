@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import AdminGoogleAuth from '@/components/admin/AdminGoogleAuth';
 import AdminNavigation from '@/components/admin/AdminNavigation';
 import LoadingSpinner from '@/components/admin/LoadingSpinner';
@@ -83,6 +84,7 @@ interface MonitorData {
 }
 
 function PrinterMonitorContent() {
+  const { data: session } = useSession();
   const [data, setData] = useState<MonitorData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -90,10 +92,15 @@ function PrinterMonitorContent() {
   const [adminEmail, setAdminEmail] = useState<string>('');
 
   useEffect(() => {
-    // Get admin email from localStorage or session
-    const email = localStorage.getItem('adminEmail') || 'admin@example.com';
+    // Get admin email from session (Google auth) or localStorage
+    const email = session?.user?.email || localStorage.getItem('adminEmail') || 'adityapandey.dev.in@gmail.com';
     setAdminEmail(email);
-  }, []);
+    
+    // Store in localStorage if from session
+    if (session?.user?.email && !localStorage.getItem('adminEmail')) {
+      localStorage.setItem('adminEmail', session.user.email);
+    }
+  }, [session]);
 
   const fetchData = async () => {
     try {
@@ -225,7 +232,11 @@ function PrinterMonitorContent() {
           'Content-Type': 'application/json',
           'x-admin-email': adminEmail,
         },
-        body: JSON.stringify({ orderId, reason: 'Admin force marked as printed' }),
+        body: JSON.stringify({ 
+          orderId, 
+          reason: 'Admin force marked as printed',
+          confirmed: true 
+        }),
       });
 
       const result = await response.json();
