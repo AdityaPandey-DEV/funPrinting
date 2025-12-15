@@ -759,11 +759,11 @@ function AdminDashboardContent() {
                                 });
                                 const data = await response.json();
                                 if (data.success) {
-                                  showSuccess(`Order #${order.orderId} sent to print queue!`);
-                                  // Update order status to printing
-                                  await updateOrderStatus(order._id, 'printing');
+                                  showSuccess(`Order #${order.orderId} added to printing queue! The printing server will process it automatically.`);
+                                  // Refresh orders to show updated printStatus
+                                  await fetchOrders();
                                 } else {
-                                  showError(`Failed to send to print queue: ${data.error || 'Unknown error'}`);
+                                  showError(`Failed to add to print queue: ${data.error || 'Unknown error'}`);
                                 }
                               } catch (error) {
                                 console.error('Error sending to print queue:', error);

@@ -344,17 +344,13 @@ function OrderDetailPageContent() {
       const data = await response.json();
       
       if (data.success) {
-        showSuccess(`Order #${order.orderId} sent to print queue successfully!`);
-        // Optionally update order status to 'printing'
-        if (order.orderStatus !== 'printing') {
-          await updateOrderStatus('printing');
-        }
-        // Refresh order data to get updated delivery number
+        showSuccess(`Order #${order.orderId} added to printing queue! The printing server will process it automatically.`);
+        // Refresh order data to get updated printStatus
         if (params.id) {
           await fetchOrder(params.id as string);
         }
       } else {
-        showError(`Failed to send to print queue: ${data.error || 'Unknown error'}`);
+        showError(`Failed to add to print queue: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error sending to print queue:', error);

@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Order from '@/models/Order';
-import { sendPrintJobFromOrder, generateDeliveryNumber } from '@/lib/printerClient';
+import PrintLog from '@/models/PrintLog';
+import { validatePrintTransition } from '@/utils/printStateMachine';
 
 /**
  * POST /api/printer
- * Send print job to printer API
+ * Add order to printing queue by setting printStatus to 'pending'
+ * The printing server will automatically pick it up from MongoDB
  */
 export async function POST(request: NextRequest) {
   try {
     await connectDB();
 
     const body = await request.json();
-    const { orderId, printerIndex } = body;
+    const { orderId } = body;
 
     if (!orderId) {
       return NextResponse.json(
@@ -49,73 +51,70 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Determine printer index
-    let printerUrls: string[] = [];
-    const urlsEnv = process.env.PRINTER_API_URLS;
-    if (urlsEnv) {
-      const trimmed = urlsEnv.trim();
-      // Check if it looks like a JSON array (starts with [ and ends with ])
-      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
-        try {
-          printerUrls = JSON.parse(trimmed);
-          // Ensure it's an array
-          if (!Array.isArray(printerUrls)) {
-            printerUrls = [];
-          }
-        } catch {
-          // Invalid JSON array format like [https://...] - extract URL from brackets
-          const urlMatch = trimmed.match(/\[(.*?)\]/);
-          if (urlMatch && urlMatch[1]) {
-            printerUrls = [urlMatch[1].trim()];
-          } else {
-            printerUrls = [];
-          }
-        }
+    // Validate state transition
+    const currentStatus = order.printStatus || 'pending';
+    const transitionValidation = validatePrintTransition(currentStatus, 'pending');
+    
+    if (!transitionValidation.allowed && currentStatus !== 'pending') {
+      // If already printing or printed, allow reset to pending (reprint)
+      if (currentStatus === 'printing' || currentStatus === 'printed') {
+        // Allow reset to pending for reprint
       } else {
-        // Not a JSON array - treat as comma-separated string or single URL
-        printerUrls = trimmed.split(',').map(url => url.trim()).filter(url => url.length > 0);
-        // If no commas, treat as single URL
-        if (printerUrls.length === 0 && trimmed.length > 0) {
-          printerUrls = [trimmed];
-        }
+        return NextResponse.json(
+          { success: false, error: `Cannot set print status: ${transitionValidation.reason}` },
+          { status: 400 }
+        );
       }
-      
-      // Normalize all URLs: remove trailing slashes
-      printerUrls = printerUrls.map(url => url.replace(/\/+$/, ''));
     }
-    const selectedPrinterIndex = printerIndex || (printerUrls.length > 0 ? 1 : 1);
 
-    // Generate delivery number if not present
-    let deliveryNumber = order.deliveryNumber;
-    if (!deliveryNumber) {
-      deliveryNumber = generateDeliveryNumber(selectedPrinterIndex);
-      await Order.findByIdAndUpdate(order._id, {
-        $set: { deliveryNumber }
+    // Set printStatus to 'pending' - printing server will pick it up automatically
+    const updateResult = await Order.findByIdAndUpdate(
+      order._id,
+      {
+        $set: {
+          printStatus: 'pending',
+          printError: undefined, // Clear any previous errors
+          updatedAt: new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!updateResult) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to update order status' },
+        { status: 500 }
+      );
+    }
+
+    // Log the action
+    try {
+      await PrintLog.create({
+        action: 'admin_print_request',
+        orderId: order.orderId,
+        previousStatus: currentStatus,
+        newStatus: 'pending',
+        reason: 'Admin manually triggered print via print button',
+        timestamp: new Date(),
+        metadata: { source: 'admin_dashboard' }
       });
+    } catch (logError) {
+      console.error('Error logging print action:', logError);
+      // Don't fail the request if logging fails
     }
 
-    // Send print job
-    console.log(`🖨️ Sending print job for order ${orderId} to printer ${selectedPrinterIndex}`);
-    const result = await sendPrintJobFromOrder(order, selectedPrinterIndex);
-
-    if (result.success && result.deliveryNumber) {
-      // Update delivery number from printer API response
-      await Order.findByIdAndUpdate(order._id, {
-        $set: { deliveryNumber: result.deliveryNumber }
-      });
-    }
+    console.log(`✅ Order ${orderId} added to printing queue (printStatus: 'pending')`);
 
     return NextResponse.json({
-      success: result.success,
-      message: result.message,
-      jobId: result.jobId,
-      deliveryNumber: result.deliveryNumber || deliveryNumber,
-      error: result.error
+      success: true,
+      message: 'Order added to printing queue. Printing server will process it automatically.',
+      orderId: order.orderId,
+      printStatus: 'pending'
     });
   } catch (error) {
-    console.error('Error sending print job:', error);
+    console.error('Error adding order to print queue:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to send print job' },
+      { success: false, error: 'Failed to add order to print queue' },
       { status: 500 }
     );
   }
