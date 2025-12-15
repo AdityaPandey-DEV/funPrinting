@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import Image from 'next/image';
 
 interface UserProfile {
   name: string;
@@ -23,13 +22,21 @@ export default function ProfilePage() {
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isVerifyingPassword, setIsVerifyingPassword] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [imageError, setImageError] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
   });
+  const [originalFormData, setOriginalFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+  });
   const [profilePicture, setProfilePicture] = useState<string | null>(null);
+  const [originalProfilePicture, setOriginalProfilePicture] = useState<string | null>(null);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
@@ -64,14 +71,20 @@ export default function ProfilePage() {
             provider: data.profile.provider || 'email',
           };
           setProfile(profileData);
-          setFormData({
+          const initialFormData = {
             name: profileData.name,
             email: profileData.email,
             phone: profileData.phone,
-          });
-          setProfilePicture(profileData.profilePicture || null);
+          };
+          setFormData(initialFormData);
+          setOriginalFormData(initialFormData);
+          const initialPicture = profileData.profilePicture || null;
+          setProfilePicture(initialPicture);
+          setOriginalProfilePicture(initialPicture);
+          setImageError(false); // Reset image error on profile load
           
-          // Skip password verification for Google OAuth users
+          // Don't require password verification on page load - only when making changes
+          // Google OAuth users never need password verification
           if (profileData.provider === 'google') {
             setIsPasswordVerified(true);
           }
@@ -145,9 +158,28 @@ export default function ProfilePage() {
       const data = await response.json();
       
       if (data.success && data.profilePicture) {
-        setProfilePicture(data.profilePicture);
+        const newPictureUrl = data.profilePicture;
+        // Reset image error and update picture
+        setImageError(false);
+        setProfilePicture(newPictureUrl);
+        setOriginalProfilePicture(newPictureUrl);
+        setHasChanges(true);
         setSuccess('Profile picture updated successfully');
-        setTimeout(() => setSuccess(''), 3000);
+        
+        // Update profile state
+        if (profile) {
+          setProfile({
+            ...profile,
+            profilePicture: newPictureUrl
+          });
+        }
+        
+        // Clear success message after 2 seconds, then reload to update session
+        setTimeout(() => {
+          setSuccess('');
+          // Reload page to update session with new profile picture
+          window.location.reload();
+        }, 2000);
       } else {
         setError(data.error || 'Failed to upload profile picture');
       }
@@ -161,13 +193,30 @@ export default function ProfilePage() {
     }
   };
 
+  // Track form changes
+  useEffect(() => {
+    const hasFormChanges = 
+      formData.name !== originalFormData.name ||
+      formData.email !== originalFormData.email ||
+      formData.phone !== originalFormData.phone ||
+      profilePicture !== originalProfilePicture;
+    
+    setHasChanges(hasFormChanges);
+    
+    // If user made changes and hasn't verified password, require verification
+    if (hasFormChanges && !isPasswordVerified && profile?.provider === 'email') {
+      // Don't auto-show password form, just mark that changes were made
+    }
+  }, [formData, originalFormData, profilePicture, originalProfilePicture, isPasswordVerified, profile?.provider]);
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    if (!isPasswordVerified && profile?.provider === 'email') {
-      setError('Please verify your password first');
+    // Only require password verification if user made changes and hasn't verified
+    if (hasChanges && !isPasswordVerified && profile?.provider === 'email') {
+      setError('Please verify your password to save changes');
       return;
     }
 
@@ -209,12 +258,27 @@ export default function ProfilePage() {
         const profileResponse = await fetch('/api/user/profile');
         const profileData = await profileResponse.json();
         if (profileData.success) {
-          setProfile({
+          const updatedProfile = {
             ...profileData.profile,
             profilePicture: profilePicture || profileData.profile.profilePicture,
             emailVerified: emailChanged ? false : profileData.profile.emailVerified,
             provider: profileData.profile.provider || 'email',
+          };
+          setProfile(updatedProfile);
+          setOriginalFormData({
+            name: updatedProfile.name,
+            email: updatedProfile.email,
+            phone: updatedProfile.phone || '',
           });
+          setOriginalProfilePicture(updatedProfile.profilePicture || null);
+          setHasChanges(false);
+          
+          // Refresh page to update session with new profile picture
+          if (profilePicture) {
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          }
         }
         
         setTimeout(() => {
@@ -275,41 +339,8 @@ export default function ProfilePage() {
       <div className="max-w-3xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-900 mb-8">Profile Settings</h1>
 
-        {/* Password Verification Modal */}
-        {!isPasswordVerified && profile.provider === 'email' && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Verify Your Password</h2>
-            <p className="text-gray-600 mb-4">Please enter your password to edit your profile.</p>
-            <form onSubmit={handleVerifyPassword}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                />
-                {passwordError && (
-                  <p className="text-red-600 text-sm mt-1">{passwordError}</p>
-                )}
-              </div>
-              <button
-                type="submit"
-                disabled={isVerifyingPassword}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {isVerifyingPassword ? 'Verifying...' : 'Verify Password'}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* Profile Form */}
-        {isPasswordVerified && (
-          <div className="bg-white rounded-lg shadow-md p-6">
+        {/* Profile Form - Always visible, password only required when saving changes */}
+        <div className="bg-white rounded-lg shadow-md p-6">
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
                 {error}
@@ -326,6 +357,38 @@ export default function ProfilePage() {
               </div>
             )}
 
+            {/* Password Verification - Only show when user tries to save changes */}
+            {hasChanges && !isPasswordVerified && profile.provider === 'email' && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                <h3 className="text-lg font-semibold text-yellow-800 mb-2">Password Required</h3>
+                <p className="text-yellow-700 mb-4">Please verify your password to save changes.</p>
+                <form onSubmit={handleVerifyPassword} className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                    {passwordError && (
+                      <p className="text-red-600 text-sm mt-1">{passwordError}</p>
+                    )}
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isVerifyingPassword}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                  >
+                    {isVerifyingPassword ? 'Verifying...' : 'Verify Password'}
+                  </button>
+                </form>
+              </div>
+            )}
+
             <form onSubmit={handleSave} className="space-y-6">
               {/* Profile Picture */}
               <div>
@@ -334,14 +397,19 @@ export default function ProfilePage() {
                 </label>
                 <div className="flex items-center space-x-4">
                   <div className="relative">
-                    {profilePicture ? (
-                      <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-300">
-                        <Image
+                    {profilePicture && !imageError ? (
+                      <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-gray-300 relative">
+                        <img
                           src={profilePicture}
                           alt="Profile"
-                          width={96}
-                          height={96}
                           className="w-full h-full object-cover"
+                          onError={() => {
+                            console.log('Image failed to load, showing initial');
+                            setImageError(true);
+                          }}
+                          onLoad={() => {
+                            setImageError(false);
+                          }}
                         />
                       </div>
                     ) : (
@@ -384,9 +452,13 @@ export default function ProfilePage() {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    setHasChanges(true);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={hasChanges && !isPasswordVerified && profile.provider === 'email'}
                 />
               </div>
 
@@ -398,9 +470,13 @@ export default function ProfilePage() {
                 <input
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    setHasChanges(true);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
+                  disabled={hasChanges && !isPasswordVerified && profile.provider === 'email'}
                 />
                 <div className="mt-2 flex items-center space-x-2">
                   {profile.emailVerified ? (
@@ -429,32 +505,44 @@ export default function ProfilePage() {
                 <input
                   type="tel"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, phone: e.target.value });
+                    setHasChanges(true);
+                  }}
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="+1234567890"
+                  disabled={hasChanges && !isPasswordVerified && profile.provider === 'email'}
                 />
               </div>
 
               {/* Submit Button */}
               <div className="flex justify-end space-x-4">
-                <button
-                  type="button"
-                  onClick={() => router.back()}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
+                {hasChanges && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData(originalFormData);
+                      setProfilePicture(originalProfilePicture);
+                      setHasChanges(false);
+                      setImageError(false);
+                      setIsPasswordVerified(false);
+                      setPassword('');
+                    }}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   type="submit"
-                  disabled={isSaving}
+                  disabled={isSaving || (hasChanges && !isPasswordVerified && profile.provider === 'email')}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+                  {isSaving ? 'Saving...' : hasChanges ? 'Save Changes' : 'No Changes'}
                 </button>
               </div>
             </form>
           </div>
-        )}
       </div>
     </div>
   );

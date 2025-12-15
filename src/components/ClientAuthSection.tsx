@@ -1,8 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import Image from 'next/image';
 
 // Helper function to get user initial
 function getUserInitial(name?: string | null, email?: string | null): string {
@@ -27,11 +27,13 @@ function getInitialColor(initial: string): string {
 
 export default function ClientAuthSection() {
   const { user, isAuthenticated, logout } = useAuth();
+  const [imageError, setImageError] = useState(false);
 
   if (isAuthenticated) {
     const profileImage = user?.image || (user as any)?.profilePicture;
     const initial = getUserInitial(user?.name, user?.email);
     const bgColor = getInitialColor(initial);
+    const showImage = profileImage && !imageError;
 
     return (
       <div className="flex items-center space-x-3">
@@ -40,13 +42,12 @@ export default function ClientAuthSection() {
           className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 hover:border-gray-500 transition-all duration-200 cursor-pointer flex-shrink-0"
           title="View Profile"
         >
-          {profileImage ? (
-            <Image
+          {showImage ? (
+            <img
               src={profileImage}
               alt={user?.name || 'Profile'}
-              width={40}
-              height={40}
               className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
             />
           ) : (
             <div className={`w-full h-full ${bgColor} flex items-center justify-center text-white font-semibold text-lg`}>

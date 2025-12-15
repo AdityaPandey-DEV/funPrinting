@@ -31,6 +31,20 @@ export interface PrintJobRequest {
     email: string;
     phone: string;
   };
+  orderDetails?: {
+    orderType: 'file' | 'template';
+    pageSize: 'A4' | 'A3';
+    color: 'color' | 'bw' | 'mixed';
+    sided: 'single' | 'double';
+    copies: number;
+    pages: number;
+    serviceOptions: Array<{
+      fileName: string;
+      options: string[];
+    }>;
+    totalAmount: number;
+    expectedDelivery: string;
+  };
 }
 
 export interface PrintJobResponse {
@@ -472,6 +486,49 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       return getFileTypeFromURL(url, fileName);
     });
 
+    // Prepare service options per file
+    const serviceOptions: Array<{ fileName: string; options: string[] }> = [];
+    const serviceOptionsArray = Array.isArray(order.printingOptions.serviceOptions) 
+      ? order.printingOptions.serviceOptions 
+      : (order.printingOptions.serviceOption ? [order.printingOptions.serviceOption] : []);
+    
+    // If serviceOptions is per-file array, map each file
+    if (Array.isArray(order.printingOptions.serviceOptions) && order.printingOptions.serviceOptions.length === fileURLs.length) {
+      originalFileNames.forEach((fileName, idx) => {
+        const fileServiceOptions = order.printingOptions.serviceOptions![idx];
+        if (fileServiceOptions) {
+          serviceOptions.push({
+            fileName,
+            options: Array.isArray(fileServiceOptions) ? fileServiceOptions : [fileServiceOptions]
+          });
+        }
+      });
+    } else {
+      // Single service option for all files or per-file array with single element
+      originalFileNames.forEach((fileName) => {
+        serviceOptions.push({
+          fileName,
+          options: serviceOptionsArray.length > 0 ? serviceOptionsArray : []
+        });
+      });
+    }
+
+    // Calculate total pages
+    const totalPages = order.printingOptions.pageCount || fileURLs.length;
+
+    // Format expected delivery date
+    let expectedDelivery = '';
+    if (order.expectedDate) {
+      const expectedDate = new Date(order.expectedDate);
+      expectedDelivery = expectedDate.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
     const printJob: PrintJobRequest = {
       fileURLs,
       originalFileNames,
@@ -486,7 +543,18 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       },
       printerIndex,
       orderId: order.orderId,
-      customerInfo: order.customerInfo
+      customerInfo: order.customerInfo,
+      orderDetails: {
+        orderType: order.orderType,
+        pageSize: order.printingOptions.pageSize,
+        color: order.printingOptions.color,
+        sided: order.printingOptions.sided,
+        copies: order.printingOptions.copies,
+        pages: totalPages,
+        serviceOptions,
+        totalAmount: order.amount,
+        expectedDelivery
+      }
     };
 
     console.log(`✅ Print job request prepared with ${fileURLs.length} files`);
@@ -494,10 +562,39 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
   }
 
   // Legacy: single file format (backward compatibility)
+  const fileName = order.originalFileName || 'document.pdf';
+  
+  // Prepare service options for single file
+  const serviceOptions: Array<{ fileName: string; options: string[] }> = [];
+  const serviceOptionsArray = Array.isArray(order.printingOptions.serviceOptions) 
+    ? order.printingOptions.serviceOptions 
+    : (order.printingOptions.serviceOption ? [order.printingOptions.serviceOption] : []);
+  
+  serviceOptions.push({
+    fileName,
+    options: serviceOptionsArray.length > 0 ? serviceOptionsArray : []
+  });
+
+  // Calculate total pages
+  const totalPages = order.printingOptions.pageCount || 1;
+
+  // Format expected delivery date
+  let expectedDelivery = '';
+  if (order.expectedDate) {
+    const expectedDate = new Date(order.expectedDate);
+    expectedDelivery = expectedDate.toLocaleDateString('en-IN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
   const printJob: PrintJobRequest = {
     fileUrl: order.fileURL!,
-    fileName: order.originalFileName || 'document.pdf',
-    fileType: order.fileType || getFileTypeFromURL(order.fileURL!, order.originalFileName || 'document.pdf'),
+    fileName,
+    fileType: order.fileType || getFileTypeFromURL(order.fileURL!, fileName),
     printingOptions: {
       pageSize: order.printingOptions.pageSize,
       color: order.printingOptions.color,
@@ -508,7 +605,18 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
     },
     printerIndex,
     orderId: order.orderId,
-    customerInfo: order.customerInfo
+    customerInfo: order.customerInfo,
+    orderDetails: {
+      orderType: order.orderType,
+      pageSize: order.printingOptions.pageSize,
+      color: order.printingOptions.color,
+      sided: order.printingOptions.sided,
+      copies: order.printingOptions.copies,
+      pages: totalPages,
+      serviceOptions,
+      totalAmount: order.amount,
+      expectedDelivery
+    }
   };
 
   return await printerClient.sendPrintJob(printJob);

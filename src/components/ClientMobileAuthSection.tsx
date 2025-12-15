@@ -1,8 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import Image from 'next/image';
 
 interface ClientMobileAuthSectionProps {
   onMenuClose: () => void;
@@ -31,11 +31,13 @@ function getInitialColor(initial: string): string {
 
 export default function ClientMobileAuthSection({ onMenuClose }: ClientMobileAuthSectionProps) {
   const { user, isAuthenticated, logout } = useAuth();
+  const [imageError, setImageError] = useState(false);
 
   if (isAuthenticated) {
     const profileImage = user?.image || (user as any)?.profilePicture;
     const initial = getUserInitial(user?.name, user?.email);
     const bgColor = getInitialColor(initial);
+    const showImage = profileImage && !imageError;
 
     return (
       <div className="px-3 py-2">
@@ -45,13 +47,12 @@ export default function ClientMobileAuthSection({ onMenuClose }: ClientMobileAut
           className="flex items-center space-x-3 mb-3 p-2 rounded-md hover:bg-gray-100 transition-colors"
         >
           <div className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden border-2 border-gray-300 flex-shrink-0">
-            {profileImage ? (
-              <Image
+            {showImage ? (
+              <img
                 src={profileImage}
                 alt={user?.name || 'Profile'}
-                width={40}
-                height={40}
                 className="w-full h-full object-cover"
+                onError={() => setImageError(true)}
               />
             ) : (
               <div className={`w-full h-full ${bgColor} flex items-center justify-center text-white font-semibold text-lg`}>
