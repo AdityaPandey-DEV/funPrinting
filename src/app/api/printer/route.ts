@@ -21,12 +21,52 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find order
+    // Find order - ensure all fields are retrieved
     const order = await Order.findOne({ orderId });
     if (!order) {
       return NextResponse.json(
         { success: false, error: 'Order not found' },
         { status: 404 }
+      );
+    }
+
+    // Log order data retrieved from database
+    console.log('📋 Order data retrieved from database:', {
+      orderId: order.orderId,
+      customerInfo: order.customerInfo,
+      studentInfo: (order as any).studentInfo,
+      orderType: order.orderType,
+      amount: order.amount,
+      expectedDate: order.expectedDate,
+      hasCustomerInfo: !!order.customerInfo,
+      hasStudentInfo: !!(order as any).studentInfo,
+      hasOrderType: !!order.orderType,
+      hasAmount: !!order.amount,
+      hasExpectedDate: !!order.expectedDate
+    });
+
+    // Validate required fields
+    if (!order.orderType) {
+      console.error('❌ Order is missing required field: orderType');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Order is missing required field: orderType. Cannot create order summary without order type.' 
+        },
+        { status: 400 }
+      );
+    }
+
+    const hasCustomerInfo = !!order.customerInfo;
+    const hasStudentInfo = !!(order as any).studentInfo;
+    if (!hasCustomerInfo && !hasStudentInfo) {
+      console.error('❌ Order is missing required field: customerInfo or studentInfo');
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Order is missing required field: customerInfo or studentInfo. Cannot create order summary without customer information.' 
+        },
+        { status: 400 }
       );
     }
 

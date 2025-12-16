@@ -198,8 +198,21 @@ export class PrinterClient {
         printingOptions: request.printingOptions,
         printerIndex: request.printerIndex,
         orderId: request.orderId,
-        customerInfo: request.customerInfo
+        customerInfo: request.customerInfo,
+        orderDetails: request.orderDetails
       };
+
+      // Log complete request body including customerInfo and orderDetails
+      console.log('📤 Request body being sent to Printer API:', {
+        orderId: requestBody.orderId,
+        printerIndex: requestBody.printerIndex,
+        hasCustomerInfo: !!requestBody.customerInfo,
+        customerInfo: requestBody.customerInfo,
+        hasOrderDetails: !!requestBody.orderDetails,
+        orderDetails: requestBody.orderDetails,
+        hasFileURLs: !!request.fileURLs,
+        hasFileUrl: !!request.fileUrl
+      });
 
       // If multiple files exist, send arrays
       if (request.fileURLs && request.fileURLs.length > 0) {
@@ -455,6 +468,47 @@ function getFileTypeFromURL(url: string, fileName: string): string {
  * Send print job from order
  */
 export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number): Promise<PrintJobResponse> {
+  // Validate required fields
+  if (!order.orderType) {
+    console.error('❌ Missing required field: orderType');
+    return {
+      success: false,
+      message: 'Order is missing required field: orderType',
+      error: 'orderType is required to create order summary'
+    };
+  }
+
+  // Handle customerInfo fallback: use studentInfo if customerInfo is missing
+  // Note: studentInfo might exist in the actual MongoDB document even if not in TypeScript interface
+  const customerInfo = order.customerInfo || ((order as any).studentInfo ? {
+    name: (order as any).studentInfo.name,
+    email: (order as any).studentInfo.email,
+    phone: (order as any).studentInfo.phone
+  } : undefined);
+
+  if (!customerInfo) {
+    console.error('❌ Missing required field: customerInfo or studentInfo');
+    return {
+      success: false,
+      message: 'Order is missing required field: customerInfo or studentInfo',
+      error: 'customerInfo or studentInfo is required to create order summary'
+    };
+  }
+
+  // Log order data before creating printJob
+  console.log('📋 Order data before creating printJob:', {
+    orderId: order.orderId,
+    customerInfo: order.customerInfo,
+    studentInfo: (order as any).studentInfo,
+    orderType: order.orderType,
+    amount: order.amount,
+    expectedDate: order.expectedDate,
+    hasCustomerInfo: !!order.customerInfo,
+    hasStudentInfo: !!(order as any).studentInfo,
+    usingCustomerInfo: !!order.customerInfo,
+    usingStudentInfo: !order.customerInfo && !!(order as any).studentInfo
+  });
+
   // Check for multiple files first, then fall back to single file
   const hasMultipleFiles = Array.isArray(order.fileURLs) && order.fileURLs.length > 0;
   const hasSingleFile = order.fileURL && !hasMultipleFiles;
@@ -516,7 +570,7 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
     // Calculate total pages
     const totalPages = order.printingOptions.pageCount || fileURLs.length;
 
-    // Format expected delivery date
+    // Format expected delivery date (with fallback)
     let expectedDelivery = '';
     if (order.expectedDate) {
       const expectedDate = new Date(order.expectedDate);
@@ -543,7 +597,7 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       },
       printerIndex,
       orderId: order.orderId,
-      customerInfo: order.customerInfo,
+      customerInfo: customerInfo,
       orderDetails: {
         orderType: order.orderType,
         pageSize: order.printingOptions.pageSize,
@@ -551,13 +605,22 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
         sided: order.printingOptions.sided,
         copies: order.printingOptions.copies,
         pages: totalPages,
-        serviceOptions,
-        totalAmount: order.amount,
+        serviceOptions: serviceOptions.length > 0 ? serviceOptions : [],
+        totalAmount: order.amount || 0,
         expectedDelivery
       }
     };
 
-    console.log(`✅ Print job request prepared with ${fileURLs.length} files`);
+    // Log printJob after creation
+    console.log('✅ Print job request prepared with', fileURLs.length, 'files');
+    console.log('📦 PrintJob data:', {
+      orderId: printJob.orderId,
+      hasCustomerInfo: !!printJob.customerInfo,
+      customerInfo: printJob.customerInfo,
+      hasOrderDetails: !!printJob.orderDetails,
+      orderDetails: printJob.orderDetails
+    });
+
     return await printerClient.sendPrintJob(printJob);
   }
 
@@ -578,7 +641,7 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
   // Calculate total pages
   const totalPages = order.printingOptions.pageCount || 1;
 
-  // Format expected delivery date
+  // Format expected delivery date (with fallback)
   let expectedDelivery = '';
   if (order.expectedDate) {
     const expectedDate = new Date(order.expectedDate);
@@ -605,7 +668,7 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
     },
     printerIndex,
     orderId: order.orderId,
-    customerInfo: order.customerInfo,
+    customerInfo: customerInfo,
     orderDetails: {
       orderType: order.orderType,
       pageSize: order.printingOptions.pageSize,
@@ -613,11 +676,21 @@ export async function sendPrintJobFromOrder(order: IOrder, printerIndex: number)
       sided: order.printingOptions.sided,
       copies: order.printingOptions.copies,
       pages: totalPages,
-      serviceOptions,
-      totalAmount: order.amount,
+      serviceOptions: serviceOptions.length > 0 ? serviceOptions : [],
+      totalAmount: order.amount || 0,
       expectedDelivery
     }
   };
+
+  // Log printJob after creation
+  console.log('✅ Print job request prepared for single file');
+  console.log('📦 PrintJob data:', {
+    orderId: printJob.orderId,
+    hasCustomerInfo: !!printJob.customerInfo,
+    customerInfo: printJob.customerInfo,
+    hasOrderDetails: !!printJob.orderDetails,
+    orderDetails: printJob.orderDetails
+  });
 
   return await printerClient.sendPrintJob(printJob);
 }
