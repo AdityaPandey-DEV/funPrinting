@@ -6,6 +6,7 @@ import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure, startPaymentStatusPolling } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
 import InlineAuthModal from '@/components/InlineAuthModal';
+import InlinePhoneModal from '@/components/InlinePhoneModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
 import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
 
@@ -497,6 +498,9 @@ export default function OrderPage() {
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  
+  // Phone modal state
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
 
   // Update customer info when user authentication changes
   // This takes priority over template data - authenticated user info should never be overwritten
@@ -574,6 +578,29 @@ export default function OrderPage() {
     loadUserProfile();
   }, [isAuthenticated, user]);
 
+  // Check if phone number is needed after authentication
+  useEffect(() => {
+    if (isAuthenticated && user && !customerInfo.phone) {
+      // Check user profile for phone number
+      const checkPhone = async () => {
+        try {
+          const response = await fetch('/api/user/profile');
+          const data = await response.json();
+          if (data.success && !data.profile?.phone) {
+            // No phone number in profile - show modal
+            setShowPhoneModal(true);
+          }
+        } catch (error) {
+          console.error('Error checking phone:', error);
+        }
+      };
+      // Small delay to ensure profile loading is complete
+      const timer = setTimeout(() => {
+        checkPhone();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, user, customerInfo.phone]);
 
   // Ensure serviceOptions array matches selectedFiles length
   useEffect(() => {
@@ -3156,78 +3183,6 @@ export default function OrderPage() {
                   Delivery Options
                 </h3>
                 
-                {/* Quick Customer Info - Only show if not in profile */}
-                {isAuthenticated && (!customerInfo.phone || !selectedPickupLocation) && (
-                  <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800 mb-3">
-                      <strong>Quick Info:</strong> {!customerInfo.phone && 'Add phone number'} {!customerInfo.phone && !selectedPickupLocation && 'and'} {!selectedPickupLocation && 'select pickup location'} to auto-fill next time!
-                    </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {!customerInfo.phone && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number *
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        value={customerInfo.phone}
-                        onChange={(e) => {
-                          setCustomerInfo(prev => ({ ...prev, phone: e.target.value }));
-                          setPhoneSaveStatus('idle'); // Reset status when user types
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault(); // Only prevent form submission, don't save
-                          }
-                        }}
-                        placeholder="Enter your phone number"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSavePhoneNumber}
-                        disabled={isSavingPhone || !customerInfo.phone || customerInfo.phone.replace(/\D/g, '').length < 10}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 min-w-[100px] justify-center ${
-                          isSavingPhone
-                            ? 'bg-blue-400 text-white cursor-not-allowed'
-                            : phoneSaveStatus === 'success'
-                            ? 'bg-green-500 text-white'
-                            : phoneSaveStatus === 'error'
-                            ? 'bg-red-500 text-white'
-                            : customerInfo.phone && customerInfo.phone.replace(/\D/g, '').length >= 10
-                            ? 'bg-blue-600 text-white hover:bg-blue-700'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        }`}
-                      >
-                        {isSavingPhone ? (
-                          <>
-                            <RefreshIcon size={16} className="w-4 h-4 animate-spin" />
-                            <span className="text-sm">Saving...</span>
-                          </>
-                        ) : phoneSaveStatus === 'success' ? (
-                          <>
-                            <CheckIcon size={16} className="w-4 h-4" />
-                            <span className="text-sm">Saved</span>
-                          </>
-                        ) : phoneSaveStatus === 'error' ? (
-                          <>
-                            <WarningIcon size={16} className="w-4 h-4" />
-                            <span className="text-sm">Error</span>
-                          </>
-                        ) : (
-                          <span className="text-sm">Save</span>
-                        )}
-                      </button>
-                    </div>
-                    {customerInfo.phone && customerInfo.phone.replace(/\D/g, '').length < 10 && customerInfo.phone.replace(/\D/g, '').length > 0 && (
-                      <p className="text-xs text-red-600 mt-1">Phone number must be at least 10 digits</p>
-                    )}
-                  </div>
-                      )}
-                </div>
-              </div>
-                )}
 
                 {!isAuthenticated && (
                   <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -3682,6 +3637,15 @@ export default function OrderPage() {
           console.error('Error saving order state:', error);
           // Don't block OAuth flow if save fails
         }
+      }}
+    />
+    
+    <InlinePhoneModal
+      isOpen={showPhoneModal}
+      onClose={() => setShowPhoneModal(false)}
+      onPhoneSaved={(phone) => {
+        setCustomerInfo(prev => ({ ...prev, phone }));
+        setShowPhoneModal(false);
       }}
     />
     </>
