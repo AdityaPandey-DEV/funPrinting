@@ -63,6 +63,10 @@ export const authOptions: NextAuthOptions = {
             image: user.profilePicture,
           };
         } catch (error) {
+          // Re-throw EMAIL_NOT_VERIFIED so NextAuth can pass it to the frontend
+          if (error instanceof Error && error.message === 'EMAIL_NOT_VERIFIED') {
+            throw error;
+          }
           console.error('Auth error:', error);
           return null;
         }
