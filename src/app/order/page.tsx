@@ -577,7 +577,16 @@ export default function OrderPage() {
   // Save phone number to user profile when entered
   useEffect(() => {
     const savePhoneNumber = async () => {
-      if (isAuthenticated && customerInfo.phone && customerInfo.phone.length >= 10) {
+      // Validate phone number before saving
+      if (!isAuthenticated || !customerInfo.phone) {
+        return;
+      }
+
+      // Strip non-digit characters for validation
+      const digitsOnly = customerInfo.phone.replace(/\D/g, '');
+      
+      // Only save if phone number has at least 10 digits
+      if (digitsOnly.length >= 10) {
         try {
           const response = await fetch('/api/user/update-phone', {
             method: 'POST',
@@ -597,10 +606,10 @@ export default function OrderPage() {
       }
     };
 
-    // Debounce the save operation
+    // Debounce the save operation - wait 2 seconds after user stops typing
     const timeoutId = setTimeout(() => {
       savePhoneNumber();
-    }, 2000); // Wait 2 seconds after user stops typing
+    }, 2000);
 
     return () => clearTimeout(timeoutId);
   }, [customerInfo.phone, isAuthenticated]);
@@ -647,6 +656,8 @@ export default function OrderPage() {
   
   // Payment state
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isSavingPhone, setIsSavingPhone] = useState(false);
+  const [phoneSaveStatus, setPhoneSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [paymentVerificationStatus, setPaymentVerificationStatus] = useState<{
     verifying: boolean;
     orderId: string | null;
@@ -1281,6 +1292,58 @@ export default function OrderPage() {
   }, [pageCount, printingOptions, deliveryOption, selectedFiles, filePageCounts]);
 
 
+  // Save phone number immediately (bypassing debounce)
+  const handleSavePhoneNumber = async () => {
+    // Validate phone number before saving
+    if (!isAuthenticated || !customerInfo.phone) {
+      setPhoneSaveStatus('error');
+      setTimeout(() => setPhoneSaveStatus('idle'), 3000);
+      return;
+    }
+
+    // Strip non-digit characters for validation
+    const digitsOnly = customerInfo.phone.replace(/\D/g, '');
+    
+    // Only save if phone number has at least 10 digits
+    if (digitsOnly.length < 10) {
+      alert('Please enter a valid phone number (minimum 10 digits)');
+      setPhoneSaveStatus('error');
+      setTimeout(() => setPhoneSaveStatus('idle'), 3000);
+      return;
+    }
+
+    setIsSavingPhone(true);
+    setPhoneSaveStatus('idle');
+
+    try {
+      const response = await fetch('/api/user/update-phone', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone: customerInfo.phone }),
+      });
+      
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Phone number saved to profile');
+        setPhoneSaveStatus('success');
+        // Clear success status after 3 seconds
+        setTimeout(() => setPhoneSaveStatus('idle'), 3000);
+      } else {
+        throw new Error(data.error || 'Failed to save phone number');
+      }
+    } catch (error) {
+      console.error('Error saving phone number:', error);
+      setPhoneSaveStatus('error');
+      alert('Failed to save phone number. Please try again.');
+      // Clear error status after 3 seconds
+      setTimeout(() => setPhoneSaveStatus('idle'), 3000);
+    } finally {
+      setIsSavingPhone(false);
+    }
+  };
+
   // Payment function
   const handlePayment = async () => {
     // Check if user is authenticated
@@ -1351,6 +1414,12 @@ export default function OrderPage() {
     // Validate pickup location if pickup is selected
     if (deliveryOption.type === 'pickup' && !deliveryOption.pickupLocationId) {
       alert('Please select a pickup location');
+      return;
+    }
+
+    // Validate phone number
+    if (!customerInfo.phone || customerInfo.phone.length < 10) {
+      alert('Please enter a valid phone number (minimum 10 digits)');
       return;
     }
 
@@ -3138,14 +3207,66 @@ export default function OrderPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Phone Number *
                     </label>
-                    <input
-                      type="tel"
-                      required
-                      value={customerInfo.phone}
-                      onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="Enter your phone number"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        type="tel"
+                        value={customerInfo.phone}
+                        onChange={(e) => {
+                          setCustomerInfo(prev => ({ ...prev, phone: e.target.value }));
+                          setPhoneSaveStatus('idle'); // Reset status when user types
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            // Auto-submit on Enter if phone number is valid
+                            const digitsOnly = customerInfo.phone.replace(/\D/g, '');
+                            if (digitsOnly.length >= 10) {
+                              handleSavePhoneNumber();
+                            }
+                          }
+                        }}
+                        placeholder="Enter your phone number"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSavePhoneNumber}
+                        disabled={isSavingPhone || !customerInfo.phone || customerInfo.phone.replace(/\D/g, '').length < 10}
+                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 min-w-[100px] justify-center ${
+                          isSavingPhone
+                            ? 'bg-blue-400 text-white cursor-not-allowed'
+                            : phoneSaveStatus === 'success'
+                            ? 'bg-green-500 text-white'
+                            : phoneSaveStatus === 'error'
+                            ? 'bg-red-500 text-white'
+                            : customerInfo.phone && customerInfo.phone.replace(/\D/g, '').length >= 10
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {isSavingPhone ? (
+                          <>
+                            <RefreshIcon size={16} className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Saving...</span>
+                          </>
+                        ) : phoneSaveStatus === 'success' ? (
+                          <>
+                            <CheckIcon size={16} className="w-4 h-4" />
+                            <span className="text-sm">Saved</span>
+                          </>
+                        ) : phoneSaveStatus === 'error' ? (
+                          <>
+                            <WarningIcon size={16} className="w-4 h-4" />
+                            <span className="text-sm">Error</span>
+                          </>
+                        ) : (
+                          <span className="text-sm">Save</span>
+                        )}
+                      </button>
+                    </div>
+                    {customerInfo.phone && customerInfo.phone.replace(/\D/g, '').length < 10 && customerInfo.phone.replace(/\D/g, '').length > 0 && (
+                      <p className="text-xs text-red-600 mt-1">Phone number must be at least 10 digits</p>
+                    )}
                   </div>
                       )}
                 </div>
@@ -3395,7 +3516,7 @@ export default function OrderPage() {
                         handlePayment();
                       }
                     }}
-                    disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || (isAuthenticated && (selectedFiles.length === 0 || !expectedDate || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))))}
+                    disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || (isAuthenticated && (selectedFiles.length === 0 || !expectedDate || !customerInfo.phone || customerInfo.phone.length < 10 || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))))}
                     className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {!isAuthenticated ? (
