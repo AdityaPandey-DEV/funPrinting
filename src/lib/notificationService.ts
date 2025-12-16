@@ -212,7 +212,6 @@ function getStatusColor(status: string): string {
     case 'pending_payment':
       return '#ffc107';
     case 'failed':
-    case 'cancelled':
       return '#dc3545';
     case 'processing':
     case 'printing':
@@ -373,7 +372,7 @@ export async function sendPaymentReminderToCustomer(orderData: OrderNotification
             <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
               <h3 style="color: #856404; margin: 0 0 10px 0;">⚠️ Payment Required</h3>
               <p style="color: #856404; margin: 0; font-size: 14px;">
-                Your order is waiting for payment! Please complete payment within 24 hours or your order will be automatically cancelled.
+                Your order is waiting for payment! Please complete payment within 24 hours or your order will expire.
               </p>
             </div>
             

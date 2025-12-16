@@ -27,9 +27,9 @@ export async function DELETE(
 
     // Only allow deletion of pending payment orders
     if (order.paymentStatus !== 'pending' || order.status !== 'pending_payment') {
-      console.log(`❌ Order ${order.orderId} cannot be cancelled - not in pending payment state`);
+      console.log(`❌ Order ${order.orderId} cannot be deleted - not in pending payment state`);
       return NextResponse.json(
-        { success: false, error: 'Only pending payment orders can be cancelled' },
+        { success: false, error: 'Only pending payment orders can be deleted' },
         { status: 400 }
       );
     }
@@ -37,17 +37,17 @@ export async function DELETE(
     // Delete the order
     await Order.findByIdAndDelete(orderId);
     
-    console.log(`✅ Order ${order.orderId} cancelled by user`);
+    console.log(`✅ Order ${order.orderId} deleted by user`);
     
     return NextResponse.json({
       success: true,
-      message: 'Order cancelled successfully'
+      message: 'Order deleted successfully'
     });
 
   } catch (error) {
     console.error('Error deleting order:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to cancel order' },
+      { success: false, error: 'Failed to delete order' },
       { status: 500 }
     );
   }

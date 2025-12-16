@@ -38,7 +38,7 @@ interface Order {
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
-  status?: 'pending_payment' | 'paid' | 'processing' | 'completed' | 'cancelled';
+  status?: 'pending_payment' | 'paid' | 'processing' | 'completed';
   amount: number;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
@@ -243,20 +243,20 @@ export default function MyOrdersPage() {
     }
   };
 
-  // Handle order deletion/cancellation
+  // Handle order deletion
   const handleDeleteOrder = async (order: Order) => {
-    // Validate that order can be cancelled
+    // Validate that order can be deleted
     if (order.paymentStatus === 'completed') {
-      alert('Cannot cancel a paid order. Please contact support for refunds.');
+      alert('Cannot delete a paid order. Please contact support for refunds.');
       return;
     }
 
-    if (!confirm(`Are you sure you want to cancel order #${order.orderId}? This action cannot be undone.`)) {
+    if (!confirm(`Are you sure you want to delete order #${order.orderId}? This action cannot be undone.`)) {
       return;
     }
 
     setDeletingOrder(order._id);
-    logPaymentEvent('order_cancellation_initiated', { orderId: order.orderId }, 'info');
+    logPaymentEvent('order_deletion_initiated', { orderId: order.orderId }, 'info');
     
     try {
       const response = await fetch(`/api/orders/${order._id}`, {
@@ -271,12 +271,12 @@ export default function MyOrdersPage() {
       const data = await response.json();
       
       if (data.success) {
-        logPaymentEvent('order_cancelled', { orderId: order.orderId }, 'info');
-        alert(`✅ Order #${order.orderId} has been cancelled successfully.`);
+        logPaymentEvent('order_deleted', { orderId: order.orderId }, 'info');
+        alert(`✅ Order #${order.orderId} has been deleted successfully.`);
         await loadOrders(); // Refresh orders
       } else {
-        logPaymentEvent('order_cancellation_failed', { orderId: order.orderId, error: data.error }, 'error');
-        alert(`Failed to cancel order: ${data.error}`);
+        logPaymentEvent('order_deletion_failed', { orderId: order.orderId, error: data.error }, 'error');
+        alert(`Failed to delete order: ${data.error}`);
       }
     } catch (error) {
       logPaymentEvent('order_cancellation_error', { orderId: order.orderId, error: error instanceof Error ? error.message : 'Unknown error' }, 'error');
@@ -356,7 +356,7 @@ export default function MyOrdersPage() {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm text-orange-700">
-                    <span className="font-medium">Payment Required:</span> You have {orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length} order(s) waiting for payment. Complete payment within 24 hours or your order will be automatically cancelled.
+                    <span className="font-medium">Payment Required:</span> You have {orders.filter(order => order.paymentStatus === 'pending' && order.status === 'pending_payment').length} order(s) waiting for payment. Complete payment within 24 hours or your order will expire.
                   </p>
                 </div>
               </div>

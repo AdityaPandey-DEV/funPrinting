@@ -378,7 +378,7 @@ async function handlePaymentFailed(payment: any) {
 
     // Update order status
     order.paymentStatus = 'failed';
-    order.status = 'cancelled';
+    order.status = 'pending_payment'; // Reset to pending_payment since payment failed
     order.orderStatus = 'pending'; // Keep as pending since payment failed
     
     await order.save();

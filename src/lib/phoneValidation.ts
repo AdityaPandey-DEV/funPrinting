@@ -34,6 +34,30 @@ export const countryCodes: CountryCode[] = [
 // Default country code (India)
 export const defaultCountryCode = countryCodes[0];
 
+// Country code to minimum phone number length mapping (ITU standards)
+// Minimum length is for the phone number part (excluding country code)
+export const countryCodeMinLengths: Record<string, number> = {
+  '+91': 10,  // India
+  '+1': 10,   // US/Canada
+  '+44': 10,  // UK
+  '+61': 9,   // Australia
+  '+49': 10,  // Germany
+  '+33': 9,   // France
+  '+39': 9,   // Italy
+  '+34': 9,   // Spain
+  '+31': 9,   // Netherlands
+  '+55': 10,  // Brazil
+  '+52': 10,  // Mexico
+  '+81': 10,  // Japan
+  '+86': 11,  // China
+  '+82': 9,   // South Korea
+  '+65': 8,   // Singapore
+  '+971': 9,  // UAE
+  '+966': 9,  // Saudi Arabia
+  '+27': 9,   // South Africa
+  '+64': 8,   // New Zealand
+};
+
 /**
  * Validate phone number with country code
  * Format: +{countryCode}{phoneNumber}
@@ -136,5 +160,51 @@ export function needsCountryCode(phone: string): boolean {
   if (phone.startsWith('+')) return false;
   // If it's a 10-digit number, likely needs country code
   return /^\d{10}$/.test(phone);
+}
+
+/**
+ * Validate phone number length based on country code minimum requirements
+ * Returns validation result indicating if phone number meets minimum length for its country code
+ */
+export function validatePhoneNumberLength(phone: string): { valid: boolean; error?: string } {
+  if (!phone) {
+    return { valid: false, error: 'Phone number is required' };
+  }
+
+  // Remove all spaces and dashes for validation
+  const cleaned = phone.replace(/[\s-]/g, '');
+
+  // Must start with +
+  if (!cleaned.startsWith('+')) {
+    return { valid: false, error: 'Phone number must include country code (e.g., +91 for India)' };
+  }
+
+  // Parse country code and number
+  const parsed = parsePhoneNumber(cleaned);
+  if (!parsed) {
+    return { valid: false, error: 'Invalid phone number format' };
+  }
+
+  const { countryCode, number } = parsed;
+
+  // Check if we have minimum length requirement for this country code
+  const minLength = countryCodeMinLengths[countryCode];
+  if (!minLength) {
+    // If country code not in our list, use general validation (7 digits minimum)
+    if (number.length < 7) {
+      return { valid: false, error: `Phone number must be at least 7 digits for country code ${countryCode}` };
+    }
+    return { valid: true };
+  }
+
+  // Check if number meets minimum length requirement
+  if (number.length < minLength) {
+    return { 
+      valid: false, 
+      error: `Phone number for ${countryCode} must be at least ${minLength} digits (got ${number.length})` 
+    };
+  }
+
+  return { valid: true };
 }
 

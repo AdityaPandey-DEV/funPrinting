@@ -18,17 +18,17 @@ export default function CancellationRefundPage() {
             </p>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Order Cancellation</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Order Deletion</h2>
               <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mb-4">
                 <p className="text-blue-800 font-medium">Important Notice:</p>
-                <p className="text-blue-700">Orders can only be cancelled before printing begins. Once printing starts, cancellation is not possible due to material consumption.</p>
+                <p className="text-blue-700">Pending payment orders can be deleted by the customer. Once payment is completed, orders cannot be deleted and refund requests must be made through customer support.</p>
               </div>
               
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Cancellation Timeframes:</h3>
+              <h3 className="text-xl font-semibold text-gray-900 mb-3">Deletion Timeframes:</h3>
               <ul className="list-disc pl-6 text-gray-700 mb-4">
-                <li><strong>Before Processing:</strong> Full refund available</li>
-                <li><strong>During Processing:</strong> No cancellation possible</li>
-                <li><strong>After Completion:</strong> No cancellation possible</li>
+                <li><strong>Before Payment:</strong> Orders can be deleted by customer</li>
+                <li><strong>After Payment:</strong> Contact support for refund requests</li>
+                <li><strong>During Processing:</strong> Refund requests reviewed case-by-case</li>
               </ul>
             </section>
 
@@ -38,7 +38,7 @@ export default function CancellationRefundPage() {
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <h4 className="font-semibold text-green-800 mb-2">✅ Eligible for Refund</h4>
                   <ul className="text-sm text-green-700 space-y-1">
-                    <li>• Order cancelled before processing</li>
+                    <li>• Order deleted before payment completion</li>
                     <li>• Technical issues on our end</li>
                     <li>• Service unavailability</li>
                     <li>• Payment processing errors</li>

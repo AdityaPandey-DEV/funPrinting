@@ -314,8 +314,8 @@ export default function ContactPage() {
             </div>
 
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Can I cancel my order?</h3>
-              <p className="text-gray-600">Orders can be cancelled before processing begins. Please contact us immediately if you need to cancel your order.</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Can I delete my order?</h3>
+              <p className="text-gray-600">Pending payment orders can be deleted before payment is completed. Once payment is completed, please contact us for refund requests.</p>
             </div>
 
             <div>

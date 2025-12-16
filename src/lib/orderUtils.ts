@@ -26,7 +26,6 @@ export type OrderStatus =
   | 'printing' 
   | 'dispatched' 
   | 'delivered' 
-  | 'cancelled' 
   | 'refunded';
 
 export interface OrderData {
@@ -66,14 +65,13 @@ export interface OrderData {
 
 // Order state machine - defines valid transitions
 const ORDER_STATE_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  draft: ['pending_payment', 'cancelled'],
-  pending_payment: ['paid', 'cancelled'],
-  paid: ['processing', 'printing', 'cancelled', 'refunded'], // Allow direct transition to printing
-  processing: ['printing', 'cancelled', 'refunded'],
-  printing: ['dispatched', 'cancelled', 'refunded'],
-  dispatched: ['delivered', 'cancelled', 'refunded'],
+  draft: ['pending_payment'],
+  pending_payment: ['paid'],
+  paid: ['processing', 'printing', 'refunded'], // Allow direct transition to printing
+  processing: ['printing', 'refunded'],
+  printing: ['dispatched', 'refunded'],
+  dispatched: ['delivered', 'refunded'],
   delivered: ['refunded'],
-  cancelled: [], // Terminal state
   refunded: [] // Terminal state
 };
 
@@ -332,7 +330,6 @@ export const getOrderStatusDisplay = (status: OrderStatus): { label: string; col
     printing: { label: 'Printing', color: 'purple', description: 'Document is being printed' },
     dispatched: { label: 'Dispatched', color: 'indigo', description: 'Order has been dispatched' },
     delivered: { label: 'Delivered', color: 'green', description: 'Order has been delivered' },
-    cancelled: { label: 'Cancelled', color: 'red', description: 'Order has been cancelled' },
     refunded: { label: 'Refunded', color: 'orange', description: 'Order has been refunded' }
   };
 

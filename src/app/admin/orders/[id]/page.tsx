@@ -96,7 +96,7 @@ interface Order {
     };
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
-  orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'cancelled';
+  orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
   amount: number;
   expectedDate?: string | Date;
   createdAt: string;
@@ -421,7 +421,6 @@ function OrderDetailPageContent() {
                 <option value="printing">Printing</option>
                 <option value="dispatched">Dispatched</option>
                 <option value="delivered">Delivered</option>
-                <option value="cancelled">Cancelled</option>
               </select>
               
               <button
@@ -1296,22 +1295,6 @@ function OrderDetailPageContent() {
                   className="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Updating...' : 'Mark as Delivered'}
-                </button>
-                
-                {/* Cancel Order Button */}
-                <button
-                  onClick={() => {
-                    if (window.confirm(`Are you sure you want to cancel order #${order.orderId}? This action may require a refund if payment was completed.`)) {
-                      updateOrderStatus('cancelled');
-                    }
-                  }}
-                  disabled={order.orderStatus === 'cancelled' || isUpdating}
-                  className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                  {isUpdating ? 'Cancelling...' : 'Cancel Order'}
                 </button>
                 
                 {/* Delete Order Button */}

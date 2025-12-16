@@ -20,15 +20,15 @@ export async function POST(_request: NextRequest) {
     let cleanedCount = 0;
     for (const order of pendingOrders) {
       try {
-        // Update order status to cancelled
+        // Update order status to failed
         order.paymentStatus = 'failed';
-        order.status = 'cancelled';
+        order.status = 'pending_payment';
         order.orderStatus = 'pending';
         
         await order.save();
         cleanedCount++;
         
-        console.log(`❌ Cancelled pending order: ${order.orderId} (created: ${order.createdAt})`);
+        console.log(`❌ Marked pending order as failed: ${order.orderId} (created: ${order.createdAt})`);
       } catch (error) {
         console.error(`❌ Error cancelling order ${order.orderId}:`, error);
       }

@@ -18,7 +18,7 @@ export interface IPrintJob extends Document {
     colorPages?: number[];
     bwPages?: number[];
   };
-  status: 'pending' | 'printing' | 'completed' | 'failed' | 'cancelled';
+  status: 'pending' | 'printing' | 'completed' | 'failed';
   printerId?: string;
   printerName?: string;
   priority: 'low' | 'normal' | 'high' | 'urgent';
@@ -52,7 +52,7 @@ const printJobSchema: Schema = new Schema({
   },
   status: { 
     type: String, 
-    enum: ['pending', 'printing', 'completed', 'failed', 'cancelled'], 
+    enum: ['pending', 'printing', 'completed', 'failed'], 
     default: 'pending',
     index: true
   },

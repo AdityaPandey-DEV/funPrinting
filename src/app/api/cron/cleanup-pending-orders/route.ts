@@ -104,15 +104,15 @@ export async function GET(request: NextRequest) {
     let cleanedCount = 0;
     for (const order of ordersToCleanup) {
       try {
-        // Update order status to cancelled
+        // Update order status to failed
         order.paymentStatus = 'failed';
-        order.status = 'cancelled';
+        order.status = 'pending_payment';
         order.orderStatus = 'pending';
         
         await order.save();
         cleanedCount++;
         
-        console.log(`❌ Cron job: Cancelled pending order: ${order.orderId} (created: ${order.createdAt})`);
+        console.log(`❌ Cron job: Marked pending order as failed: ${order.orderId} (created: ${order.createdAt})`);
       } catch (error) {
         console.error(`❌ Cron job: Error cancelling order ${order.orderId}:`, error);
       }
