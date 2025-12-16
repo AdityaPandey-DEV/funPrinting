@@ -1,7 +1,16 @@
+import { NextRequest, NextResponse } from 'next/server';
+import connectDB from '@/lib/mongodb';
+import User from '@/models/User';
+import Order from '@/models/Order';
+import AdminInfo from '@/models/AdminInfo';
+import PickupLocation from '@/models/PickupLocation';
+import { validatePhoneNumberLength } from '@/lib/phoneValidation';
+import { isAdminUser } from '@/lib/templateAuth';
+
 /**
- * Migration script to validate and clean phone numbers
+ * API endpoint to validate and clean phone numbers
  * 
- * This script:
+ * This endpoint:
  * 1. Validates phone numbers in User collection (phone field)
  * 2. Validates phone numbers in Order collection (customerInfo.phone field)
  * 3. Validates phone numbers in AdminInfo collection (phone field)
@@ -11,28 +20,26 @@
  * - They don't have a country code (don't start with +)
  * - They don't meet the minimum length requirement for their country code
  * 
- * Run with: npx ts-node scripts/migrate-phone-numbers.ts
+ * Access: Admin only
  */
-
-import mongoose from 'mongoose';
-import connectDB from '../src/lib/mongodb';
-import User from '../src/models/User';
-import Order from '../src/models/Order';
-import AdminInfo from '../src/models/AdminInfo';
-import PickupLocation from '../src/models/PickupLocation';
-import { validatePhoneNumberLength, parsePhoneNumber } from '../src/lib/phoneValidation';
-
-async function migratePhoneNumbers() {
+export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Starting phone number migration...');
-    
-    // Connect to database
+    // Check if user is admin
+    const isAdmin = await isAdminUser();
+    if (!isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized: Admin access required' },
+        { status: 403 }
+      );
+    }
+
     await connectDB();
-    console.log('✅ Connected to database');
+    console.log('🔄 Starting phone number migration via API...');
 
     let totalProcessed = 0;
     let totalInvalid = 0;
     let totalUpdated = 0;
+    const invalidPhones: Array<{ collection: string; id: string; phone: string; error: string }> = [];
 
     // Process User collection
     console.log('\n📋 Processing User collection...');
@@ -52,6 +59,12 @@ async function migratePhoneNumbers() {
         );
         totalInvalid++;
         totalUpdated++;
+        invalidPhones.push({
+          collection: 'User',
+          id: user._id.toString(),
+          phone: user.phone,
+          error: validation.error || 'Invalid phone number'
+        });
       }
     }
 
@@ -73,6 +86,12 @@ async function migratePhoneNumbers() {
         );
         totalInvalid++;
         totalUpdated++;
+        invalidPhones.push({
+          collection: 'Order',
+          id: order.orderId || order._id.toString(),
+          phone: order.customerInfo.phone,
+          error: validation.error || 'Invalid phone number'
+        });
       }
     }
 
@@ -94,6 +113,12 @@ async function migratePhoneNumbers() {
         );
         totalInvalid++;
         totalUpdated++;
+        invalidPhones.push({
+          collection: 'AdminInfo',
+          id: adminInfo._id.toString(),
+          phone: adminInfo.phone,
+          error: validation.error || 'Invalid phone number'
+        });
       }
     }
 
@@ -115,6 +140,12 @@ async function migratePhoneNumbers() {
         );
         totalInvalid++;
         totalUpdated++;
+        invalidPhones.push({
+          collection: 'PickupLocation',
+          id: location._id.toString(),
+          phone: location.contactPhone,
+          error: validation.error || 'Invalid phone number'
+        });
       }
     }
 
@@ -123,15 +154,28 @@ async function migratePhoneNumbers() {
     console.log(`   ⚠️  Invalid phone numbers found: ${totalInvalid}`);
     console.log(`   ✅ Records updated: ${totalUpdated}`);
     console.log(`   ✅ Valid phone numbers: ${totalProcessed - totalInvalid}`);
-    console.log('\n✅ Migration completed successfully!');
 
-    process.exit(0);
+    return NextResponse.json({
+      success: true,
+      message: 'Migration completed successfully',
+      summary: {
+        totalProcessed,
+        totalInvalid,
+        totalUpdated,
+        validPhones: totalProcessed - totalInvalid
+      },
+      invalidPhones: invalidPhones.slice(0, 100) // Limit to first 100 for response size
+    });
+
   } catch (error) {
     console.error('❌ Migration failed:', error);
-    process.exit(1);
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Migration failed' 
+      },
+      { status: 500 }
+    );
   }
 }
-
-// Run migration
-migratePhoneNumbers();
 
