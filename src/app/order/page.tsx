@@ -574,45 +574,6 @@ export default function OrderPage() {
     loadUserProfile();
   }, [isAuthenticated, user]);
 
-  // Save phone number to user profile when entered
-  useEffect(() => {
-    const savePhoneNumber = async () => {
-      // Validate phone number before saving
-      if (!isAuthenticated || !customerInfo.phone) {
-        return;
-      }
-
-      // Strip non-digit characters for validation
-      const digitsOnly = customerInfo.phone.replace(/\D/g, '');
-      
-      // Only save if phone number has at least 10 digits
-      if (digitsOnly.length >= 10) {
-        try {
-          const response = await fetch('/api/user/update-phone', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ phone: customerInfo.phone }),
-          });
-          
-          const data = await response.json();
-          if (data.success) {
-            console.log('✅ Phone number saved to profile');
-          }
-        } catch (error) {
-          console.error('Error saving phone number:', error);
-        }
-      }
-    };
-
-    // Debounce the save operation - wait 2 seconds after user stops typing
-    const timeoutId = setTimeout(() => {
-      savePhoneNumber();
-    }, 2000);
-
-    return () => clearTimeout(timeoutId);
-  }, [customerInfo.phone, isAuthenticated]);
 
   // Ensure serviceOptions array matches selectedFiles length
   useEffect(() => {
@@ -3217,12 +3178,7 @@ export default function OrderPage() {
                         }}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
-                            e.preventDefault();
-                            // Auto-submit on Enter if phone number is valid
-                            const digitsOnly = customerInfo.phone.replace(/\D/g, '');
-                            if (digitsOnly.length >= 10) {
-                              handleSavePhoneNumber();
-                            }
+                            e.preventDefault(); // Only prevent form submission, don't save
                           }
                         }}
                         placeholder="Enter your phone number"

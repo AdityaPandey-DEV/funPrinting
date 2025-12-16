@@ -36,7 +36,7 @@ async function migratePhoneNumbers() {
 
     // Process User collection
     console.log('\n📋 Processing User collection...');
-    const users = await User.find({ phone: { $exists: true, $nin: [null, ''] } });
+    const users = await User.find({ phone: { $exists: true, $ne: null, $nin: ['', null] } });
     console.log(`   Found ${users.length} users with phone numbers`);
 
     for (const user of users) {
@@ -57,7 +57,7 @@ async function migratePhoneNumbers() {
 
     // Process Order collection
     console.log('\n📋 Processing Order collection...');
-    const orders = await Order.find({ 'customerInfo.phone': { $exists: true, $nin: [null, ''] } });
+    const orders = await Order.find({ 'customerInfo.phone': { $exists: true, $ne: null, $nin: ['', null] } });
     console.log(`   Found ${orders.length} orders with phone numbers`);
 
     for (const order of orders) {
@@ -78,7 +78,7 @@ async function migratePhoneNumbers() {
 
     // Process AdminInfo collection
     console.log('\n📋 Processing AdminInfo collection...');
-    const adminInfos = await AdminInfo.find({ phone: { $exists: true, $nin: [null, ''] } });
+    const adminInfos = await AdminInfo.find({ phone: { $exists: true, $ne: null, $nin: ['', null] } });
     console.log(`   Found ${adminInfos.length} admin info records with phone numbers`);
 
     for (const adminInfo of adminInfos) {
@@ -99,7 +99,7 @@ async function migratePhoneNumbers() {
 
     // Process PickupLocation collection
     console.log('\n📋 Processing PickupLocation collection...');
-    const pickupLocations = await PickupLocation.find({ contactPhone: { $exists: true, $nin: [null, ''] } });
+    const pickupLocations = await PickupLocation.find({ contactPhone: { $exists: true, $ne: null, $nin: ['', null] } });
     console.log(`   Found ${pickupLocations.length} pickup locations with phone numbers`);
 
     for (const location of pickupLocations) {
