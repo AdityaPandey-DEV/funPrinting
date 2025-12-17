@@ -1679,6 +1679,16 @@ export default function OrderPage() {
           name: 'College Print Service',
           description: `Print Order Payment - Order #${data.orderId || 'N/A'}`,
           order_id: data.razorpayOrderId,
+          // Configure payment methods - enable all available methods as fallback
+          // This ensures users can use cards, UPI, netbanking, wallets if GPay doesn't work
+          method: {
+            upi: true,
+            card: true,
+            netbanking: true,
+            wallet: true,
+            emi: false,
+            paylater: false,
+          },
           handler: async function (response: any) {
             try {
               console.log('💳 Payment response received:', response);
@@ -1800,25 +1810,110 @@ export default function OrderPage() {
             email: customerInfo.email,
             contact: customerInfo.phone,
           },
+          // Ensure proper mobile handling
+          readonly: {
+            email: true,
+            contact: true,
+          },
+          // Mobile-specific options for better iPhone Safari compatibility
+          notes: {
+            order_id: data.orderId,
+            customer_email: customerInfo.email,
+          },
+          // Add retry mechanism for mobile
+          retry: {
+            enabled: true,
+            max_count: 3,
+          },
           theme: {
             color: '#000000',
           },
         };
 
-        const razorpay = openRazorpay(options);
-        razorpay.open();
-        
-        // Add timeout to detect stuck payments (extended for slow networks)
-        // Default: 10 minutes, can be up to 15 minutes for very slow connections
-        const timeoutDuration = 600000; // 10 minutes (600 seconds)
-        setTimeout(() => {
-          if (isProcessingPayment) {
-            console.log('⚠️ Payment timeout detected - resetting processing state');
+        try {
+          const razorpay = openRazorpay(options);
+          
+          // Add error handlers for Razorpay modal
+          razorpay.on('payment.failed', function(response: any) {
+            console.error('❌ Payment failed:', response);
             setIsProcessingPayment(false);
-            // Show notification but don't alert (less intrusive)
-            console.log('Payment is taking longer than expected. The payment may still be processing. Please check your order status in a few minutes.');
+            setPaymentVerificationStatus({
+              verifying: false,
+              orderId: null,
+              razorpayOrderId: null,
+              startTime: null,
+              polling: false,
+            });
+            alert(`Payment failed: ${response.error?.description || response.error?.reason || 'Payment could not be processed. Please try again.'}`);
+          });
+
+          razorpay.on('payment.error', function(error: any) {
+            console.error('❌ Payment error:', error);
+            setIsProcessingPayment(false);
+            setPaymentVerificationStatus({
+              verifying: false,
+              orderId: null,
+              razorpayOrderId: null,
+              startTime: null,
+              polling: false,
+            });
+            alert(`Payment error: ${error.error?.description || error.error?.reason || 'An error occurred during payment. Please try again.'}`);
+          });
+
+          // Add timeout detection for stuck modals (30 seconds)
+          const MODAL_TIMEOUT = 30000; // 30 seconds
+          const modalTimeout = setTimeout(() => {
+            console.warn('⚠️ Razorpay modal timeout - modal may be stuck at processing screen');
+            // Don't auto-close, but log for debugging
+            // User can still manually close the modal
+          }, MODAL_TIMEOUT);
+
+          razorpay.on('modal.close', function() {
+            console.log('🔄 Razorpay modal closed');
+            if (modalTimeout) {
+              clearTimeout(modalTimeout);
+            }
+          });
+
+          razorpay.open();
+          console.log('✅ Razorpay payment UI opened');
+          
+          // Clear modal timeout if payment UI loads successfully (handler fires)
+          // The timeout will be cleared when handler fires or modal closes
+          
+          // Add timeout to detect stuck payments (extended for slow networks)
+          // Default: 10 minutes, can be up to 15 minutes for very slow connections
+          const timeoutDuration = 600000; // 10 minutes (600 seconds)
+          setTimeout(() => {
+            if (isProcessingPayment) {
+              console.log('⚠️ Payment timeout detected - resetting processing state');
+              setIsProcessingPayment(false);
+              // Show notification but don't alert (less intrusive)
+              console.log('Payment is taking longer than expected. The payment may still be processing. Please check your order status in a few minutes.');
+            }
+          }, timeoutDuration);
+        } catch (razorpayError) {
+          console.error('❌ Error opening Razorpay:', razorpayError);
+          setIsProcessingPayment(false);
+          setPaymentVerificationStatus({
+            verifying: false,
+            orderId: null,
+            razorpayOrderId: null,
+            startTime: null,
+            polling: false,
+          });
+          
+          let errorMessage = 'Failed to open payment gateway. Please try again.';
+          if (razorpayError instanceof Error) {
+            if (razorpayError.message.includes('not loaded')) {
+              errorMessage = 'Payment gateway is still loading. Please wait a moment and try again.';
+            } else if (razorpayError.message.includes('not available')) {
+              errorMessage = 'Payment gateway is not available. Please refresh the page and try again.';
+            }
           }
-        }, timeoutDuration);
+          
+          alert(errorMessage);
+        }
       } else {
         alert(`Failed to create order: ${data.error}`);
       }
