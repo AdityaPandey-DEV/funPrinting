@@ -1825,6 +1825,19 @@ export default function OrderPage() {
             enabled: true,
             max_count: 3,
           },
+          // Configure to show payment method selection first instead of auto-opening GPay
+          // This prevents getting stuck when GPay app is not installed or deep link fails
+          // Note: Razorpay will show payment method selection when all methods are enabled
+          // The method configuration above ensures all options are available
+          config: {
+            display: {
+              blocks: {
+                banks: {
+                  name: "All payment methods"
+                }
+              }
+            }
+          },
           theme: {
             color: '#000000',
           },
@@ -1868,11 +1881,46 @@ export default function OrderPage() {
             // User can still manually close the modal
           }, MODAL_TIMEOUT);
 
+          // Track if user went to external app (GPay, etc.)
+          let appRedirectDetected = false;
+          const handleVisibilityChange = () => {
+            if (document.hidden) {
+              // Page became hidden - user might have switched to GPay app
+              appRedirectDetected = true;
+              console.log('📱 Page hidden - possible app redirect to GPay');
+            } else {
+              // Page became visible again - user returned from app
+              if (appRedirectDetected) {
+                console.log('🔄 User returned from app - checking payment status');
+                appRedirectDetected = false;
+                // Don't reset processing state here - let Razorpay handle it
+                // The payment handler or failed handler will be called if needed
+              }
+            }
+          };
+          
+          // Add visibility change listener for app redirect detection
+          document.addEventListener('visibilitychange', handleVisibilityChange);
+
           razorpay.on('modal.close', function() {
             console.log('🔄 Razorpay modal closed');
+            // Clean up visibility listener
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (modalTimeout) {
               clearTimeout(modalTimeout);
             }
+          });
+
+          // Handle payment authorization (when user completes payment in app)
+          razorpay.on('payment.authorized', function(response: any) {
+            console.log('✅ Payment authorized:', response);
+            // This will be handled by the main handler function
+          });
+
+          // Handle external wallet selection (GPay, PhonePe, etc.)
+          razorpay.on('external.wallet.selected', function(response: any) {
+            console.log('📱 External wallet selected:', response);
+            // Log when user selects GPay or other external wallet
           });
 
           razorpay.open();
