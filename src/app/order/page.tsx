@@ -9,6 +9,7 @@ import InlineAuthModal from '@/components/InlineAuthModal';
 import InlinePhoneModal from '@/components/InlinePhoneModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
 import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
+import toast from 'react-hot-toast';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -1332,6 +1333,43 @@ export default function OrderPage() {
     }
   };
 
+  // Validation helper function for required fields
+  const validateRequiredFields = (): { isValid: boolean; missingFields: string[] } => {
+    const missingFields: string[] = [];
+
+    // Check expected date
+    if (!expectedDate) {
+      missingFields.push('expectedDate');
+      toast.error('Please select an expected delivery date');
+    }
+
+    // Check location info based on delivery type
+    if (deliveryOption.type === 'pickup') {
+      if (!selectedPickupLocation) {
+        missingFields.push('pickupLocation');
+        toast.error('Please select a pickup location');
+      }
+    } else if (deliveryOption.type === 'delivery') {
+      if (!deliveryOption.address) {
+        missingFields.push('deliveryAddress');
+        toast.error('Please fill in the delivery address');
+      }
+      if (!deliveryOption.city) {
+        missingFields.push('deliveryCity');
+        toast.error('Please fill in the delivery city');
+      }
+      if (!deliveryOption.pinCode) {
+        missingFields.push('deliveryPinCode');
+        toast.error('Please fill in the delivery pin code');
+      }
+    }
+
+    return {
+      isValid: missingFields.length === 0,
+      missingFields
+    };
+  };
+
   // Payment function
   const handlePayment = async () => {
     // Check if user is authenticated
@@ -1348,6 +1386,12 @@ export default function OrderPage() {
 
     if (razorpayError) {
       alert(`Payment gateway error: ${razorpayError}`);
+      return;
+    }
+
+    // Validate required fields (expected date and location info)
+    const fieldValidation = validateRequiredFields();
+    if (!fieldValidation.isValid) {
       return;
     }
 
@@ -1391,18 +1435,6 @@ export default function OrderPage() {
         return;
         }
       }
-    }
-
-    // Validate expected date
-    if (!expectedDate) {
-      alert('Please select an expected delivery date');
-      return;
-    }
-
-    // Validate pickup location if pickup is selected
-    if (deliveryOption.type === 'pickup' && !deliveryOption.pickupLocationId) {
-      alert('Please select a pickup location');
-      return;
     }
 
     // Validate phone number
@@ -3427,7 +3459,7 @@ export default function OrderPage() {
                         handlePayment();
                       }
                     }}
-                    disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded || (isAuthenticated && (selectedFiles.length === 0 || !expectedDate || !customerInfo.phone || customerInfo.phone.length < 10 || (deliveryOption.type === 'pickup' && !selectedPickupLocation) || (deliveryOption.type === 'delivery' && (!deliveryOption.address || !deliveryOption.city || !deliveryOption.pinCode))))}
+                    disabled={isProcessingPayment || uploadProgress.uploading || !isRazorpayLoaded}
                     className="w-full px-6 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-lg shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {!isAuthenticated ? (
