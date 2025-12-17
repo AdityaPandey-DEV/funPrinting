@@ -679,6 +679,51 @@ export default function OrderPage() {
     estimatedTimeRemaining: null,
     isSlowNetwork: false,
   });
+
+  // Handle visibility change for mobile recovery (when user switches apps/tabs)
+  useEffect(() => {
+    let lastHiddenTime: number | null = null;
+    const VISIBILITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page became hidden - store the time
+        lastHiddenTime = Date.now();
+        console.log('📱 Page hidden - storing timestamp for recovery');
+      } else {
+        // Page became visible - check if we were hidden for too long
+        if (lastHiddenTime && isProcessingPayment) {
+          const hiddenDuration = Date.now() - lastHiddenTime;
+          if (hiddenDuration > VISIBILITY_TIMEOUT) {
+            console.log('⚠️ Page was hidden for too long during payment - resetting processing state');
+            setIsProcessingPayment(false);
+            // Check if payment was actually completed via polling/recovery
+            if (paymentVerificationStatus.razorpayOrderId) {
+              console.log('🔄 Attempting to recover payment status...');
+              // The polling mechanism should handle this, but we reset the UI state
+            }
+          }
+          lastHiddenTime = null;
+        }
+      }
+    };
+
+    // Handle page unload (browser closed, tab closed)
+    const handleBeforeUnload = () => {
+      if (isProcessingPayment) {
+        console.log('⚠️ Page unloading during payment - storing state for recovery');
+        // State is already stored in localStorage by paymentUtils
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isProcessingPayment, paymentVerificationStatus.razorpayOrderId]);
   
   // Pickup locations
   const [defaultPickupLocation, setDefaultPickupLocation] = useState<{
@@ -1654,6 +1699,7 @@ export default function OrderPage() {
                 (pollData) => {
                   // Payment completed via polling
                   console.log('✅ Payment verified via polling:', pollData);
+                  setIsProcessingPayment(false); // Reset processing state
                   setPaymentVerificationStatus({
                     verifying: false,
                     orderId: null,
@@ -1667,6 +1713,7 @@ export default function OrderPage() {
                 (error) => {
                   // Payment failed
                   console.error('❌ Payment failed via polling:', error);
+                  setIsProcessingPayment(false); // Reset processing state
                   setPaymentVerificationStatus({
                     verifying: false,
                     orderId: null,
@@ -1679,6 +1726,7 @@ export default function OrderPage() {
                 () => {
                   // Polling timeout - keep verification status active for manual check
                   console.log('⏱️ Payment status polling timeout');
+                  setIsProcessingPayment(false); // Reset processing state
                   setPaymentVerificationStatus(prev => ({
                     ...prev,
                     polling: true, // Mark as polling timeout, show manual check button
@@ -1694,6 +1742,7 @@ export default function OrderPage() {
               
               if (result.success) {
                 console.log('✅ Payment verified successfully:', result.data);
+                setIsProcessingPayment(false); // Reset processing state
                 setPaymentVerificationStatus({
                   verifying: false,
                   orderId: null,
@@ -1706,6 +1755,7 @@ export default function OrderPage() {
                 window.location.href = '/my-orders';
               } else {
                 console.error('❌ Payment verification failed:', result.error);
+                setIsProcessingPayment(false); // Reset processing state (but keep polling active)
                 // Keep verification status active for polling/manual check
                 setPaymentVerificationStatus(prev => ({
                   ...prev,
@@ -1715,6 +1765,7 @@ export default function OrderPage() {
               }
             } catch (error) {
               console.error('❌ Error in payment handler:', error);
+              setIsProcessingPayment(false); // Reset processing state on error
               const failureResult = handlePaymentFailure(error, data.orderId);
               setPaymentVerificationStatus(prev => ({
                 ...prev,
@@ -1756,6 +1807,18 @@ export default function OrderPage() {
 
         const razorpay = openRazorpay(options);
         razorpay.open();
+        
+        // Add timeout to detect stuck payments (extended for slow networks)
+        // Default: 10 minutes, can be up to 15 minutes for very slow connections
+        const timeoutDuration = 600000; // 10 minutes (600 seconds)
+        setTimeout(() => {
+          if (isProcessingPayment) {
+            console.log('⚠️ Payment timeout detected - resetting processing state');
+            setIsProcessingPayment(false);
+            // Show notification but don't alert (less intrusive)
+            console.log('Payment is taking longer than expected. The payment may still be processing. Please check your order status in a few minutes.');
+          }
+        }, timeoutDuration);
       } else {
         alert(`Failed to create order: ${data.error}`);
       }
