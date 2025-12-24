@@ -11,6 +11,11 @@ interface UserProfile {
   profilePicture?: string;
   emailVerified: boolean;
   provider: 'email' | 'google';
+  templateBorderPreference?: {
+    style: string;
+    color: string;
+    width: string;
+  };
 }
 
 export default function ProfilePage() {
@@ -42,6 +47,12 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [emailVerificationSent, setEmailVerificationSent] = useState(false);
+  const [templateBorderPreference, setTemplateBorderPreference] = useState({
+    style: 'solid',
+    color: 'blue',
+    width: '2px'
+  });
+  const [isSavingBorderPref, setIsSavingBorderPref] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -69,8 +80,18 @@ export default function ProfilePage() {
             profilePicture: data.profile.profilePicture || user?.image,
             emailVerified: data.profile.emailVerified || false,
             provider: data.profile.provider || 'email',
+            templateBorderPreference: data.profile.templateBorderPreference || {
+              style: 'solid',
+              color: 'blue',
+              width: '2px'
+            }
           };
           setProfile(profileData);
+          setTemplateBorderPreference(profileData.templateBorderPreference || {
+            style: 'solid',
+            color: 'blue',
+            width: '2px'
+          });
           const initialFormData = {
             name: profileData.name,
             email: profileData.email,
@@ -543,6 +564,136 @@ export default function ProfilePage() {
               </div>
             </form>
           </div>
+
+        {/* Template Display Preferences */}
+        <div className="bg-white rounded-lg shadow-md p-6 mt-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Template Display Preferences</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            Customize how your favorite templates appear on the templates page
+          </p>
+          
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            setIsSavingBorderPref(true);
+            setError('');
+            setSuccess('');
+            
+            try {
+              const response = await fetch('/api/user/profile', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ templateBorderPreference }),
+              });
+
+              const data = await response.json();
+              
+              if (data.success) {
+                setSuccess('Template border preferences saved successfully');
+                setTimeout(() => setSuccess(''), 3000);
+              } else {
+                setError(data.error || 'Failed to save preferences');
+              }
+            } catch (error) {
+              setError('Failed to save preferences. Please try again.');
+            } finally {
+              setIsSavingBorderPref(false);
+            }
+          }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Border Style */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Border Style
+                </label>
+                <select
+                  value={templateBorderPreference.style}
+                  onChange={(e) => setTemplateBorderPreference({ ...templateBorderPreference, style: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                  <option value="groove">Groove</option>
+                  <option value="ridge">Ridge</option>
+                  <option value="inset">Inset</option>
+                  <option value="outset">Outset</option>
+                </select>
+              </div>
+
+              {/* Border Color */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Border Color
+                </label>
+                <select
+                  value={templateBorderPreference.color}
+                  onChange={(e) => setTemplateBorderPreference({ ...templateBorderPreference, color: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="blue">Blue</option>
+                  <option value="green">Green</option>
+                  <option value="purple">Purple</option>
+                  <option value="gold">Gold</option>
+                  <option value="red">Red</option>
+                  <option value="orange">Orange</option>
+                  <option value="pink">Pink</option>
+                  <option value="indigo">Indigo</option>
+                  <option value="teal">Teal</option>
+                  <option value="gray">Gray</option>
+                </select>
+              </div>
+
+              {/* Border Width */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Border Width
+                </label>
+                <select
+                  value={templateBorderPreference.width}
+                  onChange={(e) => setTemplateBorderPreference({ ...templateBorderPreference, width: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="1px">1px (Thin)</option>
+                  <option value="2px">2px (Normal)</option>
+                  <option value="3px">3px (Thick)</option>
+                  <option value="4px">4px (Very Thick)</option>
+                  <option value="5px">5px (Extra Thick)</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Preview */}
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm font-medium text-gray-700 mb-2">Preview:</p>
+              <div 
+                className="p-4 bg-white rounded-lg inline-block"
+                style={{
+                  borderStyle: templateBorderPreference.style,
+                  borderColor: templateBorderPreference.color === 'gold' ? '#fbbf24' : 
+                               templateBorderPreference.color === 'purple' ? '#9333ea' :
+                               templateBorderPreference.color === 'indigo' ? '#4f46e5' :
+                               templateBorderPreference.color === 'teal' ? '#14b8a6' :
+                               templateBorderPreference.color,
+                  borderWidth: templateBorderPreference.width
+                }}
+              >
+                <p className="text-sm text-gray-600">Template Card Preview</p>
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div className="mt-6 flex justify-end">
+              <button
+                type="submit"
+                disabled={isSavingBorderPref}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSavingBorderPref ? 'Saving...' : 'Save Preferences'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

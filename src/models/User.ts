@@ -21,6 +21,13 @@ export interface IUser {
     ifscCode?: string;
     bankName?: string;
   };
+  // Template preferences
+  favoriteTemplateIds?: string[]; // Array of template IDs user has favorited
+  templateBorderPreference?: {
+    style: string; // solid, dashed, dotted, double, groove, ridge, inset, outset
+    color: string; // blue, green, purple, gold, red, orange, etc.
+    width: string; // 1px, 2px, 3px, 4px, 5px
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,6 +50,12 @@ const userSchema = new mongoose.Schema<IUser>({
     accountNumber: { type: String, required: false, trim: true },
     ifscCode: { type: String, required: false, trim: true },
     bankName: { type: String, required: false, trim: true },
+  },
+  favoriteTemplateIds: [{ type: String, required: false }],
+  templateBorderPreference: {
+    style: { type: String, required: false, default: 'solid' },
+    color: { type: String, required: false, default: 'blue' },
+    width: { type: String, required: false, default: '2px' },
   },
 }, {
   timestamps: true,

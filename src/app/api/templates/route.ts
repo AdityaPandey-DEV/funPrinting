@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import DynamicTemplate from '@/models/DynamicTemplate';
+import Order from '@/models/Order';
 import { generateFormSchema } from '@/lib/docxProcessor';
 import { getCurrentUser } from '@/lib/templateAuth';
 import User from '@/models/User';
@@ -48,7 +49,58 @@ export async function GET(_request: NextRequest) {
       .select('id name description category placeholders pdfUrl wordUrl formSchema isPublic createdByType createdByEmail createdByName createdAt updatedAt')
       .sort({ createdAt: -1 });
 
-    // Generate form schemas for each template
+    // Get purchase counts for all templates
+    const purchaseCounts = await Order.aggregate([
+      {
+        $match: {
+          orderType: 'template',
+          paymentStatus: 'completed',
+          templateId: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: '$templateId',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create a map of templateId -> purchaseCount
+    const purchaseCountMap = new Map<string, number>();
+    purchaseCounts.forEach((item: { _id: string; count: number }) => {
+      purchaseCountMap.set(item._id, item.count);
+    });
+
+    // Sort templates by purchase count to determine ranks
+    const templatesWithCounts = templates.map(template => ({
+      template,
+      purchaseCount: purchaseCountMap.get(template.id) || 0
+    })).sort((a, b) => b.purchaseCount - a.purchaseCount);
+
+    // Assign ranks (1, 2, 3) to top templates
+    const rankMap = new Map<string, number>();
+    templatesWithCounts.forEach((item, index) => {
+      if (index < 3 && item.purchaseCount > 0) {
+        rankMap.set(item.template.id, index + 1);
+      }
+    });
+
+    // Get user's favorite template IDs if authenticated
+    let favoriteTemplateIds: string[] = [];
+    if (userId) {
+      const user = await User.findById(userId);
+      if (user && user.favoriteTemplateIds) {
+        favoriteTemplateIds = user.favoriteTemplateIds;
+      }
+    } else if (userEmail) {
+      const user = await User.findOne({ email: userEmail });
+      if (user && user.favoriteTemplateIds) {
+        favoriteTemplateIds = user.favoriteTemplateIds;
+      }
+    }
+
+    // Generate form schemas for each template and add purchase count, rank, and favorite status
     const templatesWithSchemas = templates.map(template => ({
       id: template.id,
       _id: template._id.toString(),
@@ -64,7 +116,10 @@ export async function GET(_request: NextRequest) {
       createdByEmail: template.createdByEmail,
       createdByName: template.createdByName,
       createdAt: template.createdAt,
-      updatedAt: template.updatedAt
+      updatedAt: template.updatedAt,
+      purchaseCount: purchaseCountMap.get(template.id) || 0,
+      rank: rankMap.get(template.id) || null,
+      isFavorite: favoriteTemplateIds.includes(template.id)
     }));
 
     return NextResponse.json({

@@ -57,7 +57,12 @@ export async function GET(_request: NextRequest) {
           contactPhone: defaultLocation.contactPhone,
           operatingHours: defaultLocation.operatingHours,
           gmapLink: defaultLocation.gmapLink
-        } : null
+        } : null,
+        templateBorderPreference: user.templateBorderPreference || {
+          style: 'solid',
+          color: 'blue',
+          width: '2px'
+        }
       }
     });
 
@@ -82,7 +87,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, phone, defaultLocationId } = body;
+    const { name, email, phone, defaultLocationId, templateBorderPreference } = body;
 
     await connectDB();
 
@@ -177,6 +182,26 @@ export async function PATCH(request: NextRequest) {
           );
         }
         user.defaultLocationId = defaultLocationId;
+      }
+    }
+
+    // Update template border preference if provided
+    if (templateBorderPreference !== undefined) {
+      if (!user.templateBorderPreference) {
+        user.templateBorderPreference = {
+          style: 'solid',
+          color: 'blue',
+          width: '2px'
+        };
+      }
+      if (templateBorderPreference.style !== undefined) {
+        user.templateBorderPreference.style = templateBorderPreference.style;
+      }
+      if (templateBorderPreference.color !== undefined) {
+        user.templateBorderPreference.color = templateBorderPreference.color;
+      }
+      if (templateBorderPreference.width !== undefined) {
+        user.templateBorderPreference.width = templateBorderPreference.width;
       }
     }
 

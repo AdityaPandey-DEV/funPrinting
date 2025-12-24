@@ -55,7 +55,7 @@ export interface IOrder {
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'processing' | 'printing' | 'dispatched' | 'delivered';
-  status: 'pending_payment' | 'paid' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'refunded';
+  status: 'pending_payment' | 'paid' | 'processing' | 'printing' | 'dispatched' | 'delivered' | 'cancelled' | 'refunded';
   amount: number;
   deliveryOption: {
     type: 'pickup' | 'delivery';
@@ -187,7 +187,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
   },
   status: {
     type: String,
-    enum: ['pending_payment', 'paid', 'processing', 'printing', 'dispatched', 'delivered', 'refunded'],
+    enum: ['pending_payment', 'paid', 'processing', 'printing', 'dispatched', 'delivered', 'cancelled', 'refunded'],
     default: 'pending_payment',
   },
   amount: {
