@@ -550,14 +550,15 @@ export default function MyOrdersPage() {
                             </a>
                           )}
                           
-                          {order.orderType === 'file' && order.fileURL && (
-                            <a
-                              href={`/api/admin/pdf-viewer?url=${encodeURIComponent(order.fileURL)}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'}`}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                            >
-                              Download {order.originalFileName || 'File'}
-                            </a>
-                          )}
+                          <button
+                            onClick={() => router.push(`/orders/${order._id}`)}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                          >
+                            <span className="flex items-center gap-2">
+                              <EyeIcon size={16} className="w-4 h-4" />
+                              View Order Details
+                            </span>
+                          </button>
                         </>
                       )}
                     </div>
