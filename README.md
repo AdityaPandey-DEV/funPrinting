@@ -1,5 +1,9 @@
 # 🖨️ College Printing Service - BTech Project
 
+![CI](https://github.com/AdityaPandey-DEV/funPrinting/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/AdityaPandey-DEV/funPrinting)
+![Docker](https://img.shields.io/badge/docker-ready-blue)
+
 A full-stack web application for college students to order printing services online with file uploads, professional document templates, and secure payment processing.
 
 **Live Demo:** [fun-printing.vercel.app](https://fun-printing.vercel.app)
@@ -221,7 +225,20 @@ npm run test-adobe
 npm run build
 
 # Start production server
+# Start production server
 npm start
+```
+
+### 🐳 Docker Support
+
+Build and run using Docker:
+
+```bash
+# Build image
+docker build -t funprinting .
+
+# Run container
+docker run -p 3000:3000 funprinting
 ```
 
 ---
