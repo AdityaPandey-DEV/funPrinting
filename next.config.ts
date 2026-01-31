@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   // External packages for server components
   serverExternalPackages: ['mongoose'],
-  
+
   // Turbopack configuration
   turbopack: {
     rules: {
@@ -13,7 +14,7 @@ const nextConfig: NextConfig = {
       },
     },
   },
-  
+
   // Webpack configuration (fallback for non-Turbopack builds)
   webpack: (config, { isServer }) => {
     if (!isServer) {
@@ -27,7 +28,7 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  
+
   // Handle static files and security headers
   async headers() {
     return [
@@ -86,7 +87,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  
+
   // Redirects for SEO (www/non-www handling)
   async redirects() {
     // Note: In production, handle www/non-www redirects at the DNS/hosting level (Vercel handles this automatically)

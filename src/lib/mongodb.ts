@@ -13,7 +13,7 @@ async function connectDB() {
     }
 
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 5000, // Fail fast if DB is not available (default is 30s)
+      serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
     });
     return mongoose.connection;
