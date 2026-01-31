@@ -11,8 +11,11 @@ async function connectDB() {
     if (mongoose.connection.readyState === 1) {
       return mongoose.connection;
     }
-    
-    await mongoose.connect(MONGODB_URI);
+
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000, // Fail fast if DB is not available (default is 30s)
+      socketTimeoutMS: 45000,
+    });
     return mongoose.connection;
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
