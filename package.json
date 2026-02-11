@@ -43,7 +43,7 @@
     "mammoth": "^1.10.0",
     "mongodb": "^6.19.0",
     "mongoose": "^8.18.0",
-    "next": "15.5.7",
+    "next": "15.5.9",
     "oci-sdk": "^2.95.0",
     "next-auth": "^4.24.11",
     "node-fetch": "^2.7.0",
