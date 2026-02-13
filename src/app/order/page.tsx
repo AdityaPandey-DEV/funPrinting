@@ -637,6 +637,9 @@ function OrderPageContent() {
       bwPages: number[];
     }> = [];
 
+    const initialColorPagesInputs: string[] = [];
+    const initialColorPagesValidations: Array<{ errors: string[]; warnings: string[] }> = [];
+
     const currentCart = getCart(); // Get fresh cart data
     if (currentCart.length === 0) return;
 
@@ -656,6 +659,16 @@ function OrderPageContent() {
         colorPages: [],
         bwPages: []
       });
+
+      // Restore color pages input state
+      if (item.printingOptions.color === 'mixed' && item.printingOptions.pageColors) {
+        const colorPages = item.printingOptions.pageColors.colorPages || [];
+        initialColorPagesInputs.push(colorPages.join(', '));
+        initialColorPagesValidations.push({ errors: [], warnings: [] });
+      } else {
+        initialColorPagesInputs.push('');
+        initialColorPagesValidations.push({ errors: [], warnings: [] });
+      }
     }
 
     // Load cart items into order state
@@ -663,6 +676,11 @@ function OrderPageContent() {
     setFilePageCounts(pageCounts);
     const totalPages = pageCounts.reduce((sum: number, p: number) => sum + p, 0);
     setPageCount(totalPages);
+
+    // Set color page inputs - crucial for validation and UI sync
+    setColorPagesInputs(initialColorPagesInputs);
+    setColorPagesValidations(initialColorPagesValidations);
+
     setPrintingOptions((prev: PrintingOptions) => ({
       ...prev,
       fileOptions,
