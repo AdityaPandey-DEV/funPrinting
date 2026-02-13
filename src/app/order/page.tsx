@@ -1807,6 +1807,14 @@ function OrderPageContent() {
       // Validate per-file page colors
       const pageColorsArray = Array.isArray(printingOptions.pageColors) ? printingOptions.pageColors : (printingOptions.pageColors ? [printingOptions.pageColors] : []);
       for (let i = 0; i < selectedFiles.length; i++) {
+        // Skip validation if this specific file is not set to mixed mode
+        // Note: printingOptions.fileOptions might not be fully populated if coming from older state, 
+        // but loadCartForCheckout populates it correctly.
+        const fileSpecificOption = printingOptions.fileOptions?.[i];
+        if (fileSpecificOption && fileSpecificOption.color !== 'mixed') {
+          continue;
+        }
+
         const filePageCount = filePageCounts[i] || 1;
         const filePageColors = pageColorsArray[i] || { colorPages: [], bwPages: [] };
         const totalSpecifiedPages = filePageColors.colorPages.length + filePageColors.bwPages.length;
