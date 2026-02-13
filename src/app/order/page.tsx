@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useRazorpay } from '@/hooks/useRazorpay';
 import { checkPendingPaymentVerification, handlePaymentSuccess, handlePaymentFailure, startPaymentStatusPolling } from '@/lib/paymentUtils';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,7 +10,7 @@ import InlinePhoneModal from '@/components/InlinePhoneModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
 import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
 import toast from 'react-hot-toast';
-import { getCart, addToCart, removeFromCart, clearCart, getCartItemCount, getCartWeight, estimateItemPrice, estimateCartTotal, fileToDataUrl, dataUrlToFile, generateCartId, CartItem } from '@/lib/cartUtils';
+import { getCart, addToCart, removeFromCart, clearCart, getCartItemCount, getCartWeight, estimateItemPrice, estimateCartTotal, fileToDataUrl, dataUrlToFile, generateCartId, getCartItem, updateCartItem, CartItem } from '@/lib/cartUtils';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -458,7 +458,7 @@ function extractCustomerInfo(customerData: Record<string, any>): CustomerInfo {
   };
 }
 
-export default function OrderPage() {
+function OrderPageContent() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
@@ -587,11 +587,60 @@ export default function OrderPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
+
+  // Search params for cart editing
+  const searchParams = useSearchParams();
 
   // Load cart from localStorage on mount
   useEffect(() => {
     setCartItems(getCart());
   }, []);
+
+  // Load cart item for editing when editCartItem query param is present
+  useEffect(() => {
+    const editId = searchParams.get('editCartItem');
+    if (!editId) return;
+
+    const cartItem = getCartItem(editId);
+    if (!cartItem) {
+      toast.error('Cart item not found');
+      return;
+    }
+
+    setEditingCartItemId(editId);
+
+    // Convert stored data URL back to File object
+    try {
+      const file = dataUrlToFile(cartItem.fileDataUrl, cartItem.fileName, cartItem.fileType);
+      setSelectedFiles([file]);
+      setFilePageCounts([cartItem.pageCount]);
+      setPageCount(cartItem.pageCount);
+
+      // Set printing options from cart item
+      setPrintingOptions(prev => ({
+        ...prev,
+        pageSize: cartItem.printingOptions.pageSize,
+        color: cartItem.printingOptions.color,
+        sided: cartItem.printingOptions.sided,
+        copies: cartItem.printingOptions.copies,
+        serviceOption: (cartItem.printingOptions.serviceOption as 'service' | 'binding' | 'file') || 'service',
+        serviceOptions: [(cartItem.printingOptions.serviceOption as 'service' | 'binding' | 'file') || 'service'],
+        fileOptions: [{
+          pageSize: cartItem.printingOptions.pageSize,
+          color: cartItem.printingOptions.color,
+          sided: cartItem.printingOptions.sided,
+          copies: cartItem.printingOptions.copies,
+        }],
+      }));
+
+      toast.success(`Editing: ${cartItem.fileName}`);
+    } catch (err) {
+      console.error('Failed to load cart item for editing:', err);
+      toast.error('Failed to load cart item');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Update customer info when user authentication changes
   // This takes priority over template data - authenticated user info should never be overwritten
@@ -4144,8 +4193,60 @@ export default function OrderPage() {
                     )}
                   </button>
 
-                  {/* Add to Cart Button */}
-                  {selectedFiles.length > 0 && (
+                  {/* Cart Edit Mode: Update & Remove buttons */}
+                  {editingCartItemId && selectedFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const file = selectedFiles[0];
+                            const fileOpts = getFilePrintingOptions(0, printingOptions);
+                            const newDataUrl = await fileToDataUrl(file);
+                            updateCartItem(editingCartItemId, {
+                              fileName: file.name,
+                              fileSize: file.size,
+                              pageCount: filePageCounts[0] || 1,
+                              printingOptions: {
+                                pageSize: fileOpts.pageSize,
+                                color: fileOpts.color,
+                                sided: fileOpts.sided,
+                                copies: fileOpts.copies,
+                                serviceOption: printingOptions.serviceOptions?.[0] || printingOptions.serviceOption || 'service',
+                                pageColors: fileOpts.pageColors,
+                              },
+                              fileDataUrl: newDataUrl,
+                              fileType: file.type,
+                            });
+                            toast.success('Cart item updated!');
+                            router.push('/cart');
+                          } catch (err) {
+                            console.error('Failed to update cart item:', err);
+                            toast.error('Failed to update cart item');
+                          }
+                        }}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-md hover:shadow-lg"
+                      >
+                        <span className="flex items-center justify-center gap-2">
+                          ✅ Update Cart Item
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          removeFromCart(editingCartItemId);
+                          toast.success('Removed from cart');
+                          router.push('/cart');
+                        }}
+                        className="w-full px-6 py-3 bg-gradient-to-r from-red-500 to-rose-600 text-white rounded-lg font-semibold hover:from-red-600 hover:to-rose-700 transition-all shadow-md hover:shadow-lg"
+                      >
+                        <span className="flex items-center justify-center gap-2">
+                          🗑️ Remove from Cart
+                        </span>
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Add to Cart Button (only when NOT in edit mode) */}
+                  {!editingCartItemId && selectedFiles.length > 0 && (
                     <button
                       onClick={handleAddToCart}
                       disabled={isAddingToCart || selectedFiles.length === 0}
@@ -4545,5 +4646,13 @@ export default function OrderPage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function OrderPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>}>
+      <OrderPageContent />
+    </Suspense>
   );
 }

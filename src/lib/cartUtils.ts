@@ -118,25 +118,53 @@ export function getCartWeight(): number {
 
 /**
  * Calculate estimated price for a single cart item (frontend estimation only).
- * The actual price is calculated server-side during payment initiation.
+ * Uses same pricing logic as server: base × pages × color × sided × copies.
+ * Pricing defaults match DB defaults (A4=5/page, A3=10/page).
  */
-export function estimateItemPrice(item: CartItem): number {
-    // Base prices (A4=1.5, A3=3) — these are estimates, real pricing comes from DB
-    const basePrice = item.printingOptions.pageSize === 'A3' ? 3 : 1.5;
-    const colorMultiplier = item.printingOptions.color === 'color' ? 5 :
-        item.printingOptions.color === 'mixed' ? 3 : 1;
-    const sidedMultiplier = item.printingOptions.sided === 'double' ? 0.85 : 1;
+export function estimateItemPrice(item: CartItem, pricing?: { basePrices: { A4: number; A3: number }; multipliers: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
+    const basePrice = pricing
+        ? pricing.basePrices[item.printingOptions.pageSize]
+        : (item.printingOptions.pageSize === 'A3' ? 10 : 5);
+    const colorMultiplier = item.printingOptions.color === 'color'
+        ? (pricing?.multipliers.color ?? 2)
+        : 1;
+    const sidedMultiplier = item.printingOptions.sided === 'double'
+        ? (pricing?.multipliers.doubleSided ?? 1.5)
+        : 1;
 
-    return Math.ceil(
-        item.pageCount * basePrice * colorMultiplier * sidedMultiplier * item.printingOptions.copies
-    );
+    let total = item.pageCount * basePrice * colorMultiplier * sidedMultiplier * item.printingOptions.copies;
+
+    // Add binding cost if service option is binding
+    if (item.printingOptions.serviceOption === 'binding') {
+        total += pricing?.additionalServices?.binding ?? 20;
+    }
+
+    return Math.ceil(total);
 }
 
 /**
  * Calculate estimated total price for all cart items
  */
-export function estimateCartTotal(): number {
-    return getCart().reduce((sum, item) => sum + estimateItemPrice(item), 0);
+export function estimateCartTotal(pricing?: { basePrices: { A4: number; A3: number }; multipliers: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
+    return getCart().reduce((sum, item) => sum + estimateItemPrice(item, pricing), 0);
+}
+
+/**
+ * Update a cart item by ID (for edit flow)
+ */
+export function updateCartItem(id: string, updates: Partial<CartItem>): CartItem[] {
+    const items = getCart().map(item =>
+        item.id === id ? { ...item, ...updates } : item
+    );
+    saveCart(items);
+    return items;
+}
+
+/**
+ * Get a single cart item by ID
+ */
+export function getCartItem(id: string): CartItem | undefined {
+    return getCart().find(item => item.id === id);
 }
 
 /**

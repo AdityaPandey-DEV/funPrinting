@@ -13,19 +13,28 @@ import {
     CartItem,
 } from '@/lib/cartUtils';
 
+interface PricingInfo {
+    basePrices: { A4: number; A3: number };
+    multipliers: { color: number; doubleSided: number };
+    additionalServices?: { binding: number };
+}
+
 export default function CartPage() {
     const router = useRouter();
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
-    const [editingId, setEditingId] = useState<string | null>(null);
-    const [editForm, setEditForm] = useState<{
-        pageSize: 'A4' | 'A3';
-        color: 'color' | 'bw' | 'mixed';
-        sided: 'single' | 'double';
-        copies: number;
-    }>({ pageSize: 'A4', color: 'bw', sided: 'single', copies: 1 });
+    const [pricing, setPricing] = useState<PricingInfo | undefined>(undefined);
 
     useEffect(() => {
         setCartItems(getCart());
+        // Fetch real pricing from API
+        fetch('/api/pricing')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.pricing) {
+                    setPricing(data.pricing);
+                }
+            })
+            .catch(() => { /* use default pricing */ });
     }, []);
 
     const handleRemove = (id: string) => {
@@ -38,47 +47,12 @@ export default function CartPage() {
         setCartItems([]);
     };
 
-    const startEdit = (item: CartItem) => {
-        setEditingId(item.id);
-        setEditForm({
-            pageSize: item.printingOptions.pageSize,
-            color: item.printingOptions.color,
-            sided: item.printingOptions.sided,
-            copies: item.printingOptions.copies,
-        });
-    };
-
-    const saveEdit = (id: string) => {
-        const updatedItems = cartItems.map(item => {
-            if (item.id === id) {
-                return {
-                    ...item,
-                    printingOptions: {
-                        ...item.printingOptions,
-                        pageSize: editForm.pageSize,
-                        color: editForm.color,
-                        sided: editForm.sided,
-                        copies: editForm.copies,
-                    },
-                };
-            }
-            return item;
-        });
-
-        // Save to localStorage
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('funprinting_cart', JSON.stringify({
-                items: updatedItems,
-                updatedAt: Date.now(),
-            }));
-        }
-
-        setCartItems(updatedItems);
-        setEditingId(null);
+    const handleEdit = (item: CartItem) => {
+        // Navigate to order page with cart item ID for full-page editing
+        router.push(`/order?editCartItem=${item.id}`);
     };
 
     const handleCheckout = () => {
-        // Navigate to order page — the order page will load cart items from the drawer
         router.push('/order');
     };
 
@@ -168,116 +142,52 @@ export default function CartPage() {
                                                 </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            {editingId !== item.id ? (
-                                                <>
-                                                    <button
-                                                        onClick={() => startEdit(item)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
-                                                    >
-                                                        ✏️ Edit
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleRemove(item.id)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-                                                    >
-                                                        🗑️ Remove
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <button
-                                                        onClick={() => saveEdit(item.id)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-                                                    >
-                                                        ✅ Save
-                                                    </button>
-                                                    <button
-                                                        onClick={() => setEditingId(null)}
-                                                        className="px-3 py-1.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                                                    >
-                                                        Cancel
-                                                    </button>
-                                                </>
-                                            )}
+                                    </div>
+
+                                    {/* Item Details */}
+                                    <div className="px-6 py-4">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex flex-wrap gap-3">
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
+                                                    � {item.printingOptions.pageSize}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
+                                                    {item.printingOptions.color === 'color' ? '🎨 Color' :
+                                                        item.printingOptions.color === 'mixed' ? '🎨 Mixed' : '⬛ B&W'}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
+                                                    {item.printingOptions.sided === 'double' ? '↔️ Double Sided' : '→ Single Sided'}
+                                                </span>
+                                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
+                                                    📋 {item.printingOptions.copies} {item.printingOptions.copies > 1 ? 'copies' : 'copy'}
+                                                </span>
+                                                {item.printingOptions.serviceOption && item.printingOptions.serviceOption !== 'service' && (
+                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-100 rounded-full text-xs font-medium text-blue-700">
+                                                        {item.printingOptions.serviceOption === 'binding' ? '📎 Binding' : '📁 File'}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="text-right ml-4">
+                                                <p className="text-lg font-bold text-gray-800">₹{estimateItemPrice(item, pricing)}</p>
+                                                <p className="text-[10px] text-gray-400">estimated</p>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Item Details / Edit Form */}
-                                    <div className="px-6 py-4">
-                                        {editingId === item.id ? (
-                                            /* Edit Mode */
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Page Size</label>
-                                                    <select
-                                                        value={editForm.pageSize}
-                                                        onChange={(e) => setEditForm(prev => ({ ...prev, pageSize: e.target.value as 'A4' | 'A3' }))}
-                                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                                                    >
-                                                        <option value="A4">A4</option>
-                                                        <option value="A3">A3</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Color Mode</label>
-                                                    <select
-                                                        value={editForm.color}
-                                                        onChange={(e) => setEditForm(prev => ({ ...prev, color: e.target.value as 'color' | 'bw' | 'mixed' }))}
-                                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                                                    >
-                                                        <option value="bw">B&W</option>
-                                                        <option value="color">Color</option>
-                                                        <option value="mixed">Mixed</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Print Side</label>
-                                                    <select
-                                                        value={editForm.sided}
-                                                        onChange={(e) => setEditForm(prev => ({ ...prev, sided: e.target.value as 'single' | 'double' }))}
-                                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                                                    >
-                                                        <option value="single">Single Sided</option>
-                                                        <option value="double">Double Sided</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-xs font-medium text-gray-500 mb-1 block">Copies</label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        max="100"
-                                                        value={editForm.copies}
-                                                        onChange={(e) => setEditForm(prev => ({ ...prev, copies: Math.max(1, parseInt(e.target.value) || 1) }))}
-                                                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400"
-                                                    />
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            /* View Mode */
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex flex-wrap gap-3">
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
-                                                        📐 {item.printingOptions.pageSize}
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
-                                                        {item.printingOptions.color === 'color' ? '🎨 Color' :
-                                                            item.printingOptions.color === 'mixed' ? '🎨 Mixed' : '⬛ B&W'}
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
-                                                        {item.printingOptions.sided === 'double' ? '↔️ Double Sided' : '→ Single Sided'}
-                                                    </span>
-                                                    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full text-xs font-medium text-gray-700">
-                                                        📋 {item.printingOptions.copies} {item.printingOptions.copies > 1 ? 'copies' : 'copy'}
-                                                    </span>
-                                                </div>
-                                                <div className="text-right ml-4">
-                                                    <p className="text-lg font-bold text-gray-800">~₹{estimateItemPrice(item)}</p>
-                                                    <p className="text-[10px] text-gray-400">estimated</p>
-                                                </div>
-                                            </div>
-                                        )}
+                                    {/* Action Buttons — Edit (full page) & Remove */}
+                                    <div className="px-6 py-3 bg-gray-50 border-t flex items-center justify-end gap-2">
+                                        <button
+                                            onClick={() => handleEdit(item)}
+                                            className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1.5"
+                                        >
+                                            ✏️ Edit
+                                        </button>
+                                        <button
+                                            onClick={() => handleRemove(item.id)}
+                                            className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                                        >
+                                            🗑️ Remove
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -293,7 +203,7 @@ export default function CartPage() {
                                     {cartItems.map((item) => (
                                         <div key={item.id} className="flex justify-between text-sm">
                                             <span className="text-gray-600 truncate mr-2 max-w-[60%]">{item.fileName}</span>
-                                            <span className="font-medium text-gray-800">~₹{estimateItemPrice(item)}</span>
+                                            <span className="font-medium text-gray-800">₹{estimateItemPrice(item, pricing)}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -301,7 +211,7 @@ export default function CartPage() {
                                 <div className="border-t pt-3 mb-3">
                                     <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-600">Subtotal</span>
-                                        <span className="font-semibold text-gray-800">~₹{estimateCartTotal()}</span>
+                                        <span className="font-semibold text-gray-800">₹{estimateCartTotal(pricing)}</span>
                                     </div>
                                     <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-600">Delivery</span>
@@ -313,7 +223,7 @@ export default function CartPage() {
                                     <div className="flex justify-between items-center">
                                         <span className="font-bold text-gray-800">Est. Total</span>
                                         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                            ~₹{estimateCartTotal()}
+                                            ₹{estimateCartTotal(pricing)}
                                         </span>
                                     </div>
                                 </div>
@@ -337,7 +247,7 @@ export default function CartPage() {
                                 </button>
 
                                 <p className="text-[10px] text-gray-400 text-center mt-3">
-                                    You&apos;ll choose delivery options & pay on the next page
+                                    You&apos;ll choose delivery options &amp; pay on the next page
                                 </p>
                             </div>
                         </div>
