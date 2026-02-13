@@ -478,7 +478,11 @@ export default function OrderPage() {
     serviceOptions: [], // Per-file service options
     pageColors: [], // Per-file page colors array
   });
-  const [expectedDate, setExpectedDate] = useState<string>('');
+  const [expectedDate, setExpectedDate] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() + 5);
+    return d.toISOString().split('T')[0];
+  });
+  const [deliverySpeed, setDeliverySpeed] = useState<'standard' | 'express' | 'sameday'>('standard');
   const [pageCount, setPageCount] = useState(1);
   const [filePageCounts, setFilePageCounts] = useState<number[]>([]); // Track page count for each file
   const [pdfUrls, setPdfUrls] = useState<string[]>([]);
@@ -498,7 +502,10 @@ export default function OrderPage() {
   const [pincodeError, setPincodeError] = useState<string>('');
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isFetchingRate, setIsFetchingRate] = useState(false);
-  const [deliveryRateInfo, setDeliveryRateInfo] = useState<{ charge: number; estimatedDays: number; courierName: string; weight: number } | null>(null);
+  const [deliveryRateInfo, setDeliveryRateInfo] = useState<{
+    charge: number; estimatedDays: number; courierName: string; weight: number;
+    tiers?: Array<{ id: string; label: string; description: string; emoji: string; deliveryCharge: number; estimatedDays: number; courierName: string }>;
+  } | null>(null);
 
   // Calculate package weight from page count and paper size
   const calculatePackageWeight = (): number => {
@@ -507,12 +514,19 @@ export default function OrderPage() {
       const pageCount = filePageCounts[idx] || 1;
       return sum + (pageCount * fileOpts.copies);
     }, 0);
-    const perSheetGrams = printingOptions.pageSize === 'A3' ? 10 : 5; // A3=10g, A4=5g (80 GSM)
-    const totalGrams = (totalPages * perSheetGrams) + 10; // +10g safety margin
-    return Math.max(0.1, parseFloat((totalGrams / 1000).toFixed(2))); // min 100g, in kg
+    const perSheetGrams = printingOptions.pageSize === 'A3' ? 10 : 5;
+    const totalGrams = (totalPages * perSheetGrams) + 10;
+    return Math.max(0.1, parseFloat((totalGrams / 1000).toFixed(2)));
   };
 
-  // Fetch delivery rate from API based on pincode and weight
+  // Get the delivery charge for the selected speed tier
+  const getSelectedTierCharge = (): number => {
+    if (!deliveryRateInfo?.tiers) return 0;
+    const tier = deliveryRateInfo.tiers.find((t: { id: string }) => t.id === deliverySpeed);
+    return tier?.deliveryCharge || deliveryRateInfo.charge || 0;
+  };
+
+  // Fetch delivery rate tiers from API
   const fetchDeliveryRate = async (pincode: string) => {
     if (pincode.length !== 6 || selectedFiles.length === 0) return;
     setIsFetchingRate(true);
@@ -526,11 +540,15 @@ export default function OrderPage() {
           estimatedDays: data.estimatedDays,
           courierName: data.courierName,
           weight: data.weight,
+          tiers: data.tiers || [],
         });
-        setDeliveryOption((prev: DeliveryOption) => ({ ...prev, deliveryCharge: data.deliveryCharge }));
+        // Set delivery charge based on currently selected speed
+        const selectedTier = (data.tiers || []).find((t: any) => t.id === deliverySpeed);
+        const charge = selectedTier?.deliveryCharge || data.deliveryCharge;
+        setDeliveryOption((prev: DeliveryOption) => ({ ...prev, deliveryCharge: charge }));
       }
     } catch {
-      // Silently fail — use fallback
+      // Silently fail
     } finally {
       setIsFetchingRate(false);
     }
@@ -1193,7 +1211,7 @@ export default function OrderPage() {
               }
             }
 
-            // Add delivery charge if applicable
+            // Add delivery charge if applicable (includes tier-based speed pricing)
             if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
               total += deliveryOption.deliveryCharge;
             }
@@ -3262,21 +3280,107 @@ export default function OrderPage() {
                     </div>
                   )}
 
-                  {/* Expected Delivery Date */}
+                  {/* Delivery Speed Options */}
                   <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Expected Delivery Date
+                    <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                      ⚡ Delivery Speed
                     </label>
-                    <input
-                      type="date"
-                      value={expectedDate}
-                      onChange={(e) => setExpectedDate(e.target.value)}
-                      min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // Tomorrow
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required
-                    />
-                    <p className="mt-1 text-sm text-gray-500">
-                      Please select a date at least 1 day from today
+                    {isFetchingRate ? (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                        Fetching delivery rates...
+                      </div>
+                    ) : deliveryRateInfo?.tiers && deliveryRateInfo.tiers.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {deliveryRateInfo.tiers.map((tier: { id: string; label: string; description: string; emoji: string; deliveryCharge: number; estimatedDays: number; courierName: string }) => {
+                          const isSelected = deliverySpeed === tier.id;
+                          const colorMap: Record<string, { border: string; bg: string; ring: string; hover: string; text: string; checkBg: string }> = {
+                            standard: { border: 'border-green-500', bg: 'bg-green-50', ring: 'ring-green-200', hover: 'hover:border-green-300', text: 'text-green-600', checkBg: 'bg-green-500' },
+                            express: { border: 'border-blue-500', bg: 'bg-blue-50', ring: 'ring-blue-200', hover: 'hover:border-blue-300', text: 'text-blue-600', checkBg: 'bg-blue-500' },
+                            sameday: { border: 'border-purple-500', bg: 'bg-purple-50', ring: 'ring-purple-200', hover: 'hover:border-purple-300', text: 'text-purple-600', checkBg: 'bg-purple-500' },
+                          };
+                          const colors = colorMap[tier.id] || colorMap.standard;
+
+                          return (
+                            <button
+                              key={tier.id}
+                              type="button"
+                              onClick={() => {
+                                setDeliverySpeed(tier.id as 'standard' | 'sameday');
+                                // Set expected date based on tier
+                                const d = new Date();
+                                d.setDate(d.getDate() + (tier.estimatedDays || 5));
+                                setExpectedDate(d.toISOString().split('T')[0]);
+                                // Update delivery charge to this tier's charge
+                                setDeliveryOption((prev: DeliveryOption) => ({ ...prev, deliveryCharge: tier.deliveryCharge }));
+                              }}
+                              className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${isSelected
+                                ? `${colors.border} ${colors.bg} ring-2 ${colors.ring} shadow-md`
+                                : `border-gray-200 bg-white ${colors.hover} hover:shadow-sm`
+                                }`}
+                            >
+                              {isSelected && (
+                                <div className={`absolute -top-2 -right-2 ${colors.checkBg} text-white rounded-full w-5 h-5 flex items-center justify-center text-xs`}>✓</div>
+                              )}
+                              {tier.id === 'sameday' && (
+                                <span className="absolute -top-2 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">EXPRESS</span>
+                              )}
+                              <div className="text-xl mb-1">{tier.emoji}</div>
+                              <div className="font-semibold text-gray-800 text-sm">{tier.label}</div>
+                              <div className="text-xs text-gray-500">{tier.description}</div>
+                              <div className={`mt-2 text-sm font-bold ${colors.text}`}>
+                                ₹{tier.deliveryCharge}
+                              </div>
+                              <div className="text-[10px] text-gray-400 mt-0.5">via {tier.courierName}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Placeholder cards when no rates fetched */}
+                        {(['standard', 'express', 'sameday'] as const).map((speed) => {
+                          const info = {
+                            standard: { emoji: '📦', label: 'Standard', desc: '3-5 business days', color: 'green' },
+                            express: { emoji: '🚀', label: 'Express', desc: '1-2 business days', color: 'blue' },
+                            sameday: { emoji: '⚡', label: 'Same Day', desc: 'Within 4-6 hours', color: 'purple' },
+                          }[speed];
+                          const isSelected = deliverySpeed === speed;
+                          return (
+                            <button
+                              key={speed}
+                              type="button"
+                              onClick={() => {
+                                setDeliverySpeed(speed);
+                                const d = new Date();
+                                d.setDate(d.getDate() + (speed === 'sameday' ? 0 : speed === 'express' ? 2 : 5));
+                                setExpectedDate(d.toISOString().split('T')[0]);
+                              }}
+                              className={`relative p-4 rounded-xl border-2 text-left transition-all duration-200 ${isSelected
+                                ? `border-${info.color}-500 bg-${info.color}-50 ring-2 ring-${info.color}-200 shadow-md`
+                                : `border-gray-200 bg-white hover:border-${info.color}-300 hover:shadow-sm`
+                                }`}
+                            >
+                              {isSelected && (
+                                <div className={`absolute -top-2 -right-2 bg-${info.color}-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs`}>✓</div>
+                              )}
+                              {speed === 'sameday' && (
+                                <span className="absolute -top-2 left-3 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">EXPRESS</span>
+                              )}
+                              <div className="text-xl mb-1">{info.emoji}</div>
+                              <div className="font-semibold text-gray-800 text-sm">{info.label}</div>
+                              <div className="text-xs text-gray-500">{info.desc}</div>
+                              <div className="mt-2 text-sm font-bold text-gray-400">
+                                Enter PIN for rate
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <p className="mt-2 text-xs text-gray-500 flex items-center gap-1">
+                      📅 Est. delivery: {expectedDate ? new Date(expectedDate + 'T00:00:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }) : 'Select a speed'}
+                      {deliveryRateInfo?.tiers && deliverySpeed !== 'standard' && <span className="text-orange-600 font-medium"> • Express charges apply</span>}
                     </p>
                   </div>
 
@@ -3832,20 +3936,7 @@ export default function OrderPage() {
                       )}
                     </div>
 
-                    {/* Expected Delivery Date */}
-                    <div className="mt-6">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Expected Delivery Date *
-                      </label>
-                      <input
-                        type="date"
-                        value={expectedDate}
-                        onChange={(e) => setExpectedDate(e.target.value)}
-                        min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      />
-                    </div>
+                    {/* Delivery speed is now selected above in the main form */}
                   </div>
                 )}
               </div>
