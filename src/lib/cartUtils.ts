@@ -121,15 +121,16 @@ export function getCartWeight(): number {
  * Uses same pricing logic as server: base × pages × color × sided × copies.
  * Pricing defaults match DB defaults (A4=5/page, A3=10/page).
  */
-export function estimateItemPrice(item: CartItem, pricing?: { basePrices: { A4: number; A3: number }; multipliers: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
-    const basePrice = pricing
-        ? pricing.basePrices[item.printingOptions.pageSize]
-        : (item.printingOptions.pageSize === 'A3' ? 10 : 5);
+export function estimateItemPrice(item: CartItem, pricing?: { basePrices?: { A4: number; A3: number }; multipliers?: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
+    const basePrice = pricing?.basePrices?.[item.printingOptions.pageSize]
+        ?? (item.printingOptions.pageSize === 'A3' ? 10 : 5);
+
     const colorMultiplier = item.printingOptions.color === 'color'
-        ? (pricing?.multipliers.color ?? 2)
+        ? (pricing?.multipliers?.color ?? 2)
         : 1;
+
     const sidedMultiplier = item.printingOptions.sided === 'double'
-        ? (pricing?.multipliers.doubleSided ?? 1.5)
+        ? (pricing?.multipliers?.doubleSided ?? 1.5)
         : 1;
 
     let total = item.pageCount * basePrice * colorMultiplier * sidedMultiplier * item.printingOptions.copies;
@@ -145,7 +146,7 @@ export function estimateItemPrice(item: CartItem, pricing?: { basePrices: { A4: 
 /**
  * Calculate estimated total price for all cart items
  */
-export function estimateCartTotal(pricing?: { basePrices: { A4: number; A3: number }; multipliers: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
+export function estimateCartTotal(pricing?: { basePrices?: { A4: number; A3: number }; multipliers?: { color: number; doubleSided: number }; additionalServices?: { binding: number } }): number {
     return getCart().reduce((sum, item) => sum + estimateItemPrice(item, pricing), 0);
 }
 
