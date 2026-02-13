@@ -17,8 +17,10 @@ interface Order {
   };
   orderType: 'file' | 'template';
   fileURL?: string;
+  fileURLs?: string[];
   fileType?: string;
   originalFileName?: string;
+  originalFileNames?: string[];
   templateData?: {
     templateType: string;
     formData: Record<string, string | number | boolean>;
@@ -31,10 +33,28 @@ interface Order {
     copies: number;
     pageCount?: number;
     serviceOption?: 'binding' | 'file' | 'service';
+    serviceOptions?: ('binding' | 'file' | 'service')[];
     pageColors?: {
       colorPages: number[];
       bwPages: number[];
     };
+    fileOptions?: Array<{
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+    }>;
+  };
+  deliveryOption?: {
+    type: 'pickup' | 'delivery';
+    pickupLocation?: {
+      name: string;
+      address: string;
+    };
+    deliveryCharge?: number;
+    address?: string;
+    city?: string;
+    pinCode?: string;
   };
   paymentStatus: 'pending' | 'completed' | 'failed';
   orderStatus: 'pending' | 'printing' | 'dispatched' | 'delivered';
@@ -422,37 +442,116 @@ export default function MyOrdersPage() {
                     </div>
                   </div>
 
+                  {/* Multi-file badge + Printing Options */}
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                        }`}>Order Type:</span>
-                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                        }`}>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'}`}>Order Type:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'}`}>
                         {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
+                        {order.fileURLs && order.fileURLs.length > 1 && (
+                          <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            📎 {order.fileURLs.length} files
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div>
-                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                        }`}>Page Size:</span>
-                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                        }`}>{order.printingOptions.pageSize}</p>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'}`}>Page Size:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'}`}>{order.printingOptions.pageSize}</p>
                     </div>
                     <div>
-                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                        }`}>Color:</span>
-                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                        }`}>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'}`}>Color:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'}`}>
                         {order.printingOptions.color === 'color' ? 'Color' :
                           order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
                       </p>
                     </div>
                     <div>
-                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                        }`}>Copies:</span>
-                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                        }`}>{order.printingOptions.copies}</p>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'}`}>Copies:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'}`}>{order.printingOptions.copies}</p>
                     </div>
                   </div>
+
+                  {/* Delivery Info */}
+                  {order.deliveryOption && (
+                    <div className={`mb-4 p-3 rounded-lg ${isPendingPayment ? 'bg-orange-50' : 'bg-gray-50'}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{order.deliveryOption.type === 'pickup' ? '🏢' : '🚚'}</span>
+                          <div>
+                            <p className={`text-sm font-medium ${isPendingPayment ? 'text-orange-800' : 'text-gray-800'}`}>
+                              {order.deliveryOption.type === 'pickup' ? 'Pickup' : 'Home Delivery'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {order.deliveryOption.type === 'pickup'
+                                ? order.deliveryOption.pickupLocation?.name || 'Pickup location'
+                                : order.deliveryOption.address
+                                  ? `${order.deliveryOption.address}${order.deliveryOption.city ? `, ${order.deliveryOption.city}` : ''}${order.deliveryOption.pinCode ? ` - ${order.deliveryOption.pinCode}` : ''}`
+                                  : 'Delivery address'}
+                            </p>
+                          </div>
+                        </div>
+                        {order.deliveryOption.deliveryCharge != null && order.deliveryOption.deliveryCharge > 0 && (
+                          <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded">
+                            +₹{order.deliveryOption.deliveryCharge} delivery
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Shiprocket Tracking Status + Progress Bar */}
+                  {order.shiprocket?.awbCode && order.paymentStatus === 'completed' && (
+                    <div className="mb-4 p-3 bg-purple-50 border border-purple-100 rounded-lg">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">📦</span>
+                          <div>
+                            <p className="text-sm font-medium text-purple-800">
+                              {order.shiprocket.status || 'Shipped'} {order.shiprocket.courierName ? `via ${order.shiprocket.courierName}` : ''}
+                            </p>
+                            <p className="text-xs text-purple-600">
+                              AWB: {order.shiprocket.awbCode}
+                            </p>
+                          </div>
+                        </div>
+                        {order.shiprocket.trackingUrl && (
+                          <a
+                            href={order.shiprocket.trackingUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-medium text-purple-700 bg-purple-100 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                          >
+                            Track Live →
+                          </a>
+                        )}
+                      </div>
+                      {/* 4-step progress bar */}
+                      {(() => {
+                        const statusMap: Record<string, number> = {
+                          'pending': 0, 'NEW': 0,
+                          'printing': 1, 'READY TO SHIP': 1, 'PICKUP SCHEDULED': 1,
+                          'dispatched': 2, 'PICKED UP': 2, 'IN TRANSIT': 2, 'OUT FOR DELIVERY': 2, 'SHIPPED': 2,
+                          'delivered': 3, 'DELIVERED': 3,
+                        };
+                        const step = Math.max(
+                          statusMap[order.orderStatus] ?? 0,
+                          statusMap[order.shiprocket?.status || ''] ?? 0
+                        );
+                        const steps = ['Ordered', 'Printing', 'Shipped', 'Delivered'];
+                        return (
+                          <div className="flex items-center gap-1">
+                            {steps.map((label, i) => (
+                              <div key={label} className="flex-1 flex flex-col items-center">
+                                <div className={`w-full h-1.5 rounded-full ${i <= step ? 'bg-purple-500' : 'bg-purple-200'}`} />
+                                <span className={`text-[10px] mt-1 ${i <= step ? 'text-purple-700 font-medium' : 'text-gray-400'}`}>{label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
 
                   <div className={`border-t pt-4 ${isPendingPayment ? 'border-orange-200' : 'border-gray-200'
                     }`}>

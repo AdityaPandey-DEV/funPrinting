@@ -11,7 +11,6 @@ import {
     estimateItemPrice,
     estimateCartTotal,
     CartItem,
-    dataUrlToFile,
 } from '@/lib/cartUtils';
 
 export default function CartPage() {
@@ -153,7 +152,7 @@ export default function CartPage() {
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         {/* Cart Items List */}
                         <div className="lg:col-span-2 space-y-4">
-                            {cartItems.map((item, index) => (
+                            {cartItems.map((item) => (
                                 <div
                                     key={item.id}
                                     className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden"
@@ -291,7 +290,7 @@ export default function CartPage() {
 
                                 {/* Items Breakdown */}
                                 <div className="space-y-2 mb-4">
-                                    {cartItems.map((item, idx) => (
+                                    {cartItems.map((item) => (
                                         <div key={item.id} className="flex justify-between text-sm">
                                             <span className="text-gray-600 truncate mr-2 max-w-[60%]">{item.fileName}</span>
                                             <span className="font-medium text-gray-800">~₹{estimateItemPrice(item)}</span>
@@ -338,7 +337,7 @@ export default function CartPage() {
                                 </button>
 
                                 <p className="text-[10px] text-gray-400 text-center mt-3">
-                                    You'll choose delivery options & pay on the next page
+                                    You&apos;ll choose delivery options & pay on the next page
                                 </p>
                             </div>
                         </div>
