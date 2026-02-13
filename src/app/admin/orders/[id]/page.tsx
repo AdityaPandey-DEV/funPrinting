@@ -65,10 +65,10 @@ interface Order {
       color: 'color' | 'bw' | 'mixed';
       sided: 'single' | 'double';
       copies: number;
-    pageColors?: {
-      colorPages: number[];
-      bwPages: number[];
-    };
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
     }>;
   };
   deliveryOption?: {
@@ -108,6 +108,7 @@ function OrderDetailPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [isShipping, setIsShipping] = useState(false);
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0); // For multiple file preview
 
@@ -115,10 +116,10 @@ function OrderDetailPageContent() {
     try {
       const response = await fetch(`/api/admin/orders/${orderId}`);
       const data = await response.json();
-      
+
       if (data.success) {
         const orderData = data.order;
-        
+
         // Normalize file data: ensure safe arrays and legacy compatibility
         if (orderData) {
           // Ensure arrays are initialized
@@ -149,14 +150,14 @@ function OrderDetailPageContent() {
             console.log(`✅ Order has ${orderData.fileURLs.length} files:`, orderData.originalFileNames);
           }
         }
-        
+
         console.log('📋 Order data after normalization:', {
           hasFileURLs: !!orderData?.fileURLs,
           fileURLsLength: orderData?.fileURLs?.length || 0,
           hasFileURL: !!orderData?.fileURL,
           originalFileNamesLength: orderData?.originalFileNames?.length || 0
         });
-        
+
         setOrder(orderData);
       } else {
         showError('Failed to fetch order details');
@@ -181,26 +182,26 @@ function OrderDetailPageContent() {
 
   // Add timeout to prevent stuck loading state (onLoad may not fire for PDFs)
   useEffect(() => {
-    const currentFileURL = (Array.isArray(order?.fileURLs) && order!.fileURLs.length > 0) 
-      ? order.fileURLs[selectedFileIndex] 
+    const currentFileURL = (Array.isArray(order?.fileURLs) && order!.fileURLs.length > 0)
+      ? order.fileURLs[selectedFileIndex]
       : order?.fileURL;
     if (order && currentFileURL && !pdfLoaded) {
       const timeout = setTimeout(() => {
         console.log('⏱️ Showing PDF preview after 3 seconds (onLoad may not fire for PDFs)');
         setPdfLoaded(true);
       }, 3000); // 3 second timeout as fallback
-      
+
       return () => clearTimeout(timeout);
     }
   }, [order, order?.fileURL, order?.fileURLs, selectedFileIndex, pdfLoaded]);
 
   const updateOrderStatus = async (newStatus: string) => {
     if (!order) return;
-    
+
     setIsUpdating(true);
     try {
       console.log(`🔄 Updating order ${order._id} status to: ${newStatus}`);
-      
+
       const response = await fetch(`/api/admin/orders/${order._id}`, {
         method: 'PATCH',
         headers: {
@@ -211,7 +212,7 @@ function OrderDetailPageContent() {
 
       const data = await response.json();
       console.log('📋 API Response:', data);
-      
+
       if (data.success) {
         setOrder({ ...order, orderStatus: newStatus as any });
         showSuccess(`Order status updated successfully to: ${newStatus}`);
@@ -229,24 +230,24 @@ function OrderDetailPageContent() {
 
   const sendToPrintQueue = async () => {
     if (!order) return;
-    
+
     // Check if order has files to print
     const hasFiles = (order.fileURLs && order.fileURLs.length > 0) || order.fileURL;
     if (!hasFiles) {
       showError('Order has no files to print');
       return;
     }
-    
+
     // Check if payment is completed
     if (order.paymentStatus !== 'completed') {
       showError('Order payment must be completed before printing');
       return;
     }
-    
+
     setIsPrinting(true);
     try {
       console.log(`🖨️ Sending order ${order.orderId} to print queue`);
-      
+
       const response = await fetch('/api/printer', {
         method: 'POST',
         headers: {
@@ -259,7 +260,7 @@ function OrderDetailPageContent() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         showSuccess(`Order #${order.orderId} sent to print queue successfully!`);
         // Optionally update order status to 'printing'
@@ -283,14 +284,14 @@ function OrderDetailPageContent() {
 
   const deleteOrder = async () => {
     if (!order) return;
-    
+
     // Confirmation dialog
     const confirmed = window.confirm(
       `Are you sure you want to delete order #${order.orderId}?\n\nThis action cannot be undone and will permanently remove the order from the system.`
     );
-    
+
     if (!confirmed) return;
-    
+
     setIsUpdating(true);
     try {
       const response = await fetch(`/api/admin/orders/${order._id}`, {
@@ -301,7 +302,7 @@ function OrderDetailPageContent() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         showSuccess('Order deleted successfully!');
         router.push('/admin');
@@ -313,6 +314,43 @@ function OrderDetailPageContent() {
       showError('Failed to delete order');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const shipOrder = async () => {
+    if (!order) return;
+
+    const confirmed = window.confirm(
+      `Ship order #${order.orderId} via Shiprocket?\n\nThis will create a shipping order and assign a tracking number.`
+    );
+    if (!confirmed) return;
+
+    setIsShipping(true);
+    try {
+      const response = await fetch(`/api/admin/orders/${order._id}/ship`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        showSuccess(data.message || 'Order shipped via Shiprocket!');
+        if (data.warning) {
+          showError(data.warning);
+        }
+        // Refresh order data to get shiprocket fields
+        if (params.id) {
+          await fetchOrder(params.id as string);
+        }
+      } else {
+        showError(`Failed to ship order: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error shipping order:', error);
+      showError('Failed to ship order. Please try again.');
+    } finally {
+      setIsShipping(false);
     }
   };
 
@@ -358,7 +396,7 @@ function OrderDetailPageContent() {
                 <option value="dispatched">Dispatched</option>
                 <option value="delivered">Delivered</option>
               </select>
-              
+
               <button
                 onClick={() => router.push('/admin')}
                 className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
@@ -378,9 +416,11 @@ function OrderDetailPageContent() {
           setPdfLoaded={setPdfLoaded}
           isUpdating={isUpdating}
           isPrinting={isPrinting}
+          isShipping={isShipping}
           onUpdateStatus={updateOrderStatus}
           onSendToPrintQueue={sendToPrintQueue}
           onDeleteOrder={deleteOrder}
+          onShipOrder={shipOrder}
         />
       </div>
     </div>
@@ -389,7 +429,7 @@ function OrderDetailPageContent() {
 
 export default function OrderDetailPage() {
   return (
-    <AdminGoogleAuth 
+    <AdminGoogleAuth
       title="Order Details"
       subtitle="Sign in with Google to view and manage order details"
     >

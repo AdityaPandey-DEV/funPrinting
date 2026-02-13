@@ -43,6 +43,15 @@ interface Order {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   createdAt: string;
+  shiprocket?: {
+    orderId?: number;
+    shipmentId?: number;
+    awbCode?: string;
+    courierName?: string;
+    trackingUrl?: string;
+    status?: string;
+    lastTrackedAt?: string;
+  };
 }
 
 export default function MyOrdersPage() {
@@ -65,7 +74,7 @@ export default function MyOrdersPage() {
   useEffect(() => {
     if (isAuthenticated && user?.email) {
       loadOrders();
-      
+
       // Check for pending payment verification (iPhone Safari recovery)
       checkPendingPaymentVerification().then((result) => {
         if (result && result.success) {
@@ -156,7 +165,7 @@ export default function MyOrdersPage() {
 
     setProcessingPayment(order._id);
     logPaymentEvent('payment_initiated', { orderId: order.orderId, amount: order.amount }, 'info');
-    
+
     try {
       // Get Razorpay key from environment
       const response = await fetch('/api/payment/initiate', {
@@ -173,18 +182,18 @@ export default function MyOrdersPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         // Create payment options using utility function
         const options = createPaymentOptions(order, data.key);
-        
+
         // Add success handler
         options.handler = async function (paymentResponse: any) {
           console.log('🎉 Payment response received:', paymentResponse);
           try {
             const result = await handlePaymentSuccess(paymentResponse, order.orderId);
             console.log('🔍 Payment verification result:', result);
-            
+
             if (result.success) {
               alert(`Payment successful! Order #${order.orderId} is now confirmed.`);
               await loadOrders(); // Refresh orders
@@ -202,19 +211,19 @@ export default function MyOrdersPage() {
         };
 
         // Add modal dismiss handler
-        options.modal.ondismiss = function() {
+        options.modal.ondismiss = function () {
           console.log('Payment modal dismissed');
           setProcessingPayment(null);
         };
 
         // Add error handler
-        options.handler = options.handler || function() {};
-        options.modal.ondismiss = options.modal.ondismiss || function() {};
+        options.handler = options.handler || function () { };
+        options.modal.ondismiss = options.modal.ondismiss || function () { };
 
         try {
           const razorpay = openRazorpay(options);
           razorpay.open();
-          
+
           // Add timeout to detect stuck payments (extended for slow networks)
           // Default: 10 minutes, can be up to 15 minutes for very slow connections
           const timeoutDuration = 600000; // 10 minutes (600 seconds)
@@ -225,7 +234,7 @@ export default function MyOrdersPage() {
               setProcessingPayment(null);
             }
           }, timeoutDuration);
-          
+
         } catch (razorpayError) {
           logPaymentEvent('razorpay_error', { orderId: order.orderId, error: razorpayError }, 'error');
           alert('Failed to open payment gateway. Please try again.');
@@ -257,7 +266,7 @@ export default function MyOrdersPage() {
 
     setDeletingOrder(order._id);
     logPaymentEvent('order_deletion_initiated', { orderId: order.orderId }, 'info');
-    
+
     try {
       const response = await fetch(`/api/orders/${order._id}`, {
         method: 'DELETE',
@@ -269,7 +278,7 @@ export default function MyOrdersPage() {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         logPaymentEvent('order_deleted', { orderId: order.orderId }, 'info');
         alert(`✅ Order #${order.orderId} has been deleted successfully.`);
@@ -371,22 +380,20 @@ export default function MyOrdersPage() {
             <p className="mt-4 text-gray-600">Loading orders...</p>
           </div>
         )}
-        
+
         {!isLoading && orders.length > 0 && (
           <div className="space-y-6">
             {orders.map((order) => {
               const isPendingPayment = order.paymentStatus === 'pending' && order.status === 'pending_payment';
               return (
-                <div key={order._id} className={`rounded-lg shadow-lg p-6 ${
-                  isPendingPayment 
-                    ? 'bg-orange-50 border-2 border-orange-200' 
-                    : 'bg-white'
-                }`}>
+                <div key={order._id} className={`rounded-lg shadow-lg p-6 ${isPendingPayment
+                  ? 'bg-orange-50 border-2 border-orange-200'
+                  : 'bg-white'
+                  }`}>
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
                     <div>
-                      <h3 className={`text-lg font-semibold ${
-                        isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                      }`}>
+                      <h3 className={`text-lg font-semibold ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                        }`}>
                         Order #{order.orderId}
                         {isPendingPayment && (
                           <span className="ml-2 text-orange-600 font-normal text-sm">
@@ -394,9 +401,8 @@ export default function MyOrdersPage() {
                           </span>
                         )}
                       </h3>
-                      <p className={`text-sm ${
-                        isPendingPayment ? 'text-orange-700' : 'text-gray-600'
-                      }`}>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-700' : 'text-gray-600'
+                        }`}>
                         Placed on {formatDate(order.createdAt)}
                         {isPendingPayment && (
                           <span className="ml-2 font-medium">• Amount: ₹{order.amount}</span>
@@ -404,9 +410,8 @@ export default function MyOrdersPage() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2 mt-2 lg:mt-0">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        isPendingPayment ? 'bg-orange-200 text-orange-800' : getStatusColor(order.orderStatus)
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${isPendingPayment ? 'bg-orange-200 text-orange-800' : getStatusColor(order.orderStatus)
+                        }`}>
                         {isPendingPayment ? 'Payment Pending' : order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
                       </span>
                       {!isPendingPayment && (
@@ -417,196 +422,201 @@ export default function MyOrdersPage() {
                     </div>
                   </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <span className={`text-sm font-medium ${
-                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                    }`}>Order Type:</span>
-                    <p className={`text-sm ${
-                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                    }`}>
-                      {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                    <div>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                        }`}>Order Type:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                        }`}>
+                        {order.orderType === 'file' ? 'File Upload' : 'Template Generated'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                        }`}>Page Size:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                        }`}>{order.printingOptions.pageSize}</p>
+                    </div>
+                    <div>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                        }`}>Color:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                        }`}>
+                        {order.printingOptions.color === 'color' ? 'Color' :
+                          order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
+                      </p>
+                    </div>
+                    <div>
+                      <span className={`text-sm font-medium ${isPendingPayment ? 'text-orange-700' : 'text-gray-700'
+                        }`}>Copies:</span>
+                      <p className={`text-sm ${isPendingPayment ? 'text-orange-900' : 'text-gray-900'
+                        }`}>{order.printingOptions.copies}</p>
+                    </div>
                   </div>
-                  <div>
-                    <span className={`text-sm font-medium ${
-                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                    }`}>Page Size:</span>
-                    <p className={`text-sm ${
-                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                    }`}>{order.printingOptions.pageSize}</p>
-                  </div>
-                  <div>
-                    <span className={`text-sm font-medium ${
-                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                    }`}>Color:</span>
-                    <p className={`text-sm ${
-                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                    }`}>
-                      {order.printingOptions.color === 'color' ? 'Color' : 
-                       order.printingOptions.color === 'bw' ? 'Black & White' : 'Mixed'}
-                    </p>
-                  </div>
-                  <div>
-                    <span className={`text-sm font-medium ${
-                      isPendingPayment ? 'text-orange-700' : 'text-gray-700'
-                    }`}>Copies:</span>
-                    <p className={`text-sm ${
-                      isPendingPayment ? 'text-orange-900' : 'text-gray-900'
-                    }`}>{order.printingOptions.copies}</p>
-                  </div>
-                </div>
 
-                <div className={`border-t pt-4 ${
-                  isPendingPayment ? 'border-orange-200' : 'border-gray-200'
-                }`}>
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    {!isPendingPayment && (
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">Amount:</span>
-                        <span className="text-lg font-semibold text-gray-900 ml-2">₹{order.amount}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex flex-wrap gap-2">
-                      {/* Pending Payment Actions */}
-                      {order.paymentStatus === 'pending' && order.status === 'pending_payment' && (
-                        <>
-                          <button
-                            onClick={() => handlePayment(order)}
-                            disabled={processingPayment === order._id || !isRazorpayLoaded}
-                            className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {processingPayment === order._id ? (
-                              'Processing...'
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                <MoneyIcon size={16} className="w-4 h-4" />
-                                Complete Payment
-                              </span>
-                            )}
-                          </button>
-                          {order.razorpayOrderId && (
+                  <div className={`border-t pt-4 ${isPendingPayment ? 'border-orange-200' : 'border-gray-200'
+                    }`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      {!isPendingPayment && (
+                        <div>
+                          <span className="text-sm font-medium text-gray-700">Amount:</span>
+                          <span className="text-lg font-semibold text-gray-900 ml-2">₹{order.amount}</span>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-2">
+                        {/* Pending Payment Actions */}
+                        {order.paymentStatus === 'pending' && order.status === 'pending_payment' && (
+                          <>
                             <button
-                              onClick={async () => {
-                                try {
-                                  const response = await fetch('/api/payment/check-status', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                      razorpay_order_id: order.razorpayOrderId,
-                                    }),
-                                  });
-                                  const data = await response.json();
-                                  if (data.success && data.payment_status === 'completed') {
-                                    alert(`✅ Payment successful! Your order #${data.order.orderId} has been confirmed.`);
-                                    // Reload orders to show updated status
-                                    window.location.reload();
-                                  } else if (data.payment_status === 'failed') {
-                                    alert(`Payment failed: ${data.message}`);
-                                  } else {
-                                    alert(`Payment status: ${data.message}`);
+                              onClick={() => handlePayment(order)}
+                              disabled={processingPayment === order._id || !isRazorpayLoaded}
+                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {processingPayment === order._id ? (
+                                'Processing...'
+                              ) : (
+                                <span className="flex items-center gap-2">
+                                  <MoneyIcon size={16} className="w-4 h-4" />
+                                  Complete Payment
+                                </span>
+                              )}
+                            </button>
+                            {order.razorpayOrderId && (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch('/api/payment/check-status', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        razorpay_order_id: order.razorpayOrderId,
+                                      }),
+                                    });
+                                    const data = await response.json();
+                                    if (data.success && data.payment_status === 'completed') {
+                                      alert(`✅ Payment successful! Your order #${data.order.orderId} has been confirmed.`);
+                                      // Reload orders to show updated status
+                                      window.location.reload();
+                                    } else if (data.payment_status === 'failed') {
+                                      alert(`Payment failed: ${data.message}`);
+                                    } else {
+                                      alert(`Payment status: ${data.message}`);
+                                    }
+                                  } catch (error) {
+                                    console.error('Error checking payment status:', error);
+                                    alert('Failed to check payment status. Please try again later.');
                                   }
-                                } catch (error) {
-                                  console.error('Error checking payment status:', error);
-                                  alert('Failed to check payment status. Please try again later.');
-                                }
-                              }}
+                                }}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <EyeIcon size={16} className="w-4 h-4" />
+                                  Check Payment Status
+                                </span>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleDeleteOrder(order)}
+                              disabled={deletingOrder === order._id}
+                              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {deletingOrder === order._id ? (
+                                'Cancelling...'
+                              ) : (
+                                <span className="flex items-center gap-2">
+                                  <TrashIcon size={16} className="w-4 h-4" />
+                                  Cancel Order
+                                </span>
+                              )}
+                            </button>
+                          </>
+                        )}
+
+                        {/* Completed Order Actions */}
+                        {order.paymentStatus === 'completed' && (
+                          <>
+                            {order.orderType === 'template' && order.templateData?.generatedPDF && (
+                              <a
+                                href={order.templateData.generatedPDF}
+                                download
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+                              >
+                                Download PDF
+                              </a>
+                            )}
+
+                            <button
+                              onClick={() => router.push(`/orders/${order._id}`)}
                               className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
                             >
                               <span className="flex items-center gap-2">
                                 <EyeIcon size={16} className="w-4 h-4" />
-                                Check Payment Status
+                                View Order Details
                               </span>
                             </button>
-                          )}
-                          <button
-                            onClick={() => handleDeleteOrder(order)}
-                            disabled={deletingOrder === order._id}
-                            className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {deletingOrder === order._id ? (
-                              'Cancelling...'
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                <TrashIcon size={16} className="w-4 h-4" />
-                                Cancel Order
-                              </span>
-                            )}
-                          </button>
-                        </>
-                      )}
-                      
-                      {/* Completed Order Actions */}
-                      {order.paymentStatus === 'completed' && (
-                        <>
-                          {order.orderType === 'template' && order.templateData?.generatedPDF && (
-                            <a
-                              href={order.templateData.generatedPDF}
-                              download
-                              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-                            >
-                              Download PDF
-                            </a>
-                          )}
-                          
-                          <button
-                            onClick={() => router.push(`/orders/${order._id}`)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-                          >
-                            <span className="flex items-center gap-2">
-                              <EyeIcon size={16} className="w-4 h-4" />
-                              View Order Details
-                            </span>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </div>
 
-                {/* Template Details */}
-                {order.orderType === 'template' && order.templateData && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <h4 className="font-medium text-gray-900 mb-2">Template Details</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">Template:</span>
-                        <span className="ml-2 text-gray-900">
-                          {order.templateData.templateType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </span>
+                            {/* Shiprocket Track Order Button */}
+                            {order.shiprocket?.awbCode && (
+                              <a
+                                href={order.shiprocket.trackingUrl || `https://shiprocket.co/tracking/${order.shiprocket.awbCode}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors"
+                              >
+                                <span className="flex items-center gap-2">
+                                  📦 Track Order
+                                </span>
+                              </a>
+                            )}
+                          </>
+                        )}
                       </div>
-                      {order.templateData.formData.subject && (
-                        <div>
-                          <span className="text-gray-600">Subject:</span>
-                          <span className="ml-2 text-gray-900">{String(order.templateData.formData.subject)}</span>
-                        </div>
-                      )}
-                      {order.templateData.formData.course && (
-                        <div>
-                          <span className="text-gray-600">Course:</span>
-                          <span className="ml-2 text-gray-900">{String(order.templateData.formData.course)}</span>
-                        </div>
-                      )}
-                      {order.templateData.formData.semester && (
-                        <div>
-                          <span className="text-gray-600">Semester:</span>
-                          <span className="ml-2 text-gray-900">{String(order.templateData.formData.semester)}</span>
-                        </div>
-                      )}
                     </div>
                   </div>
-                )}
-              </div>
+
+                  {/* Template Details */}
+                  {order.orderType === 'template' && order.templateData && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                      <h4 className="font-medium text-gray-900 mb-2">Template Details</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="text-gray-600">Template:</span>
+                          <span className="ml-2 text-gray-900">
+                            {order.templateData.templateType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </span>
+                        </div>
+                        {order.templateData.formData.subject && (
+                          <div>
+                            <span className="text-gray-600">Subject:</span>
+                            <span className="ml-2 text-gray-900">{String(order.templateData.formData.subject)}</span>
+                          </div>
+                        )}
+                        {order.templateData.formData.course && (
+                          <div>
+                            <span className="text-gray-600">Course:</span>
+                            <span className="ml-2 text-gray-900">{String(order.templateData.formData.course)}</span>
+                          </div>
+                        )}
+                        {order.templateData.formData.semester && (
+                          <div>
+                            <span className="text-gray-600">Semester:</span>
+                            <span className="ml-2 text-gray-900">{String(order.templateData.formData.semester)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
         )}
-        
+
         {!isLoading && orders.length === 0 && (
           <div className="text-center py-8">
             <div className="text-gray-500 text-lg">No orders found.</div>
-                  <p className="text-gray-400 mt-2">You haven&apos;t placed any orders yet. <a href="/order" className="text-blue-600 hover:text-blue-800 underline">Place your first order</a> to get started!</p>
+            <p className="text-gray-400 mt-2">You haven&apos;t placed any orders yet. <a href="/order" className="text-blue-600 hover:text-blue-800 underline">Place your first order</a> to get started!</p>
           </div>
         )}
       </div>

@@ -56,8 +56,13 @@ interface DeliveryOption {
   };
   distance?: number;
   deliveryCharge?: number;
+  recipientName?: string;
+  recipientPhone?: string;
+  flatBuilding?: string;
   address?: string;
+  landmark?: string;
   city?: string;
+  state?: string;
   pinCode?: string;
   pickupLocationId?: string;
 }
@@ -94,33 +99,33 @@ const parsePageRange = (input: string, maxPages?: number): ParsePageRangeResult 
   if (!input || !input.trim()) {
     return result;
   }
-  
+
   try {
     const pages: number[] = [];
     const parts = input.split(',');
-    
+
     for (const part of parts) {
       const trimmed = part.trim();
       if (!trimmed) continue; // Skip empty parts
-      
+
       if (trimmed.includes('-')) {
         // Handle range like "5-8" or "5-" (open-ended)
         const rangeParts = trimmed.split('-');
         if (rangeParts.length === 2) {
           const startStr = rangeParts[0].trim();
           const endStr = rangeParts[1].trim();
-          
+
           if (!startStr) {
             result.errors.push(`Invalid range "${trimmed}": missing start page`);
             continue;
           }
-          
+
           const start = parseInt(startStr);
           if (isNaN(start) || start <= 0) {
             result.errors.push(`Invalid range "${trimmed}": start page must be a positive number`);
             continue;
           }
-          
+
           if (!endStr) {
             // Open-ended range like "5-" means from 5 to end
             if (maxPages) {
@@ -140,16 +145,16 @@ const parsePageRange = (input: string, maxPages?: number): ParsePageRangeResult 
               result.errors.push(`Invalid range "${trimmed}": end page must be a number`);
               continue;
             }
-            
+
             if (start > end) {
               result.errors.push(`Invalid range "${trimmed}": start page (${start}) must be less than or equal to end page (${end})`);
               continue;
             }
-            
+
             if (maxPages && end > maxPages) {
               result.warnings.push(`Range "${trimmed}": end page ${end} exceeds total pages ${maxPages}, using ${maxPages} instead`);
             }
-            
+
             const actualEnd = maxPages ? Math.min(end, maxPages) : end;
             for (let i = start; i <= actualEnd; i++) {
               pages.push(i);
@@ -165,36 +170,36 @@ const parsePageRange = (input: string, maxPages?: number): ParsePageRangeResult 
           result.errors.push(`Invalid page number "${trimmed}": must be a number`);
           continue;
         }
-        
+
         if (page <= 0) {
           result.errors.push(`Invalid page number "${trimmed}": must be greater than 0`);
           continue;
         }
-        
+
         if (maxPages && page > maxPages) {
           result.warnings.push(`Page ${page} exceeds total pages ${maxPages}`);
           continue;
         }
-        
+
         pages.push(page);
       }
     }
-    
+
     // Remove duplicates and sort
     result.pages = [...new Set(pages)].sort((a, b) => a - b);
-    
+
     // Check for duplicates in input (before parsing)
     const inputParts = input.split(',').map(p => p.trim()).filter(p => p);
     const uniqueInputParts = [...new Set(inputParts)];
     if (inputParts.length !== uniqueInputParts.length) {
       result.warnings.push('Duplicate page numbers detected in input');
     }
-    
+
   } catch (error) {
     console.error('Error parsing page range:', error);
     result.errors.push('An error occurred while parsing page range');
   }
-  
+
   return result;
 };
 
@@ -212,38 +217,38 @@ const truncateFileName = (fileName: string, maxLength: number = 10): string => {
   if (fileName.length <= maxLength) {
     return fileName;
   }
-  
+
   // Extract extension
   const lastDotIndex = fileName.lastIndexOf('.');
   if (lastDotIndex === -1) {
     // No extension, just truncate with ellipsis
     return fileName.substring(0, maxLength - 3) + '...';
   }
-  
+
   const nameWithoutExt = fileName.substring(0, lastDotIndex);
   const extension = fileName.substring(lastDotIndex);
-  
+
   // If name without extension is short enough, return as is
   if (nameWithoutExt.length + extension.length <= maxLength) {
     return fileName;
   }
-  
+
   // Calculate how much space we have for the name (excluding extension and "..")
   const availableLength = maxLength - extension.length - 2; // 2 for ".."
-  
+
   if (availableLength < 2) {
     // Very short, just show extension
     return '..' + extension;
   }
-  
+
   // For better readability: first part gets slightly more (3-4 chars), last part gets 2-3 chars
   // This creates patterns like "adi..ya.pdf" (3+2=5) or "very..me.pdf" (4+2=6)
   const firstPartLength = Math.min(4, Math.ceil(availableLength * 0.6)); // Prefer 3-4 chars for first part
   const lastPartLength = Math.max(2, availableLength - firstPartLength); // At least 2 chars for last part
-  
+
   const firstPart = nameWithoutExt.substring(0, firstPartLength);
   const lastPart = nameWithoutExt.substring(nameWithoutExt.length - lastPartLength);
-  
+
   return firstPart + '..' + lastPart + extension;
 };
 
@@ -258,7 +263,7 @@ const getFilePrintingOptions = (
   if (printingOptions.fileOptions && printingOptions.fileOptions.length > fileIndex) {
     return printingOptions.fileOptions[fileIndex];
   }
-  
+
   // Fall back to legacy single options
   return {
     pageSize: printingOptions.pageSize || 'A4',
@@ -267,8 +272,8 @@ const getFilePrintingOptions = (
     copies: printingOptions.copies || 1,
     pageColors: (() => {
       const filePageColors = getFilePageColors(fileIndex, printingOptions.pageColors);
-      return filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
-        ? filePageColors 
+      return filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0
+        ? filePageColors
         : undefined;
     })()
   };
@@ -284,7 +289,7 @@ const getFilePageColors = (
   if (!pageColors) {
     return { colorPages: [], bwPages: [] };
   }
-  
+
   // Handle array format (per-file)
   if (Array.isArray(pageColors)) {
     if (fileIndex >= 0 && fileIndex < pageColors.length) {
@@ -292,14 +297,14 @@ const getFilePageColors = (
     }
     return { colorPages: [], bwPages: [] };
   }
-  
+
   // Handle legacy single object format (backward compatibility)
   // For legacy format, we'd need to distribute pages across files, but that's complex
   // For now, return empty for files beyond the first one
   if (fileIndex === 0) {
     return pageColors;
   }
-  
+
   return { colorPages: [], bwPages: [] };
 };
 
@@ -332,7 +337,7 @@ const calculateFileCost = (
 
 const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: number[]; bwPages: number[] } | Array<{ colorPages: number[]; bwPages: number[] }>): string => {
   if (!pageColors) return 'All pages in Black & White';
-  
+
   // Handle array format (per-file) - show summary
   if (Array.isArray(pageColors)) {
     // Some entries may be undefined if a file has no explicit pageColors set
@@ -349,14 +354,14 @@ const getPageColorPreview = (totalPages: number, pageColors?: { colorPages: numb
     if (totalBw === 0) return 'All pages in Color';
     return `${totalColor} pages in Color, ${totalBw} pages in Black & White`;
   }
-  
+
   // Handle legacy single object format
   const colorCount = pageColors.colorPages.length;
   const bwCount = pageColors.bwPages.length;
-  
+
   if (colorCount === 0) return 'All pages in Black & White';
   if (bwCount === 0) return 'All pages in Color';
-  
+
   return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
 };
 
@@ -366,14 +371,14 @@ const countPagesInFile = async (file: File): Promise<number> => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
       pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      
+
       const blob = new Blob([file], { type: 'application/pdf' });
       const blobUrl = URL.createObjectURL(blob);
-      
+
       const loadingTask = pdfjsLib.getDocument(blobUrl);
       const pdf = await loadingTask.promise;
       const pageCount = pdf.numPages;
-      
+
       URL.revokeObjectURL(blobUrl);
       return pageCount;
     } catch (error) {
@@ -388,13 +393,13 @@ const countPagesInFile = async (file: File): Promise<number> => {
         return Math.max(1, Math.floor(file.size / 50000));
       }
     }
-  } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
-             file.type === 'application/msword') {
+  } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    file.type === 'application/msword') {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       const base64Buffer = buffer.toString('base64');
-      
+
       const response = await fetch('/api/parse-docx-structure', {
         method: 'POST',
         headers: {
@@ -402,7 +407,7 @@ const countPagesInFile = async (file: File): Promise<number> => {
         },
         body: JSON.stringify({ docxBuffer: base64Buffer }),
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.totalPages) {
@@ -457,9 +462,9 @@ export default function OrderPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { isLoaded: isRazorpayLoaded, error: razorpayError, openRazorpay } = useRazorpay();
   const { user, isAuthenticated } = useAuth();
-  
+
   // Removed step management - single page now
-  
+
   // Step 1: File upload and preview
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [fileURLs, setFileURLs] = useState<string[]>([]);
@@ -480,7 +485,7 @@ export default function OrderPage() {
   const [pdfLoaded, setPdfLoaded] = useState(false);
   const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [isCountingPages, setIsCountingPages] = useState(false);
-  
+
   // Step 2: Details, delivery, and payment
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: user?.name || '',
@@ -489,17 +494,19 @@ export default function OrderPage() {
   });
   const [deliveryOption, setDeliveryOption] = useState<DeliveryOption>({ type: 'pickup' });
   const [showMapModal, setShowMapModal] = useState(false);
+  const [isPincodeLookup, setIsPincodeLookup] = useState(false);
+  const [pincodeError, setPincodeError] = useState<string>('');
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
   const [colorPagesInputs, setColorPagesInputs] = useState<string[]>([]); // Per-file color pages input
   const [colorPagesValidation, setColorPagesValidation] = useState<{ errors: string[]; warnings: string[] }>({ errors: [], warnings: [] });
   const [colorPagesValidations, setColorPagesValidations] = useState<Array<{ errors: string[]; warnings: string[] }>>([]); // Per-file validations
-  
+
   // Auth modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
-  
+
   // Phone modal state
   const [showPhoneModal, setShowPhoneModal] = useState(false);
 
@@ -543,7 +550,7 @@ export default function OrderPage() {
         try {
           const response = await fetch('/api/user/profile');
           const data = await response.json();
-          
+
           if (data.success && data.profile) {
             // Set phone number if available AND current phone is empty (preserve template-loaded phone)
             if (data.profile.phone) {
@@ -558,7 +565,7 @@ export default function OrderPage() {
                 return prev;
               });
             }
-            
+
             // Apply default location if available
             if (data.profile.defaultLocation) {
               const defaultLoc = data.profile.defaultLocation;
@@ -630,19 +637,19 @@ export default function OrderPage() {
       }
     });
   }, [router]);
-  
-  
+
+
   // General state
   const [isLoading, setIsLoading] = useState(false);
   const [amount, setAmount] = useState(0);
   const [pricingData, setPricingData] = useState<any>(null);
   const [pricingLoading, setPricingLoading] = useState(true);
-  
+
   // Debug: Log pricingData changes
   useEffect(() => {
     console.log('🔍 PricingData updated:', pricingData);
   }, [pricingData]);
-  
+
   // Payment state
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isSavingPhone, setIsSavingPhone] = useState(false);
@@ -724,7 +731,7 @@ export default function OrderPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [isProcessingPayment, paymentVerificationStatus.razorpayOrderId]);
-  
+
   // Pickup locations
   const [defaultPickupLocation, setDefaultPickupLocation] = useState<{
     _id: string;
@@ -742,7 +749,7 @@ export default function OrderPage() {
       if (savedState) {
         try {
           console.log('📋 Restoring order state after Google OAuth...');
-          
+
           // Restore all state (files are already converted to File objects)
           setSelectedFiles(savedState.selectedFiles);
           setFileURLs(savedState.fileURLs);
@@ -759,10 +766,10 @@ export default function OrderPage() {
           setColorPagesInput(savedState.colorPagesInput);
           setColorPagesInputs(savedState.colorPagesInputs);
           setColorPagesValidations(savedState.colorPagesValidations);
-          
+
           // Clear saved state after restoration
           clearOrderState();
-          
+
           console.log('✅ Order state restored successfully');
         } catch (error) {
           console.error('Error restoring order state:', error);
@@ -770,7 +777,7 @@ export default function OrderPage() {
         }
       }
     };
-    
+
     restoreState();
   }, []);
 
@@ -781,16 +788,16 @@ export default function OrderPage() {
       try {
         const orderData = JSON.parse(pendingOrder);
         console.log('📋 Found pending order from custom template:', orderData);
-        
+
         // Set the order type to template
         setOrderType('template');
-        
+
         // Set the PDF URL for preview
         if (orderData.pdfUrl) {
           setPdfUrls([orderData.pdfUrl]);
-        setPdfLoaded(true);
+          setPdfLoaded(true);
         }
-        
+
         // Set customer info from the form data
         // IMPORTANT: If user is authenticated, authenticated user info takes priority
         if (orderData.customerData) {
@@ -815,13 +822,13 @@ export default function OrderPage() {
             };
           });
         }
-        
+
         // Set page count to 1 for template orders (will be updated based on actual PDF)
         setPageCount(1);
-        
+
         // Clear the pending order from session storage
         sessionStorage.removeItem('pendingOrder');
-        
+
         console.log('✅ Pending order loaded successfully');
       } catch (error) {
         console.error('Error loading pending order:', error);
@@ -838,10 +845,10 @@ export default function OrderPage() {
         try {
           const templateData = JSON.parse(pendingTemplateDoc);
           console.log('📋 Found pending template document:', templateData);
-          
+
           // Set the order type to file (since we're uploading the file)
           setOrderType('file');
-          
+
           // Priority: Handle PDF URL if present (new flow with PDF conversion)
           // Check for PDF first - prioritize PDF over Word when both are available
           if (templateData.pdfUrl) {
@@ -849,63 +856,63 @@ export default function OrderPage() {
             console.log('  - PDF URL:', templateData.pdfUrl);
             console.log('  - isPdf flag:', templateData.isPdf);
             console.log('  - Word URL available:', !!templateData.wordUrl);
-            
+
             setIsLoadingPdf(true); // Mark that we're loading PDF
             setIsCountingPages(true);
             setPdfLoaded(false);
-            
+
             try {
               // Fetch PDF file from URL
               const response = await fetch(templateData.pdfUrl);
               if (!response.ok) {
                 throw new Error(`Failed to fetch PDF file from URL: ${response.status}`);
               }
-              
+
               const blob = await response.blob();
               console.log('✅ PDF blob fetched:', blob.size, 'bytes', 'type:', blob.type);
-              
+
               // Explicitly set blob type to ensure it's recognized as PDF
-              const pdfBlob = blob.type === 'application/pdf' 
-                ? blob 
+              const pdfBlob = blob.type === 'application/pdf'
+                ? blob
                 : new Blob([blob], { type: 'application/pdf' });
-              
+
               console.log('✅ PDF blob type verified:', pdfBlob.type);
-              
+
               // Convert blob to File object with explicit MIME type
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.pdf`;
               const file = new File([pdfBlob], fileName, {
                 type: 'application/pdf' // Explicitly set MIME type
               });
-              
+
               // Add file to selectedFiles
               setSelectedFiles([file]);
-              
+
               // Create preview URL from the correctly typed PDF blob
               const previewUrl = URL.createObjectURL(pdfBlob);
               setPdfUrls([previewUrl]);
               setFileURLs([templateData.pdfUrl]);
-              
+
               // Count pages for PDF file
               const pageCount = await countPagesInFile(file);
               setFilePageCounts([pageCount]);
               setPageCount(pageCount);
-              
+
               setPdfLoaded(true);
               setIsLoadingPdf(false);
               setIsCountingPages(false);
-              
+
               console.log('✅ PDF file loaded from URL and added to upload');
               console.log('  - File name:', fileName);
               console.log('  - File type:', file.type);
               console.log('  - File size:', file.size, 'bytes');
               console.log('  - Page count:', pageCount);
               console.log('  - Preview URL created:', previewUrl.substring(0, 50) + '...');
-              
+
               // PDF loaded successfully - exit early, don't load Word
               // Customer info will be set below after this block
               // Clear the pending template document
               sessionStorage.removeItem('pendingTemplateDocument');
-              
+
               // Set customer info from the form data (for PDF case)
               // IMPORTANT: If user is authenticated, authenticated user info takes priority
               if (templateData.customerData) {
@@ -930,7 +937,7 @@ export default function OrderPage() {
                   };
                 });
               }
-              
+
               return; // Exit early - PDF loaded successfully, don't load Word
             } catch (error) {
               console.error('❌ Error loading PDF file from URL:', error);
@@ -940,7 +947,7 @@ export default function OrderPage() {
               console.log('⚠️ PDF loading failed, will try Word file fallback...');
             }
           }
-          
+
           // Fallback: Handle Word URL only if:
           // 1. PDF URL is not available, AND
           // 2. PDF loading is not in progress, AND
@@ -951,39 +958,39 @@ export default function OrderPage() {
             console.log('  - Word URL:', templateData.wordUrl);
             setIsCountingPages(true);
             setPdfLoaded(false);
-            
+
             try {
               // Fetch Word file from URL
               const response = await fetch(templateData.wordUrl);
               if (!response.ok) {
                 throw new Error(`Failed to fetch Word file from URL: ${response.status}`);
               }
-              
+
               const blob = await response.blob();
               console.log('✅ Word blob fetched:', blob.size, 'bytes');
-              
+
               // Convert blob to File object
               const fileName = `${templateData.templateName?.replace(/[^\w\-\s\.]/g, '').trim().replace(/\s+/g, '-') || 'document'}.docx`;
               const file = new File([blob], fileName, {
                 type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
               });
-              
+
               // Add file to selectedFiles
               setSelectedFiles([file]);
-              
+
               // Create preview URL
               const previewUrl = URL.createObjectURL(blob);
               setPdfUrls([previewUrl]);
               setFileURLs([templateData.wordUrl]);
-              
+
               // Count pages for Word file
               const pageCount = await countPagesInFile(file);
               setFilePageCounts([pageCount]);
               setPageCount(pageCount);
-              
+
               setPdfLoaded(true);
               setIsCountingPages(false);
-              
+
               console.log('✅ Word file loaded from URL and added to upload');
               console.log('  - File name:', fileName);
               console.log('  - Page count:', pageCount);
@@ -992,12 +999,12 @@ export default function OrderPage() {
               setIsCountingPages(false);
             }
           }
-          
+
           // Note: PDF handling is done above with priority
           // If we reach here without pdfLoaded being true, it means:
           // 1. PDF URL was not provided, OR
           // 2. PDF loading failed (and we're now trying Word fallback)
-          
+
           // Set customer info from the form data
           // IMPORTANT: If user is authenticated, authenticated user info takes priority
           if (templateData.customerData) {
@@ -1022,17 +1029,17 @@ export default function OrderPage() {
               };
             });
           }
-          
+
           // Clear the pending template document from session storage
           sessionStorage.removeItem('pendingTemplateDocument');
-          
+
           console.log('✅ Pending template document loaded successfully');
         } catch (error) {
           console.error('Error loading pending template document:', error);
           sessionStorage.removeItem('pendingTemplateDocument');
         }
       };
-      
+
       loadTemplateDocument();
     }
   }, []);
@@ -1043,11 +1050,11 @@ export default function OrderPage() {
       try {
         const response = await fetch('/api/pickup-locations');
         const data = await response.json();
-        
+
         if (data.success) {
           setPickupLocations(data.locations || []);
           setDefaultPickupLocation(data.defaultLocation);
-          
+
           // Set default pickup location as selected
           if (data.defaultLocation) {
             setSelectedPickupLocation(data.defaultLocation);
@@ -1077,35 +1084,35 @@ export default function OrderPage() {
           console.log('🔍 Fetching pricing from API...');
           const response = await fetch('/api/pricing');
           const data = await response.json();
-          
+
           console.log('📊 Pricing API response:', data);
-          
+
           if (data.success) {
             const pricing = data.pricing;
             setPricingData(pricing); // Store pricing data for UI display
             setPricingLoading(false);
-            
+
             // Calculate pricing per file
             let total = 0;
             const minServiceFeePageLimit = pricing.additionalServices.minServiceFeePageLimit || 1;
             const colorMultiplier = pricing.multipliers.color;
-            
+
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
-              
+
               // Get per-file printing options
               const fileOpts = getFilePrintingOptions(i, printingOptions);
               const fileBasePrice = pricing.basePrices[fileOpts.pageSize];
               const fileSidedMultiplier = fileOpts.sided === 'double' ? pricing.multipliers.doubleSided : 1;
-              
+
               // Get page colors for this file
               const filePageColors = getFilePageColors(i, printingOptions.pageColors);
               // Use file-specific pageColors if available in fileOpts, otherwise use global
               const effectivePageColors = fileOpts.pageColors || filePageColors;
               const fileColorPages = effectivePageColors.colorPages.length;
               const fileBwPages = effectivePageColors.bwPages.length;
-              
+
               // Calculate base cost for this file using helper function
               const fileBaseCost = calculateFileCost(
                 filePageCount,
@@ -1118,12 +1125,12 @@ export default function OrderPage() {
                 fileOpts.color
               );
               total += fileBaseCost;
-              
+
               // Add service option cost for this file if it exceeds limit
               if (filePageCount > minServiceFeePageLimit) {
                 const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
                 if (fileServiceOption === 'binding') {
-                total += pricing.additionalServices.binding;
+                  total += pricing.additionalServices.binding;
                 } else if (fileServiceOption === 'file') {
                   total += 10; // Plastic file fee
                 } else if (fileServiceOption === 'service') {
@@ -1131,12 +1138,12 @@ export default function OrderPage() {
                 }
               }
             }
-            
+
             // Add delivery charge if applicable
             if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
               total += deliveryOption.deliveryCharge;
             }
-            
+
             console.log(`💰 Frontend pricing calculation:`, {
               pageCount,
               color: printingOptions.color,
@@ -1176,7 +1183,7 @@ export default function OrderPage() {
                 };
               })
             });
-            
+
             setAmount(total);
           } else {
             console.error('❌ Pricing API failed:', data.error);
@@ -1185,26 +1192,26 @@ export default function OrderPage() {
             // Fallback to hardcoded pricing if API fails
             const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
             console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
-            
+
             // Calculate pricing per file (fallback)
             let total = 0;
             const colorMultiplier = 2; // Default fallback color multiplier
-            
+
             // Calculate cost for each file
             for (let i = 0; i < selectedFiles.length; i++) {
               const filePageCount = filePageCounts[i] || 1;
-              
+
               // Get per-file printing options
               const fileOpts = getFilePrintingOptions(i, printingOptions);
               const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
               const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
-              
+
               // Get page colors for this file
               const filePageColors = getFilePageColors(i, printingOptions.pageColors);
               const effectivePageColors = fileOpts.pageColors || filePageColors;
               const fileColorPages = effectivePageColors.colorPages.length;
               const fileBwPages = effectivePageColors.bwPages.length;
-              
+
               // Calculate base cost for this file using helper function
               const fileBaseCost = calculateFileCost(
                 filePageCount,
@@ -1217,24 +1224,24 @@ export default function OrderPage() {
                 fileOpts.color
               );
               total += fileBaseCost;
-              
+
               // Add service option cost for this file if it exceeds limit
               if (filePageCount > 1) {
                 const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
                 if (fileServiceOption === 'binding') {
-                total += 20; // Default binding cost
+                  total += 20; // Default binding cost
                 } else if (fileServiceOption === 'file') {
-                total += 10;
+                  total += 10;
                 } else if (fileServiceOption === 'service') {
                   total += 5; // Default minimal service fee
                 }
               }
             }
-            
+
             if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
               total += deliveryOption.deliveryCharge;
             }
-            
+
             console.log(`💰 Frontend fallback pricing calculation:`, {
               pageCount,
               basePrice,
@@ -1244,7 +1251,7 @@ export default function OrderPage() {
               serviceOptions: printingOptions.serviceOptions,
               total
             });
-            
+
             setAmount(total);
           }
         } catch (error) {
@@ -1253,26 +1260,26 @@ export default function OrderPage() {
           // Fallback to hardcoded pricing
           const basePrice = printingOptions.pageSize === 'A3' ? 10 : 5;
           console.log(`💰 Fallback base price for ${printingOptions.pageSize}: ₹${basePrice}`);
-          
+
           // Calculate pricing per file (error fallback)
           let total = 0;
           const colorMultiplier = 2; // Default fallback color multiplier
-          
+
           // Calculate cost for each file
           for (let i = 0; i < selectedFiles.length; i++) {
             const filePageCount = filePageCounts[i] || 1;
-            
+
             // Get per-file printing options
             const fileOpts = getFilePrintingOptions(i, printingOptions);
             const fileBasePrice = fileOpts.pageSize === 'A3' ? 10 : 5;
             const fileSidedMultiplier = fileOpts.sided === 'double' ? 1.5 : 1;
-            
+
             // Get page colors for this file
             const filePageColors = getFilePageColors(i, printingOptions.pageColors);
             const effectivePageColors = fileOpts.pageColors || filePageColors;
             const fileColorPages = effectivePageColors.colorPages.length;
             const fileBwPages = effectivePageColors.bwPages.length;
-            
+
             // Calculate base cost for this file using helper function
             const fileBaseCost = calculateFileCost(
               filePageCount,
@@ -1285,7 +1292,7 @@ export default function OrderPage() {
               fileOpts.color
             );
             total += fileBaseCost;
-            
+
             // Add service option cost for this file if it exceeds limit
             if (filePageCount > 1) {
               const fileServiceOption = printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service';
@@ -1298,11 +1305,11 @@ export default function OrderPage() {
               }
             }
           }
-          
+
           if (deliveryOption.type === 'delivery' && deliveryOption.deliveryCharge) {
             total += deliveryOption.deliveryCharge;
           }
-          
+
           console.log(`💰 Frontend error fallback pricing calculation:`, {
             pageCount,
             basePrice,
@@ -1312,7 +1319,7 @@ export default function OrderPage() {
             serviceOptions: printingOptions.serviceOptions,
             total
           });
-          
+
           setAmount(total);
         }
       } else {
@@ -1337,7 +1344,7 @@ export default function OrderPage() {
 
     // Strip non-digit characters for validation
     const digitsOnly = customerInfo.phone.replace(/\D/g, '');
-    
+
     // Only save if phone number has at least 10 digits
     if (digitsOnly.length < 10) {
       alert('Please enter a valid phone number (minimum 10 digits)');
@@ -1357,7 +1364,7 @@ export default function OrderPage() {
         },
         body: JSON.stringify({ phone: customerInfo.phone }),
       });
-      
+
       const data = await response.json();
       if (data.success) {
         console.log('✅ Phone number saved to profile');
@@ -1395,17 +1402,33 @@ export default function OrderPage() {
         toast.error('Please select a pickup location');
       }
     } else if (deliveryOption.type === 'delivery') {
+      if (!deliveryOption.recipientName) {
+        missingFields.push('recipientName');
+        toast.error('Please fill in the recipient name');
+      }
+      if (!deliveryOption.recipientPhone) {
+        missingFields.push('recipientPhone');
+        toast.error('Please fill in the recipient phone number');
+      }
+      if (!deliveryOption.flatBuilding) {
+        missingFields.push('flatBuilding');
+        toast.error('Please fill in flat/house/building details');
+      }
       if (!deliveryOption.address) {
         missingFields.push('deliveryAddress');
         toast.error('Please fill in the delivery address');
+      }
+      if (!deliveryOption.pinCode || deliveryOption.pinCode.length !== 6) {
+        missingFields.push('deliveryPinCode');
+        toast.error('Please enter a valid 6-digit PIN code');
       }
       if (!deliveryOption.city) {
         missingFields.push('deliveryCity');
         toast.error('Please fill in the delivery city');
       }
-      if (!deliveryOption.pinCode) {
-        missingFields.push('deliveryPinCode');
-        toast.error('Please fill in the delivery pin code');
+      if (!deliveryOption.state) {
+        missingFields.push('deliveryState');
+        toast.error('Please fill in the delivery state');
       }
     }
 
@@ -1448,7 +1471,7 @@ export default function OrderPage() {
         const fileServiceOption = printingOptions.serviceOptions?.[i];
         if (!fileServiceOption) {
           alert(`Please select a service option for File ${i + 1} (${selectedFiles[i].name}) which has more than ${minServiceFeePageLimit} page(s)`);
-      return;
+          return;
         }
       }
     }
@@ -1459,25 +1482,25 @@ export default function OrderPage() {
         alert('Please select which pages should be printed in color for each file');
         return;
       }
-      
+
       // Validate per-file page colors
       const pageColorsArray = Array.isArray(printingOptions.pageColors) ? printingOptions.pageColors : (printingOptions.pageColors ? [printingOptions.pageColors] : []);
       for (let i = 0; i < selectedFiles.length; i++) {
         const filePageCount = filePageCounts[i] || 1;
         const filePageColors = pageColorsArray[i] || { colorPages: [], bwPages: [] };
         const totalSpecifiedPages = filePageColors.colorPages.length + filePageColors.bwPages.length;
-        
+
         if (filePageCount > 1 && totalSpecifiedPages === 0) {
           alert(`Please select which pages should be printed in color for File ${i + 1}`);
-        return;
-      }
-      
+          return;
+        }
+
         // Check for duplicate pages in this file
         const allPages = [...filePageColors.colorPages, ...filePageColors.bwPages];
-      const uniquePages = [...new Set(allPages)];
-      if (allPages.length !== uniquePages.length) {
+        const uniquePages = [...new Set(allPages)];
+        if (allPages.length !== uniquePages.length) {
           alert(`Pages cannot be specified as both color and B&W for File ${i + 1}. Please check your selection.`);
-        return;
+          return;
         }
       }
     }
@@ -1490,7 +1513,7 @@ export default function OrderPage() {
 
     setIsProcessingPayment(true);
     try {
-      
+
       // First, upload files if it's a file order
       const fileURLs: string[] = [];
       const originalFileNames: string[] = [];
@@ -1513,7 +1536,7 @@ export default function OrderPage() {
           for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
             const fileStartTime = Date.now();
-            
+
             setUploadProgress(prev => ({
               ...prev,
               currentFile: i + 1,
@@ -1525,7 +1548,7 @@ export default function OrderPage() {
 
             const uploadFormData = new FormData();
             uploadFormData.append('file', file);
-            
+
             // Track upload time for slow network detection
             const uploadTimeout = setTimeout(() => {
               setUploadProgress(prev => ({
@@ -1533,27 +1556,27 @@ export default function OrderPage() {
                 isSlowNetwork: true,
               }));
             }, 30000); // Warn if upload takes > 30 seconds
-            
+
             const uploadResponse = await fetch('/api/upload-file', {
               method: 'POST',
               body: uploadFormData,
             });
 
             clearTimeout(uploadTimeout);
-            
+
             const uploadDuration = Date.now() - fileStartTime;
             const fileSizeMB = file.size / (1024 * 1024);
             const uploadSpeedMBps = fileSizeMB / (uploadDuration / 1000);
-            
+
             // Detect slow network (< 1 MB/s is considered slow)
             const isSlowNetwork = uploadSpeedMBps < 1 && fileSizeMB > 1;
-            
+
             setUploadProgress(prev => ({
               ...prev,
               progress: 100,
               isSlowNetwork: prev.isSlowNetwork || isSlowNetwork,
             }));
-            
+
             // Check if response is ok before trying to parse JSON
             if (!uploadResponse.ok) {
               let errorMessage = 'Upload failed';
@@ -1572,26 +1595,26 @@ export default function OrderPage() {
               }
               throw new Error(errorMessage);
             }
-            
+
             const uploadData = await uploadResponse.json();
-            
+
             if (uploadData.success) {
-                fileURLs.push(uploadData.fileURL);
-                originalFileNames.push(uploadData.originalFileName);
-                fileTypes.push(file.type); // Collect file type (MIME type)
-                console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type} (${Math.round(uploadDuration / 1000)}s)`);
-                
-                // Update progress for next file
-                setUploadProgress(prev => ({
-                  ...prev,
-                  progress: 100,
-                  estimatedTimeRemaining: null,
-                }));
+              fileURLs.push(uploadData.fileURL);
+              originalFileNames.push(uploadData.originalFileName);
+              fileTypes.push(file.type); // Collect file type (MIME type)
+              console.log(`✅ File uploaded successfully: ${uploadData.fileURL}, type: ${file.type} (${Math.round(uploadDuration / 1000)}s)`);
+
+              // Update progress for next file
+              setUploadProgress(prev => ({
+                ...prev,
+                progress: 100,
+                estimatedTimeRemaining: null,
+              }));
             } else {
               throw new Error(uploadData.error || 'Upload failed');
             }
           }
-          
+
           // Clear upload progress
           setUploadProgress({
             uploading: false,
@@ -1692,7 +1715,7 @@ export default function OrderPage() {
           handler: async function (response: any) {
             try {
               console.log('💳 Payment response received:', response);
-              
+
               // Set verification status
               setPaymentVerificationStatus({
                 verifying: true,
@@ -1701,7 +1724,7 @@ export default function OrderPage() {
                 startTime: Date.now(),
                 polling: false,
               });
-              
+
               // Start polling for payment status as fallback
               const stopPolling = startPaymentStatusPolling(
                 data.razorpayOrderId,
@@ -1743,13 +1766,13 @@ export default function OrderPage() {
                   }));
                 }
               );
-              
+
               // Use the new payment success handler with iPhone Safari recovery
               const result = await handlePaymentSuccess(response, data.orderId);
-              
+
               // Stop polling if verification succeeds
               stopPolling();
-              
+
               if (result.success) {
                 console.log('✅ Payment verified successfully:', result.data);
                 setIsProcessingPayment(false); // Reset processing state
@@ -1785,7 +1808,7 @@ export default function OrderPage() {
             }
           },
           modal: {
-            ondismiss: function() {
+            ondismiss: function () {
               console.log('Payment modal dismissed');
               // Clean up temporary order data
               if (data.razorpayOrderId) {
@@ -1845,9 +1868,9 @@ export default function OrderPage() {
 
         try {
           const razorpay = openRazorpay(options);
-          
+
           // Add error handlers for Razorpay modal
-          razorpay.on('payment.failed', function(response: any) {
+          razorpay.on('payment.failed', function (response: any) {
             console.error('❌ Payment failed:', response);
             setIsProcessingPayment(false);
             setPaymentVerificationStatus({
@@ -1860,7 +1883,7 @@ export default function OrderPage() {
             alert(`Payment failed: ${response.error?.description || response.error?.reason || 'Payment could not be processed. Please try again.'}`);
           });
 
-          razorpay.on('payment.error', function(error: any) {
+          razorpay.on('payment.error', function (error: any) {
             console.error('❌ Payment error:', error);
             setIsProcessingPayment(false);
             setPaymentVerificationStatus({
@@ -1898,11 +1921,11 @@ export default function OrderPage() {
               }
             }
           };
-          
+
           // Add visibility change listener for app redirect detection
           document.addEventListener('visibilitychange', handleVisibilityChange);
 
-          razorpay.on('modal.close', function() {
+          razorpay.on('modal.close', function () {
             console.log('🔄 Razorpay modal closed');
             // Clean up visibility listener
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -1912,23 +1935,23 @@ export default function OrderPage() {
           });
 
           // Handle payment authorization (when user completes payment in app)
-          razorpay.on('payment.authorized', function(response: any) {
+          razorpay.on('payment.authorized', function (response: any) {
             console.log('✅ Payment authorized:', response);
             // This will be handled by the main handler function
           });
 
           // Handle external wallet selection (GPay, PhonePe, etc.)
-          razorpay.on('external.wallet.selected', function(response: any) {
+          razorpay.on('external.wallet.selected', function (response: any) {
             console.log('📱 External wallet selected:', response);
             // Log when user selects GPay or other external wallet
           });
 
           razorpay.open();
           console.log('✅ Razorpay payment UI opened');
-          
+
           // Clear modal timeout if payment UI loads successfully (handler fires)
           // The timeout will be cleared when handler fires or modal closes
-          
+
           // Add timeout to detect stuck payments (extended for slow networks)
           // Default: 10 minutes, can be up to 15 minutes for very slow connections
           const timeoutDuration = 600000; // 10 minutes (600 seconds)
@@ -1950,7 +1973,7 @@ export default function OrderPage() {
             startTime: null,
             polling: false,
           });
-          
+
           let errorMessage = 'Failed to open payment gateway. Please try again.';
           if (razorpayError instanceof Error) {
             if (razorpayError.message.includes('not loaded')) {
@@ -1959,7 +1982,7 @@ export default function OrderPage() {
               errorMessage = 'Payment gateway is not available. Please refresh the page and try again.';
             }
           }
-          
+
           alert(errorMessage);
         }
       } else {
@@ -1977,629 +2000,391 @@ export default function OrderPage() {
     <>
       <div className="min-h-screen bg-gray-100 py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">Place Your Print Order</h1>
-          <p className="text-lg text-gray-600">
-            Upload your documents or choose from our templates and get them printed
-          </p>
-        </div>
-
-        {/* Welcome Header with Trust Badges */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-4">
-            <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Secure Payment</span>
-            <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">🚀 Fast Delivery</span>
-            <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium">⭐ 1000+ Happy Customers</span>
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">Place Your Print Order</h1>
+            <p className="text-lg text-gray-600">
+              Upload your documents or choose from our templates and get them printed
+            </p>
           </div>
-        </div>
 
-        {/* Single Page Layout - Grid with Left (Content) and Right (Sticky Summary) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-        <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
-            {/* File Upload & Options Section */}
-            <div className="space-y-8">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
-                  <DocumentIcon size={24} className="w-6 h-6" />
-                  Upload Your Files
-                </h2>
-                <p className="text-gray-600">Upload your documents and configure printing options</p>
-              </div>
+          {/* Welcome Header with Trust Badges */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 mb-4">
+              <span className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium">✓ Secure Payment</span>
+              <span className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full font-medium">🚀 Fast Delivery</span>
+              <span className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full font-medium">⭐ 1000+ Happy Customers</span>
+            </div>
+          </div>
 
-              {/* Order Type Selection */}
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Order Type</h3>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="orderType"
-                      value="file"
-                      checked={orderType === 'file'}
-                      onChange={(e) => setOrderType(e.target.value as 'file' | 'template')}
-                      className="mr-2"
-                    />
-                    Upload File
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="orderType"
-                      value="template"
-                      checked={orderType === 'template'}
-                      onChange={() => {
-                        // Redirect to templates page with notification
-                        alert('📝 To use templates: 1) Go to Templates page, 2) Fill the form with your information, 3) Download the document, 4) Convert to PDF, 5) Come back here to order it!');
-                        window.location.href = '/templates';
-                      }}
-                      className="mr-2"
-                    />
-                    Use Template
-                  </label>
-                </div>
-              </div>
-
-              {/* File Upload */}
-              {orderType === 'file' && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Upload Files</h3>
-                  <div className="form-file-upload">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp,.svg"
-                      onChange={async (e) => {
-                        const files = Array.from(e.target.files || []);
-                        if (files.length > 0) {
-                          setIsCountingPages(true);
-                          setPdfLoaded(false);
-                          
-                          // Add new files to the existing list
-                          setSelectedFiles(prev => [...prev, ...files]);
-                          
-                          // Create preview URLs for all files
-                          const newUrls = files.map(file => URL.createObjectURL(file));
-                          setPdfUrls(prev => [...prev, ...newUrls]);
-                          
-                          // Count pages for each new file
-                          const newPageCounts: number[] = [];
-                          for (const file of files) {
-                            const pageCount = await countPagesInFile(file);
-                            newPageCounts.push(pageCount);
-                          }
-                          
-                          // Update page counts
-                          setFilePageCounts(prev => [...prev, ...newPageCounts]);
-                          
-                          // Initialize service options for new files (default to 'service')
-                          setPrintingOptions(prev => {
-                            const currentServiceOptions = prev.serviceOptions || [];
-                            const newServiceOptions = [...currentServiceOptions, ...files.map(() => 'service' as const)];
-                            console.log(`📋 Initializing service options: ${currentServiceOptions.length} existing + ${files.length} new = ${newServiceOptions.length} total`);
-                            
-                            // Initialize per-file pageColors array if mixed color is selected
-                            let updatedPageColors = prev.pageColors;
-                            if (prev.color === 'mixed') {
-                              const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : (prev.pageColors ? [prev.pageColors] : []);
-                              const newPageColors = [...currentPageColors, ...files.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }))];
-                              updatedPageColors = newPageColors;
-                              console.log(`📋 Initializing per-file pageColors: ${currentPageColors.length} existing + ${files.length} new = ${newPageColors.length} total`);
-                            }
-                            
-                            // Initialize per-file printing options
-                            const currentFileOptions = prev.fileOptions || [];
-                            const newFileOptions = [...currentFileOptions, ...files.map(() => ({
-                              pageSize: prev.pageSize || 'A4',
-                              color: prev.color || 'bw',
-                              sided: prev.sided || 'single',
-                              copies: prev.copies || 1,
-                            }))];
-                            console.log(`📋 Initializing per-file printing options: ${currentFileOptions.length} existing + ${files.length} new = ${newFileOptions.length} total`);
-                            
-                            return {
-                              ...prev,
-                              serviceOptions: newServiceOptions,
-                              pageColors: updatedPageColors,
-                              fileOptions: newFileOptions
-                            };
-                          });
-                          
-                          // Calculate total page count
-                          const totalPages = [...filePageCounts, ...newPageCounts].reduce((sum, count) => sum + count, 0);
-                          setPageCount(totalPages);
-                          
-                                setIsCountingPages(false);
-                          setPdfLoaded(true);
-                        }
-                      }}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
-                    >
-                      Choose Files
-                    </button>
-                    {selectedFiles.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        <p className="text-sm font-medium text-gray-700">
-                          Selected Files ({selectedFiles.length}):
-                        </p>
-                        <div className="space-y-1">
-                          {selectedFiles.map((file, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                              <span className="text-sm text-gray-600 truncate flex-1">{truncateFileName(file.name)}</span>
-                              <span className="text-xs text-gray-500 ml-2">
-                                {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+          {/* Single Page Layout - Grid with Left (Content) and Right (Sticky Summary) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Main Content */}
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+                {/* File Upload & Options Section */}
+                <div className="space-y-8">
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
+                      <DocumentIcon size={24} className="w-6 h-6" />
+                      Upload Your Files
+                    </h2>
+                    <p className="text-gray-600">Upload your documents and configure printing options</p>
                   </div>
-                </div>
-              )}
 
-              {/* File Preview with Service Options */}
-              {pdfUrls.length > 0 && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
-                  <div className="space-y-6">
-                    {selectedFiles.map((file, index) => {
-                      const filePageCount = filePageCounts[index] || 1;
-                      const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit ?? 1;
-                      // Show service option if file has more pages than the limit (default to 1, so files with 2+ pages show options)
-                      const needsServiceOption = filePageCount > minServiceFeePageLimit;
-                      // Ensure serviceOptions array has an entry for this file index
-                      const currentServiceOptions = printingOptions.serviceOptions || [];
-                      // Initialize if needed (but don't setState during render - use useEffect)
-                      const currentServiceOption = currentServiceOptions[index] || 'service';
-                      
-                      console.log(`📄 File ${index + 1}: ${filePageCount} pages, needsServiceOption: ${needsServiceOption}, currentOption: ${currentServiceOption}`);
-                      
-                      return (
-                        <div key={index} className="space-y-4 mb-6">
-                          {/* File Preview */}
-                  <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
-                            <div className="p-2 bg-gray-100 border-b">
-                              <p className="text-sm font-medium text-gray-700">
-                                File {index + 1}: {truncateFileName(file.name)} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
-                              </p>
-                        </div>
-                            <div className="h-64">
-                        {/* Image files - show directly */}
-                              {file.type.startsWith('image/') && (
-                                <img
-                                  src={pdfUrls[index]}
-                                  alt={`Preview ${file.name}`}
-                                  className="w-full h-full object-contain"
-                            onLoad={() => setPdfLoaded(true)}
-                          />
-                        )}
-                        
-                        {/* PDF files - use iframe */}
-                              {file.type === 'application/pdf' && (
-                          <iframe
-                                  src={pdfUrls[index]}
-                                  className="w-full h-full"
-                            onLoad={() => setPdfLoaded(true)}
-                                />
-                              )}
-                              
-                              {/* Other files - show file info */}
-                              {!file.type.startsWith('image/') && 
-                               file.type !== 'application/pdf' && (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-50">
-                                  <div className="text-center">
-                                    <div className="flex justify-center mb-2">
-                                      <DocumentIcon size={40} className="w-10 h-10" />
-                                    </div>
-                                    <p className="text-sm text-gray-600">
-                                      {file.type}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                      {(file.size / 1024).toFixed(1)} KB
-                                    </p>
-                              </div>
-                          </div>
-                        )}
-                            </div>
-                          </div>
-                          
-                          {/* Service Option for this file - Always show for files with more than 1 page */}
-                          {needsServiceOption ? (
-                            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                              <label className="block text-sm font-semibold text-gray-900 mb-3">
-                                Service Option for File {index + 1} (required)
-                              </label>
-                              <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'binding' ? '#3b82f6' : '#e5e7eb' }}>
-                                    <input
-                                      type="radio"
-                                      name={`serviceOption-${index}`}
-                                      checked={currentServiceOption === 'binding'}
-                                      onChange={() => {
-                                        setPrintingOptions(prev => {
-                                          const currentOptions = prev.serviceOptions || [];
-                                          const newServiceOptions = [...currentOptions];
-                                          // Ensure array is long enough
-                                          while (newServiceOptions.length <= index) {
-                                            newServiceOptions.push('service');
-                                          }
-                                          newServiceOptions[index] = 'binding';
-                                          console.log(`✅ File ${index + 1} service option set to: binding`);
-                                          return { ...prev, serviceOptions: newServiceOptions };
-                                        });
-                                      }}
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-3 text-sm font-medium text-gray-700">
-                                      📎 Binding (+₹{pricingData?.additionalServices?.binding || 40})
-                                    </span>
-                                  </label>
+                  {/* Order Type Selection */}
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4">Order Type</h3>
+                    <div className="flex space-x-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="orderType"
+                          value="file"
+                          checked={orderType === 'file'}
+                          onChange={(e) => setOrderType(e.target.value as 'file' | 'template')}
+                          className="mr-2"
+                        />
+                        Upload File
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="orderType"
+                          value="template"
+                          checked={orderType === 'template'}
+                          onChange={() => {
+                            // Redirect to templates page with notification
+                            alert('📝 To use templates: 1) Go to Templates page, 2) Fill the form with your information, 3) Download the document, 4) Convert to PDF, 5) Come back here to order it!');
+                            window.location.href = '/templates';
+                          }}
+                          className="mr-2"
+                        />
+                        Use Template
+                      </label>
+                    </div>
+                  </div>
 
-                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'file' ? '#3b82f6' : '#e5e7eb' }}>
-                                    <input
-                                      type="radio"
-                                      name={`serviceOption-${index}`}
-                                      checked={currentServiceOption === 'file'}
-                                      onChange={() => {
-                                        setPrintingOptions(prev => {
-                                          const currentOptions = prev.serviceOptions || [];
-                                          const newServiceOptions = [...currentOptions];
-                                          // Ensure array is long enough
-                                          while (newServiceOptions.length <= index) {
-                                            newServiceOptions.push('service');
-                                          }
-                                          newServiceOptions[index] = 'file';
-                                          console.log(`✅ File ${index + 1} service option set to: file`);
-                                          return { ...prev, serviceOptions: newServiceOptions };
-                                        });
-                                      }}
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-3 text-sm font-medium text-gray-700">
-                                      <span className="flex items-center gap-1">
-                                        <FolderIcon size={16} className="w-4 h-4" />
-                                        Plastic file (₹10)
-                                      </span>
-                                    </span>
-                                  </label>
+                  {/* File Upload */}
+                  {orderType === 'file' && (
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Upload Files</h3>
+                      <div className="form-file-upload">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.webp,.svg"
+                          onChange={async (e) => {
+                            const files = Array.from(e.target.files || []);
+                            if (files.length > 0) {
+                              setIsCountingPages(true);
+                              setPdfLoaded(false);
 
-                                  <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'service' ? '#3b82f6' : '#e5e7eb' }}>
-                                    <input
-                                      type="radio"
-                                      name={`serviceOption-${index}`}
-                                      checked={currentServiceOption === 'service'}
-                                      onChange={() => {
-                                        setPrintingOptions(prev => {
-                                          const currentOptions = prev.serviceOptions || [];
-                                          const newServiceOptions = [...currentOptions];
-                                          // Ensure array is long enough
-                                          while (newServiceOptions.length <= index) {
-                                            newServiceOptions.push('service');
-                                          }
-                                          newServiceOptions[index] = 'service';
-                                          console.log(`✅ File ${index + 1} service option set to: service`);
-                                          return { ...prev, serviceOptions: newServiceOptions };
-                                        });
-                                      }}
-                                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                    />
-                                    <span className="ml-3 text-sm font-medium text-gray-700 flex items-center gap-1">
-                                      <CheckIcon size={16} className="w-4 h-4" />
-                                      Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
-                                    </span>
-                                  </label>
+                              // Add new files to the existing list
+                              setSelectedFiles(prev => [...prev, ...files]);
+
+                              // Create preview URLs for all files
+                              const newUrls = files.map(file => URL.createObjectURL(file));
+                              setPdfUrls(prev => [...prev, ...newUrls]);
+
+                              // Count pages for each new file
+                              const newPageCounts: number[] = [];
+                              for (const file of files) {
+                                const pageCount = await countPagesInFile(file);
+                                newPageCounts.push(pageCount);
+                              }
+
+                              // Update page counts
+                              setFilePageCounts(prev => [...prev, ...newPageCounts]);
+
+                              // Initialize service options for new files (default to 'service')
+                              setPrintingOptions(prev => {
+                                const currentServiceOptions = prev.serviceOptions || [];
+                                const newServiceOptions = [...currentServiceOptions, ...files.map(() => 'service' as const)];
+                                console.log(`📋 Initializing service options: ${currentServiceOptions.length} existing + ${files.length} new = ${newServiceOptions.length} total`);
+
+                                // Initialize per-file pageColors array if mixed color is selected
+                                let updatedPageColors = prev.pageColors;
+                                if (prev.color === 'mixed') {
+                                  const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : (prev.pageColors ? [prev.pageColors] : []);
+                                  const newPageColors = [...currentPageColors, ...files.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }))];
+                                  updatedPageColors = newPageColors;
+                                  console.log(`📋 Initializing per-file pageColors: ${currentPageColors.length} existing + ${files.length} new = ${newPageColors.length} total`);
+                                }
+
+                                // Initialize per-file printing options
+                                const currentFileOptions = prev.fileOptions || [];
+                                const newFileOptions = [...currentFileOptions, ...files.map(() => ({
+                                  pageSize: prev.pageSize || 'A4',
+                                  color: prev.color || 'bw',
+                                  sided: prev.sided || 'single',
+                                  copies: prev.copies || 1,
+                                }))];
+                                console.log(`📋 Initializing per-file printing options: ${currentFileOptions.length} existing + ${files.length} new = ${newFileOptions.length} total`);
+
+                                return {
+                                  ...prev,
+                                  serviceOptions: newServiceOptions,
+                                  pageColors: updatedPageColors,
+                                  fileOptions: newFileOptions
+                                };
+                              });
+
+                              // Calculate total page count
+                              const totalPages = [...filePageCounts, ...newPageCounts].reduce((sum, count) => sum + count, 0);
+                              setPageCount(totalPages);
+
+                              setIsCountingPages(false);
+                              setPdfLoaded(true);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800 transition-colors"
+                        >
+                          Choose Files
+                        </button>
+                        {selectedFiles.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-sm font-medium text-gray-700">
+                              Selected Files ({selectedFiles.length}):
+                            </p>
+                            <div className="space-y-1">
+                              {selectedFiles.map((file, index) => (
+                                <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                  <span className="text-sm text-gray-600 truncate flex-1">{truncateFileName(file.name)}</span>
+                                  <span className="text-xs text-gray-500 ml-2">
+                                    {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
+                                  </span>
                                 </div>
-                                <p className="text-xs text-gray-600 mt-3 font-medium">
-                                  💡 Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
-                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File Preview with Service Options */}
+                  {pdfUrls.length > 0 && (
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
+                      <div className="space-y-6">
+                        {selectedFiles.map((file, index) => {
+                          const filePageCount = filePageCounts[index] || 1;
+                          const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit ?? 1;
+                          // Show service option if file has more pages than the limit (default to 1, so files with 2+ pages show options)
+                          const needsServiceOption = filePageCount > minServiceFeePageLimit;
+                          // Ensure serviceOptions array has an entry for this file index
+                          const currentServiceOptions = printingOptions.serviceOptions || [];
+                          // Initialize if needed (but don't setState during render - use useEffect)
+                          const currentServiceOption = currentServiceOptions[index] || 'service';
+
+                          console.log(`📄 File ${index + 1}: ${filePageCount} pages, needsServiceOption: ${needsServiceOption}, currentOption: ${currentServiceOption}`);
+
+                          return (
+                            <div key={index} className="space-y-4 mb-6">
+                              {/* File Preview */}
+                              <div className={`border rounded-lg overflow-hidden ${printingOptions.color === 'bw' ? 'grayscale' : ''}`}>
+                                <div className="p-2 bg-gray-100 border-b">
+                                  <p className="text-sm font-medium text-gray-700">
+                                    File {index + 1}: {truncateFileName(file.name)} ({filePageCount} page{filePageCount !== 1 ? 's' : ''})
+                                  </p>
+                                </div>
+                                <div className="h-64">
+                                  {/* Image files - show directly */}
+                                  {file.type.startsWith('image/') && (
+                                    <img
+                                      src={pdfUrls[index]}
+                                      alt={`Preview ${file.name}`}
+                                      className="w-full h-full object-contain"
+                                      onLoad={() => setPdfLoaded(true)}
+                                    />
+                                  )}
+
+                                  {/* PDF files - use iframe */}
+                                  {file.type === 'application/pdf' && (
+                                    <iframe
+                                      src={pdfUrls[index]}
+                                      className="w-full h-full"
+                                      onLoad={() => setPdfLoaded(true)}
+                                    />
+                                  )}
+
+                                  {/* Other files - show file info */}
+                                  {!file.type.startsWith('image/') &&
+                                    file.type !== 'application/pdf' && (
+                                      <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                                        <div className="text-center">
+                                          <div className="flex justify-center mb-2">
+                                            <DocumentIcon size={40} className="w-10 h-10" />
+                                          </div>
+                                          <p className="text-sm text-gray-600">
+                                            {file.type}
+                                          </p>
+                                          <p className="text-xs text-gray-500">
+                                            {(file.size / 1024).toFixed(1)} KB
+                                          </p>
+                                        </div>
+                                      </div>
+                                    )}
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
-                              Service option not required for single-page files
-                            </div>
-                          )}
 
-                          {/* Per-File Printing Options - After Service Option */}
-                          <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                            <label className="block text-sm font-semibold text-gray-900 mb-3">
-                              Printing Options for File {index + 1}
-                            </label>
-                            {(() => {
-                              const fileOpts = getFilePrintingOptions(index, printingOptions);
-                              return (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {/* Page Size */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Page Size
-                                    </label>
-                                    <select
-                                      value={fileOpts.pageSize}
-                                      onChange={(e) => {
-                                        setPrintingOptions(prev => {
-                                          const currentFileOptions = prev.fileOptions || [];
-                                          const newFileOptions = [...currentFileOptions];
-                                          while (newFileOptions.length <= index) {
-                                            newFileOptions.push({
-                                              pageSize: prev.pageSize || 'A4',
-                                              color: prev.color || 'bw',
-                                              sided: prev.sided || 'single',
-                                              copies: prev.copies || 1,
+                              {/* Service Option for this file - Always show for files with more than 1 page */}
+                              {needsServiceOption ? (
+                                <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                    Service Option for File {index + 1} (required)
+                                  </label>
+                                  <div className="bg-white p-4 rounded-lg border-2 border-blue-300 shadow-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                      <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'binding' ? '#3b82f6' : '#e5e7eb' }}>
+                                        <input
+                                          type="radio"
+                                          name={`serviceOption-${index}`}
+                                          checked={currentServiceOption === 'binding'}
+                                          onChange={() => {
+                                            setPrintingOptions(prev => {
+                                              const currentOptions = prev.serviceOptions || [];
+                                              const newServiceOptions = [...currentOptions];
+                                              // Ensure array is long enough
+                                              while (newServiceOptions.length <= index) {
+                                                newServiceOptions.push('service');
+                                              }
+                                              newServiceOptions[index] = 'binding';
+                                              console.log(`✅ File ${index + 1} service option set to: binding`);
+                                              return { ...prev, serviceOptions: newServiceOptions };
                                             });
-                                          }
-                                          newFileOptions[index] = {
-                                            ...newFileOptions[index],
-                                            pageSize: e.target.value as 'A4' | 'A3'
-                                          };
-                                          return { ...prev, fileOptions: newFileOptions };
-                                        });
-                                      }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    >
-                                      <option value="A4">A4</option>
-                                      <option value="A3">A3</option>
-                                    </select>
-                                  </div>
-
-                                  {/* Color */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Color
-                                    </label>
-                                    <div className="grid grid-cols-3 gap-2">
-                                      {/* Colorful Button */}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setPrintingOptions(prev => {
-                                            const currentFileOptions = prev.fileOptions || [];
-                                            const newFileOptions = [...currentFileOptions];
-                                            while (newFileOptions.length <= index) {
-                                              newFileOptions.push({
-                                                pageSize: prev.pageSize || 'A4',
-                                                color: prev.color || 'bw',
-                                                sided: prev.sided || 'single',
-                                                copies: prev.copies || 1,
-                                              });
-                                            }
-                                            newFileOptions[index] = {
-                                              ...newFileOptions[index],
-                                              color: 'color',
-                                              pageColors: undefined
-                                            };
-                                            
-                                            // Update global color: single file uses that color, multi-file uses first file's color
-                                            const isSingleFile = selectedFiles.length === 1;
-                                            let updatedGlobalColor = prev.color;
-                                            if (isSingleFile && index === 0) {
-                                              updatedGlobalColor = 'color';
-                                            } else if (!isSingleFile && index === 0) {
-                                              updatedGlobalColor = 'color'; // First file sets global color
-                                            } else if (!isSingleFile) {
-                                              // Not first file: keep first file's color
-                                              const firstFileColor = newFileOptions[0]?.color || 'color';
-                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
-                                            }
-                                            
-                                            return { 
-                                              ...prev, 
-                                              color: updatedGlobalColor,
-                                              fileOptions: newFileOptions 
-                                            };
-                                          });
-                                        }}
-                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                                          fileOpts.color === 'color'
-                                            ? 'ring-2 ring-blue-500 shadow-md'
-                                            : 'hover:shadow-sm'
-                                        }`}
-                                        style={{
-                                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
-                                          color: 'white'
-                                        }}
-                                      >
-                                        Color
-                                      </button>
-                                      
-                                      {/* B&W Button */}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setPrintingOptions(prev => {
-                                            const currentFileOptions = prev.fileOptions || [];
-                                            const newFileOptions = [...currentFileOptions];
-                                            while (newFileOptions.length <= index) {
-                                              newFileOptions.push({
-                                                pageSize: prev.pageSize || 'A4',
-                                                color: prev.color || 'bw',
-                                                sided: prev.sided || 'single',
-                                                copies: prev.copies || 1,
-                                              });
-                                            }
-                                            newFileOptions[index] = {
-                                              ...newFileOptions[index],
-                                              color: 'bw',
-                                              pageColors: undefined
-                                            };
-                                            
-                                            // Update global color: single file uses that color, multi-file uses first file's color
-                                            const isSingleFile = selectedFiles.length === 1;
-                                            let updatedGlobalColor = prev.color;
-                                            if (isSingleFile && index === 0) {
-                                              updatedGlobalColor = 'bw';
-                                            } else if (!isSingleFile && index === 0) {
-                                              updatedGlobalColor = 'bw'; // First file sets global color
-                                            } else if (!isSingleFile) {
-                                              // Not first file: keep first file's color
-                                              const firstFileColor = newFileOptions[0]?.color || 'bw';
-                                              updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
-                                            }
-                                            
-                                            return { 
-                                              ...prev, 
-                                              color: updatedGlobalColor,
-                                              fileOptions: newFileOptions 
-                                            };
-                                          });
-                                        }}
-                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                                          fileOpts.color === 'bw'
-                                            ? 'ring-2 ring-gray-500 shadow-md'
-                                            : 'hover:shadow-sm'
-                                        }`}
-                                        style={{
-                                          background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
-                                          color: fileOpts.color === 'bw' ? 'white' : 'black',
-                                          border: '1px solid #333'
-                                        }}
-                                      >
-                                        B&W
-                                      </button>
-                                      
-                                      {/* Mixed Button */}
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setPrintingOptions(prev => {
-                                            const currentFileOptions = prev.fileOptions || [];
-                                            const newFileOptions = [...currentFileOptions];
-                                            while (newFileOptions.length <= index) {
-                                              newFileOptions.push({
-                                                pageSize: prev.pageSize || 'A4',
-                                                color: prev.color || 'bw',
-                                                sided: prev.sided || 'single',
-                                                copies: prev.copies || 1,
-                                              });
-                                            }
-                                            // Initialize pageColors for this file if not exists
-                                            const filePageColors = getFilePageColors(index, prev.pageColors);
-                                            
-                                            // Ensure pageColors array exists and is long enough
-                                            const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
-                                            const newPageColors = [...currentPageColors];
-                                            while (newPageColors.length <= index) {
-                                              newPageColors.push({ colorPages: [], bwPages: [] });
-                                            }
-                                            
-                                            newFileOptions[index] = {
-                                              ...newFileOptions[index],
-                                              color: 'mixed',
-                                              pageColors: filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0 
-                                                ? filePageColors 
-                                                : undefined
-                                            };
-                                            
-                                            // Multi-file orders = Multiple independent orders (each file can independently have mixed color)
-                                            // Each file can have: 'color', 'bw', or 'mixed' (some pages color, some B&W)
-                                            // Global color = Display field: 'mixed' if ANY file has mixed color, otherwise use first file's color
-                                            const isSingleFile = selectedFiles.length === 1;
-                                            let updatedGlobalColor = prev.color;
-                                            
-                                            if (isSingleFile && index === 0) {
-                                              // Single file with mixed color: set global color to 'mixed'
-                                              updatedGlobalColor = 'mixed';
-                                            } else if (!isSingleFile) {
-                                              // Multi-file order: Check if ANY file has mixed color
-                                              const hasAnyMixedColor = newFileOptions.some((opt: any) => opt?.color === 'mixed');
-                                              
-                                              if (hasAnyMixedColor) {
-                                                // At least one file has mixed color - set global color to 'mixed' for display
-                                                updatedGlobalColor = 'mixed';
-                                              } else {
-                                                // No files have mixed color - use first file's color
-                                                const firstFileColor = newFileOptions[0]?.color;
-                                                if (firstFileColor) {
-                                                  updatedGlobalColor = firstFileColor;
-                                                } else {
-                                                  updatedGlobalColor = 'bw'; // Default
-                                                }
-                                              }
-                                            }
-                                            
-                                            return { 
-                                              ...prev, 
-                                              color: updatedGlobalColor,
-                                              fileOptions: newFileOptions,
-                                              pageColors: newPageColors
-                                            };
-                                          });
-                                        }}
-                                        className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                                          fileOpts.color === 'mixed'
-                                            ? 'ring-2 ring-purple-500 shadow-md'
-                                            : 'hover:shadow-sm'
-                                        }`}
-                                        style={{
-                                          background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
-                                          color: 'white',
-                                          border: '1px solid #333'
-                                        }}
-                                      >
-                                        Mixed
-                                      </button>
-                                    </div>
-                                  </div>
-
-                                  {/* Per-File Mixed Color Selection - Show when Mixed is selected for this file */}
-                                  {fileOpts.color === 'mixed' && filePageCount > 1 && (
-                                    <div className="md:col-span-2 mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                                      <label className="block text-sm font-semibold text-gray-900 mb-3">
-                                        Select Page Colors for File {index + 1} ({filePageCount} pages)
+                                          }}
+                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <span className="ml-3 text-sm font-medium text-gray-700">
+                                          📎 Binding (+₹{pricingData?.additionalServices?.binding || 40})
+                                        </span>
                                       </label>
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                          <label className="block text-sm font-medium text-green-700 mb-2">
-                                            Color Pages (1-{filePageCount})
-                                          </label>
-                                          <input
-                                            type="text"
-                                            placeholder={`e.g., 1-3 or 2,4 or 1-3,5 for pages 1-${filePageCount}`}
-                                            value={colorPagesInputs[index] || ''}
-                                            onChange={(e) => {
-                                              const inputValue = e.target.value;
-                                              // Update per-file input
-                                              const newInputs = [...colorPagesInputs];
-                                              while (newInputs.length <= index) {
-                                                newInputs.push('');
+
+                                      <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'file' ? '#3b82f6' : '#e5e7eb' }}>
+                                        <input
+                                          type="radio"
+                                          name={`serviceOption-${index}`}
+                                          checked={currentServiceOption === 'file'}
+                                          onChange={() => {
+                                            setPrintingOptions(prev => {
+                                              const currentOptions = prev.serviceOptions || [];
+                                              const newServiceOptions = [...currentOptions];
+                                              // Ensure array is long enough
+                                              while (newServiceOptions.length <= index) {
+                                                newServiceOptions.push('service');
                                               }
-                                              newInputs[index] = inputValue;
-                                              setColorPagesInputs(newInputs);
-                                              
-                                              // Parse and update page colors with validation (per-file)
-                                              const parseResult = parsePageRange(inputValue, filePageCount);
-                                              const newValidations = [...colorPagesValidations];
-                                              while (newValidations.length <= index) {
-                                                newValidations.push({ errors: [], warnings: [] });
+                                              newServiceOptions[index] = 'file';
+                                              console.log(`✅ File ${index + 1} service option set to: file`);
+                                              return { ...prev, serviceOptions: newServiceOptions };
+                                            });
+                                          }}
+                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <span className="ml-3 text-sm font-medium text-gray-700">
+                                          <span className="flex items-center gap-1">
+                                            <FolderIcon size={16} className="w-4 h-4" />
+                                            Plastic file (₹10)
+                                          </span>
+                                        </span>
+                                      </label>
+
+                                      <label className="flex items-center cursor-pointer p-3 rounded-lg border-2 transition-all hover:bg-blue-50 hover:border-blue-400 hover:shadow-md" style={{ borderColor: currentServiceOption === 'service' ? '#3b82f6' : '#e5e7eb' }}>
+                                        <input
+                                          type="radio"
+                                          name={`serviceOption-${index}`}
+                                          checked={currentServiceOption === 'service'}
+                                          onChange={() => {
+                                            setPrintingOptions(prev => {
+                                              const currentOptions = prev.serviceOptions || [];
+                                              const newServiceOptions = [...currentOptions];
+                                              // Ensure array is long enough
+                                              while (newServiceOptions.length <= index) {
+                                                newServiceOptions.push('service');
                                               }
-                                              newValidations[index] = {
-                                                errors: parseResult.errors,
-                                                warnings: parseResult.warnings
+                                              newServiceOptions[index] = 'service';
+                                              console.log(`✅ File ${index + 1} service option set to: service`);
+                                              return { ...prev, serviceOptions: newServiceOptions };
+                                            });
+                                          }}
+                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <span className="ml-3 text-sm font-medium text-gray-700 flex items-center gap-1">
+                                          <CheckIcon size={16} className="w-4 h-4" />
+                                          Minimal service fee (₹{pricingData?.additionalServices?.minServiceFee || 5})
+                                        </span>
+                                      </label>
+                                    </div>
+                                    <p className="text-xs text-gray-600 mt-3 font-medium">
+                                      💡 Choose one: Binding, Plastic file to keep pages inside file, or minimal service fee.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                                  Service option not required for single-page files
+                                </div>
+                              )}
+
+                              {/* Per-File Printing Options - After Service Option */}
+                              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                  Printing Options for File {index + 1}
+                                </label>
+                                {(() => {
+                                  const fileOpts = getFilePrintingOptions(index, printingOptions);
+                                  return (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      {/* Page Size */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                          Page Size
+                                        </label>
+                                        <select
+                                          value={fileOpts.pageSize}
+                                          onChange={(e) => {
+                                            setPrintingOptions(prev => {
+                                              const currentFileOptions = prev.fileOptions || [];
+                                              const newFileOptions = [...currentFileOptions];
+                                              while (newFileOptions.length <= index) {
+                                                newFileOptions.push({
+                                                  pageSize: prev.pageSize || 'A4',
+                                                  color: prev.color || 'bw',
+                                                  sided: prev.sided || 'single',
+                                                  copies: prev.copies || 1,
+                                                });
+                                              }
+                                              newFileOptions[index] = {
+                                                ...newFileOptions[index],
+                                                pageSize: e.target.value as 'A4' | 'A3'
                                               };
-                                              setColorPagesValidations(newValidations);
-                                              
-                                              // Update per-file pageColors in array
+                                              return { ...prev, fileOptions: newFileOptions };
+                                            });
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        >
+                                          <option value="A4">A4</option>
+                                          <option value="A3">A3</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Color */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                          Color
+                                        </label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                          {/* Colorful Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
                                               setPrintingOptions(prev => {
-                                                const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
-                                                const newPageColors = [...currentPageColors];
-                                                while (newPageColors.length <= index) {
-                                                  newPageColors.push({ colorPages: [], bwPages: [] });
-                                                }
-                                                newPageColors[index] = {
-                                                  colorPages: parseResult.pages,
-                                                  bwPages: generateBwPages(filePageCount, parseResult.pages)
-                                                };
-                                                
-                                                // Also update fileOptions pageColors for this file
                                                 const currentFileOptions = prev.fileOptions || [];
                                                 const newFileOptions = [...currentFileOptions];
                                                 while (newFileOptions.length <= index) {
@@ -2612,1050 +2397,1399 @@ export default function OrderPage() {
                                                 }
                                                 newFileOptions[index] = {
                                                   ...newFileOptions[index],
-                                                  pageColors: {
-                                                    colorPages: parseResult.pages,
-                                                    bwPages: generateBwPages(filePageCount, parseResult.pages)
-                                                  }
+                                                  color: 'color',
+                                                  pageColors: undefined
                                                 };
-                                                
+
+                                                // Update global color: single file uses that color, multi-file uses first file's color
+                                                const isSingleFile = selectedFiles.length === 1;
+                                                let updatedGlobalColor = prev.color;
+                                                if (isSingleFile && index === 0) {
+                                                  updatedGlobalColor = 'color';
+                                                } else if (!isSingleFile && index === 0) {
+                                                  updatedGlobalColor = 'color'; // First file sets global color
+                                                } else if (!isSingleFile) {
+                                                  // Not first file: keep first file's color
+                                                  const firstFileColor = newFileOptions[0]?.color || 'color';
+                                                  updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                                }
+
                                                 return {
                                                   ...prev,
-                                                  pageColors: newPageColors,
+                                                  color: updatedGlobalColor,
                                                   fileOptions: newFileOptions
                                                 };
                                               });
                                             }}
-                                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                                              (colorPagesValidations[index]?.errors?.length || 0) > 0
-                                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                : 'border-green-300 focus:ring-green-500 focus:border-green-500'
-                                            }`}
-                                          />
-                                          
-                                          {/* Validation Messages */}
-                                          {colorPagesValidations[index]?.errors && colorPagesValidations[index].errors.length > 0 && (
-                                            <div className="mt-2 space-y-1">
-                                              {colorPagesValidations[index].errors.map((error, idx) => (
-                                                <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
-                                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
-                                                  {error}
-                                                </p>
-                                              ))}
-                                            </div>
-                                          )}
-                                          
-                                          {colorPagesValidations[index]?.warnings && colorPagesValidations[index].warnings.length > 0 && colorPagesValidations[index].errors.length === 0 && (
-                                            <div className="mt-2 space-y-1">
-                                              {colorPagesValidations[index].warnings.map((warning, idx) => (
-                                                <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
-                                                  <InfoIcon size={14} className="w-3.5 h-3.5" />
-                                                  {warning}
-                                                </p>
-                                              ))}
-                                            </div>
-                                          )}
-                                          
-                                          {/* Helper Text */}
-                                          <p className="text-xs text-green-600 mt-2">
-                                            <strong>Examples:</strong> 1-3 (pages 1 to 3), 2,4 (pages 2 and 4), 1-3,5 (pages 1-3 and 5)
-                                          </p>
-                                        </div>
-                                        <div>
-                                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Black & White Pages
-                                          </label>
-                                          <input
-                                            type="text"
-                                            placeholder="Auto-generated"
-                                            value={(() => {
-                                              const filePageColors = getFilePageColors(index, printingOptions.pageColors);
-                                              return filePageColors.bwPages.join(',') || '';
-                                            })()}
-                                            readOnly
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                                          />
-                                          <p className="text-xs text-gray-500 mt-1">
-                                            Automatically calculated from remaining pages
-                                          </p>
+                                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'color'
+                                                ? 'ring-2 ring-blue-500 shadow-md'
+                                                : 'hover:shadow-sm'
+                                              }`}
+                                            style={{
+                                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
+                                              color: 'white'
+                                            }}
+                                          >
+                                            Color
+                                          </button>
+
+                                          {/* B&W Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPrintingOptions(prev => {
+                                                const currentFileOptions = prev.fileOptions || [];
+                                                const newFileOptions = [...currentFileOptions];
+                                                while (newFileOptions.length <= index) {
+                                                  newFileOptions.push({
+                                                    pageSize: prev.pageSize || 'A4',
+                                                    color: prev.color || 'bw',
+                                                    sided: prev.sided || 'single',
+                                                    copies: prev.copies || 1,
+                                                  });
+                                                }
+                                                newFileOptions[index] = {
+                                                  ...newFileOptions[index],
+                                                  color: 'bw',
+                                                  pageColors: undefined
+                                                };
+
+                                                // Update global color: single file uses that color, multi-file uses first file's color
+                                                const isSingleFile = selectedFiles.length === 1;
+                                                let updatedGlobalColor = prev.color;
+                                                if (isSingleFile && index === 0) {
+                                                  updatedGlobalColor = 'bw';
+                                                } else if (!isSingleFile && index === 0) {
+                                                  updatedGlobalColor = 'bw'; // First file sets global color
+                                                } else if (!isSingleFile) {
+                                                  // Not first file: keep first file's color
+                                                  const firstFileColor = newFileOptions[0]?.color || 'bw';
+                                                  updatedGlobalColor = firstFileColor !== 'mixed' ? firstFileColor : 'bw';
+                                                }
+
+                                                return {
+                                                  ...prev,
+                                                  color: updatedGlobalColor,
+                                                  fileOptions: newFileOptions
+                                                };
+                                              });
+                                            }}
+                                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'bw'
+                                                ? 'ring-2 ring-gray-500 shadow-md'
+                                                : 'hover:shadow-sm'
+                                              }`}
+                                            style={{
+                                              background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
+                                              color: fileOpts.color === 'bw' ? 'white' : 'black',
+                                              border: '1px solid #333'
+                                            }}
+                                          >
+                                            B&W
+                                          </button>
+
+                                          {/* Mixed Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setPrintingOptions(prev => {
+                                                const currentFileOptions = prev.fileOptions || [];
+                                                const newFileOptions = [...currentFileOptions];
+                                                while (newFileOptions.length <= index) {
+                                                  newFileOptions.push({
+                                                    pageSize: prev.pageSize || 'A4',
+                                                    color: prev.color || 'bw',
+                                                    sided: prev.sided || 'single',
+                                                    copies: prev.copies || 1,
+                                                  });
+                                                }
+                                                // Initialize pageColors for this file if not exists
+                                                const filePageColors = getFilePageColors(index, prev.pageColors);
+
+                                                // Ensure pageColors array exists and is long enough
+                                                const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
+                                                const newPageColors = [...currentPageColors];
+                                                while (newPageColors.length <= index) {
+                                                  newPageColors.push({ colorPages: [], bwPages: [] });
+                                                }
+
+                                                newFileOptions[index] = {
+                                                  ...newFileOptions[index],
+                                                  color: 'mixed',
+                                                  pageColors: filePageColors.colorPages.length > 0 || filePageColors.bwPages.length > 0
+                                                    ? filePageColors
+                                                    : undefined
+                                                };
+
+                                                // Multi-file orders = Multiple independent orders (each file can independently have mixed color)
+                                                // Each file can have: 'color', 'bw', or 'mixed' (some pages color, some B&W)
+                                                // Global color = Display field: 'mixed' if ANY file has mixed color, otherwise use first file's color
+                                                const isSingleFile = selectedFiles.length === 1;
+                                                let updatedGlobalColor = prev.color;
+
+                                                if (isSingleFile && index === 0) {
+                                                  // Single file with mixed color: set global color to 'mixed'
+                                                  updatedGlobalColor = 'mixed';
+                                                } else if (!isSingleFile) {
+                                                  // Multi-file order: Check if ANY file has mixed color
+                                                  const hasAnyMixedColor = newFileOptions.some((opt: any) => opt?.color === 'mixed');
+
+                                                  if (hasAnyMixedColor) {
+                                                    // At least one file has mixed color - set global color to 'mixed' for display
+                                                    updatedGlobalColor = 'mixed';
+                                                  } else {
+                                                    // No files have mixed color - use first file's color
+                                                    const firstFileColor = newFileOptions[0]?.color;
+                                                    if (firstFileColor) {
+                                                      updatedGlobalColor = firstFileColor;
+                                                    } else {
+                                                      updatedGlobalColor = 'bw'; // Default
+                                                    }
+                                                  }
+                                                }
+
+                                                return {
+                                                  ...prev,
+                                                  color: updatedGlobalColor,
+                                                  fileOptions: newFileOptions,
+                                                  pageColors: newPageColors
+                                                };
+                                              });
+                                            }}
+                                            className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'mixed'
+                                                ? 'ring-2 ring-purple-500 shadow-md'
+                                                : 'hover:shadow-sm'
+                                              }`}
+                                            style={{
+                                              background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
+                                              color: 'white',
+                                              border: '1px solid #333'
+                                            }}
+                                          >
+                                            Mixed
+                                          </button>
                                         </div>
                                       </div>
-                                      
-                                      {/* Visual Page Preview for this file */}
-                                      {filePageCount > 0 && (
-                                        <div className="mt-4">
-                                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Page Preview for File {index + 1} ({filePageCount} total pages)
+
+                                      {/* Per-File Mixed Color Selection - Show when Mixed is selected for this file */}
+                                      {fileOpts.color === 'mixed' && filePageCount > 1 && (
+                                        <div className="md:col-span-2 mt-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                                          <label className="block text-sm font-semibold text-gray-900 mb-3">
+                                            Select Page Colors for File {index + 1} ({filePageCount} pages)
                                           </label>
-                                          <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
-                                            {Array.from({ length: filePageCount }, (_, i) => i + 1).map((pageNum) => {
-                                              const filePageColors = getFilePageColors(index, printingOptions.pageColors);
-                                              const isColor = filePageColors.colorPages.includes(pageNum);
-                                              const isBw = filePageColors.bwPages.includes(pageNum);
-                                              return (
-                                                <div
-                                                  key={pageNum}
-                                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                                                    isColor
-                                                      ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
-                                                      : isBw
-                                                      ? 'bg-gray-300 text-gray-800'
-                                                      : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                              <label className="block text-sm font-medium text-green-700 mb-2">
+                                                Color Pages (1-{filePageCount})
+                                              </label>
+                                              <input
+                                                type="text"
+                                                placeholder={`e.g., 1-3 or 2,4 or 1-3,5 for pages 1-${filePageCount}`}
+                                                value={colorPagesInputs[index] || ''}
+                                                onChange={(e) => {
+                                                  const inputValue = e.target.value;
+                                                  // Update per-file input
+                                                  const newInputs = [...colorPagesInputs];
+                                                  while (newInputs.length <= index) {
+                                                    newInputs.push('');
+                                                  }
+                                                  newInputs[index] = inputValue;
+                                                  setColorPagesInputs(newInputs);
+
+                                                  // Parse and update page colors with validation (per-file)
+                                                  const parseResult = parsePageRange(inputValue, filePageCount);
+                                                  const newValidations = [...colorPagesValidations];
+                                                  while (newValidations.length <= index) {
+                                                    newValidations.push({ errors: [], warnings: [] });
+                                                  }
+                                                  newValidations[index] = {
+                                                    errors: parseResult.errors,
+                                                    warnings: parseResult.warnings
+                                                  };
+                                                  setColorPagesValidations(newValidations);
+
+                                                  // Update per-file pageColors in array
+                                                  setPrintingOptions(prev => {
+                                                    const currentPageColors = Array.isArray(prev.pageColors) ? prev.pageColors : [];
+                                                    const newPageColors = [...currentPageColors];
+                                                    while (newPageColors.length <= index) {
+                                                      newPageColors.push({ colorPages: [], bwPages: [] });
+                                                    }
+                                                    newPageColors[index] = {
+                                                      colorPages: parseResult.pages,
+                                                      bwPages: generateBwPages(filePageCount, parseResult.pages)
+                                                    };
+
+                                                    // Also update fileOptions pageColors for this file
+                                                    const currentFileOptions = prev.fileOptions || [];
+                                                    const newFileOptions = [...currentFileOptions];
+                                                    while (newFileOptions.length <= index) {
+                                                      newFileOptions.push({
+                                                        pageSize: prev.pageSize || 'A4',
+                                                        color: prev.color || 'bw',
+                                                        sided: prev.sided || 'single',
+                                                        copies: prev.copies || 1,
+                                                      });
+                                                    }
+                                                    newFileOptions[index] = {
+                                                      ...newFileOptions[index],
+                                                      pageColors: {
+                                                        colorPages: parseResult.pages,
+                                                        bwPages: generateBwPages(filePageCount, parseResult.pages)
+                                                      }
+                                                    };
+
+                                                    return {
+                                                      ...prev,
+                                                      pageColors: newPageColors,
+                                                      fileOptions: newFileOptions
+                                                    };
+                                                  });
+                                                }}
+                                                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${(colorPagesValidations[index]?.errors?.length || 0) > 0
+                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                    : 'border-green-300 focus:ring-green-500 focus:border-green-500'
                                                   }`}
-                                                  title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
-                                                >
-                                                  {pageNum}
+                                              />
+
+                                              {/* Validation Messages */}
+                                              {colorPagesValidations[index]?.errors && colorPagesValidations[index].errors.length > 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                  {colorPagesValidations[index].errors.map((error, idx) => (
+                                                    <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                                                      <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                                      {error}
+                                                    </p>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              {colorPagesValidations[index]?.warnings && colorPagesValidations[index].warnings.length > 0 && colorPagesValidations[index].errors.length === 0 && (
+                                                <div className="mt-2 space-y-1">
+                                                  {colorPagesValidations[index].warnings.map((warning, idx) => (
+                                                    <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
+                                                      <InfoIcon size={14} className="w-3.5 h-3.5" />
+                                                      {warning}
+                                                    </p>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              {/* Helper Text */}
+                                              <p className="text-xs text-green-600 mt-2">
+                                                <strong>Examples:</strong> 1-3 (pages 1 to 3), 2,4 (pages 2 and 4), 1-3,5 (pages 1-3 and 5)
+                                              </p>
+                                            </div>
+                                            <div>
+                                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Black & White Pages
+                                              </label>
+                                              <input
+                                                type="text"
+                                                placeholder="Auto-generated"
+                                                value={(() => {
+                                                  const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                                  return filePageColors.bwPages.join(',') || '';
+                                                })()}
+                                                readOnly
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                                              />
+                                              <p className="text-xs text-gray-500 mt-1">
+                                                Automatically calculated from remaining pages
+                                              </p>
+                                            </div>
+                                          </div>
+
+                                          {/* Visual Page Preview for this file */}
+                                          {filePageCount > 0 && (
+                                            <div className="mt-4">
+                                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Page Preview for File {index + 1} ({filePageCount} total pages)
+                                              </label>
+                                              <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                                {Array.from({ length: filePageCount }, (_, i) => i + 1).map((pageNum) => {
+                                                  const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                                  const isColor = filePageColors.colorPages.includes(pageNum);
+                                                  const isBw = filePageColors.bwPages.includes(pageNum);
+                                                  return (
+                                                    <div
+                                                      key={pageNum}
+                                                      className={`px-3 py-1 rounded text-xs font-medium transition-all ${isColor
+                                                          ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                                          : isBw
+                                                            ? 'bg-gray-300 text-gray-800'
+                                                            : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                                        }`}
+                                                      title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
+                                                    >
+                                                      {pageNum}
+                                                    </div>
+                                                  );
+                                                })}
+                                              </div>
+                                              {(() => {
+                                                const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                                const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                                if (totalSpecified < filePageCount) {
+                                                  return (
+                                                    <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
+                                                      <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                                      Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                                    </p>
+                                                  );
+                                                }
+                                                return null;
+                                              })()}
+                                            </div>
+                                          )}
+
+                                          {/* Summary for this file */}
+                                          <div className="mt-3 p-2 bg-white rounded border border-purple-200">
+                                            <div className="text-sm text-purple-700">
+                                              <strong>Summary for File {index + 1}:</strong> {(() => {
+                                                const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                                const colorCount = filePageColors.colorPages.length;
+                                                const bwCount = filePageColors.bwPages.length;
+                                                if (colorCount === 0) return 'All pages in Black & White';
+                                                if (bwCount === 0) return 'All pages in Color';
+                                                return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
+                                              })()}
+                                            </div>
+                                            {(() => {
+                                              const filePageColors = getFilePageColors(index, printingOptions.pageColors);
+                                              const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
+                                              return (
+                                                <div className="text-xs text-gray-600 mt-1">
+                                                  Color: {filePageColors.colorPages.length} pages |
+                                                  B&W: {filePageColors.bwPages.length} pages |
+                                                  Unspecified: {filePageCount - totalSpecified} pages
                                                 </div>
                                               );
-                                            })}
+                                            })()}
                                           </div>
-                                          {(() => {
-                                            const filePageColors = getFilePageColors(index, printingOptions.pageColors);
-                                            const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
-                                            if (totalSpecified < filePageCount) {
-                                              return (
-                                                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
-                                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
-                                                  Not all pages are specified. Unspecified pages will be printed in Black & White.
-                                                </p>
-                                              );
-                                            }
-                                            return null;
-                                          })()}
                                         </div>
                                       )}
-                                      
-                                      {/* Summary for this file */}
-                                      <div className="mt-3 p-2 bg-white rounded border border-purple-200">
-                                        <div className="text-sm text-purple-700">
-                                          <strong>Summary for File {index + 1}:</strong> {(() => {
-                                            const filePageColors = getFilePageColors(index, printingOptions.pageColors);
-                                            const colorCount = filePageColors.colorPages.length;
-                                            const bwCount = filePageColors.bwPages.length;
-                                            if (colorCount === 0) return 'All pages in Black & White';
-                                            if (bwCount === 0) return 'All pages in Color';
-                                            return `${colorCount} pages in Color, ${bwCount} pages in Black & White`;
-                                          })()}
-                                        </div>
-                                        {(() => {
-                                          const filePageColors = getFilePageColors(index, printingOptions.pageColors);
-                                          const totalSpecified = filePageColors.colorPages.length + filePageColors.bwPages.length;
-                                          return (
-                                            <div className="text-xs text-gray-600 mt-1">
-                                              Color: {filePageColors.colorPages.length} pages | 
-                                              B&W: {filePageColors.bwPages.length} pages | 
-                                              Unspecified: {filePageCount - totalSpecified} pages
-                                            </div>
-                                          );
-                                        })()}
+
+                                      {/* Sided */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                          Sided
+                                        </label>
+                                        <select
+                                          value={fileOpts.sided}
+                                          onChange={(e) => {
+                                            setPrintingOptions(prev => {
+                                              const currentFileOptions = prev.fileOptions || [];
+                                              const newFileOptions = [...currentFileOptions];
+                                              while (newFileOptions.length <= index) {
+                                                newFileOptions.push({
+                                                  pageSize: prev.pageSize || 'A4',
+                                                  color: prev.color || 'bw',
+                                                  sided: prev.sided || 'single',
+                                                  copies: prev.copies || 1,
+                                                });
+                                              }
+                                              newFileOptions[index] = {
+                                                ...newFileOptions[index],
+                                                sided: e.target.value as 'single' | 'double'
+                                              };
+                                              return { ...prev, fileOptions: newFileOptions };
+                                            });
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        >
+                                          <option value="single">Single-sided</option>
+                                          <option value="double">Double-sided</option>
+                                        </select>
+                                      </div>
+
+                                      {/* Copies */}
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                          Number of Copies
+                                        </label>
+                                        <input
+                                          type="number"
+                                          min="1"
+                                          value={fileOpts.copies || ''}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            setPrintingOptions(prev => {
+                                              const currentFileOptions = prev.fileOptions || [];
+                                              const newFileOptions = [...currentFileOptions];
+                                              while (newFileOptions.length <= index) {
+                                                newFileOptions.push({
+                                                  pageSize: prev.pageSize || 'A4',
+                                                  color: prev.color || 'bw',
+                                                  sided: prev.sided || 'single',
+                                                  copies: prev.copies || 1,
+                                                });
+                                              }
+                                              if (value === '') {
+                                                newFileOptions[index] = { ...newFileOptions[index], copies: 0 };
+                                              } else {
+                                                const numValue = parseInt(value);
+                                                if (!isNaN(numValue) && numValue >= 1) {
+                                                  newFileOptions[index] = { ...newFileOptions[index], copies: numValue };
+                                                }
+                                              }
+                                              return { ...prev, fileOptions: newFileOptions };
+                                            });
+                                          }}
+                                          onBlur={(e) => {
+                                            const value = parseInt(e.target.value);
+                                            setPrintingOptions(prev => {
+                                              const currentFileOptions = prev.fileOptions || [];
+                                              const newFileOptions = [...currentFileOptions];
+                                              while (newFileOptions.length <= index) {
+                                                newFileOptions.push({
+                                                  pageSize: prev.pageSize || 'A4',
+                                                  color: prev.color || 'bw',
+                                                  sided: prev.sided || 'single',
+                                                  copies: prev.copies || 1,
+                                                });
+                                              }
+                                              if (isNaN(value) || value < 1) {
+                                                newFileOptions[index] = { ...newFileOptions[index], copies: 1 };
+                                              }
+                                              return { ...prev, fileOptions: newFileOptions };
+                                            });
+                                          }}
+                                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                                        />
                                       </div>
                                     </div>
-                                  )}
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
 
-                                  {/* Sided */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Sided
-                                    </label>
-                                    <select
-                                      value={fileOpts.sided}
-                                      onChange={(e) => {
-                                        setPrintingOptions(prev => {
-                                          const currentFileOptions = prev.fileOptions || [];
-                                          const newFileOptions = [...currentFileOptions];
-                                          while (newFileOptions.length <= index) {
-                                            newFileOptions.push({
-                                              pageSize: prev.pageSize || 'A4',
-                                              color: prev.color || 'bw',
-                                              sided: prev.sided || 'single',
-                                              copies: prev.copies || 1,
-                                            });
-                                          }
-                                          newFileOptions[index] = {
-                                            ...newFileOptions[index],
-                                            sided: e.target.value as 'single' | 'double'
-                                          };
-                                          return { ...prev, fileOptions: newFileOptions };
-                                        });
-                                      }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    >
-                                      <option value="single">Single-sided</option>
-                                      <option value="double">Double-sided</option>
-                                    </select>
+                  {/* Legacy Printing Options - Hidden when files are selected (for backward compatibility) */}
+                  {selectedFiles.length === 0 && (
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 mb-4">Printing Options</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Page Size
+                          </label>
+                          <select
+                            value={printingOptions.pageSize}
+                            onChange={(e) => setPrintingOptions(prev => ({ ...prev, pageSize: e.target.value as 'A4' | 'A3' }))}
+                            className="form-select"
+                          >
+                            <option value="A4">A4</option>
+                            <option value="A3">A3</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Color
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {/* Colorful Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPrintingOptions(prev => ({
+                                  ...prev,
+                                  color: 'color',
+                                  pageColors: undefined
+                                }));
+                              }}
+                              className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'color'
+                                  ? 'ring-4 ring-blue-500 ring-offset-2 shadow-lg'
+                                  : 'hover:shadow-md'
+                                }`}
+                              style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
+                                color: 'white'
+                              }}
+                            >
+                              Colorful
+                            </button>
+
+                            {/* Black/White Split Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPrintingOptions(prev => ({
+                                  ...prev,
+                                  color: 'bw',
+                                  pageColors: undefined
+                                }));
+                              }}
+                              className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'bw'
+                                  ? 'ring-4 ring-gray-500 ring-offset-2 shadow-lg'
+                                  : 'hover:shadow-md'
+                                }`}
+                              style={{
+                                background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
+                                color: printingOptions.color === 'bw' ? 'white' : 'black',
+                                border: '2px solid #333'
+                              }}
+                            >
+                              B&W
+                            </button>
+
+                            {/* Mixed Button */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPrintingOptions(prev => {
+                                  // Initialize per-file pageColors array if not already an array
+                                  let updatedPageColors = prev.pageColors;
+                                  if (!Array.isArray(updatedPageColors)) {
+                                    // Convert legacy format to array or initialize new array
+                                    if (selectedFiles.length > 0) {
+                                      updatedPageColors = selectedFiles.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }));
+                                    } else {
+                                      updatedPageColors = [];
+                                    }
+                                  } else if (updatedPageColors.length < selectedFiles.length) {
+                                    // Ensure array matches file count
+                                    const newPageColors = [...updatedPageColors];
+                                    while (newPageColors.length < selectedFiles.length) {
+                                      newPageColors.push({ colorPages: [], bwPages: [] });
+                                    }
+                                    updatedPageColors = newPageColors;
+                                  }
+                                  return {
+                                    ...prev,
+                                    color: 'mixed',
+                                    pageColors: updatedPageColors
+                                  };
+                                });
+                                setColorPagesInput('');
+                                setColorPagesValidation({ errors: [], warnings: [] });
+                              }}
+                              className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'mixed'
+                                  ? 'ring-4 ring-purple-500 ring-offset-2 shadow-lg'
+                                  : 'hover:shadow-md'
+                                }`}
+                              style={{
+                                background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
+                                color: 'white',
+                                border: '2px solid #333'
+                              }}
+                            >
+                              Mixed
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Page Color Selection - Only show when Mixed is selected */}
+                        {printingOptions.color === 'mixed' && pageCount > 1 && (
+                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                              Select Page Colors
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-green-700 mb-2">
+                                  Color Pages
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g., 1-4 or 3,5 or 1-4,7,9"
+                                  value={colorPagesInput}
+                                  onChange={(e) => {
+                                    const inputValue = e.target.value;
+                                    setColorPagesInput(inputValue);
+
+                                    // Parse and update page colors with validation
+                                    const parseResult = parsePageRange(inputValue, pageCount);
+                                    setColorPagesValidation({
+                                      errors: parseResult.errors,
+                                      warnings: parseResult.warnings
+                                    });
+
+                                    setPrintingOptions(prev => ({
+                                      ...prev,
+                                      pageColors: {
+                                        colorPages: parseResult.pages,
+                                        bwPages: generateBwPages(pageCount, parseResult.pages)
+                                      }
+                                    }));
+                                  }}
+                                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${colorPagesValidation.errors.length > 0
+                                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                      : 'border-green-300 focus:ring-green-500 focus:border-green-500'
+                                    }`}
+                                />
+
+                                {/* Validation Messages */}
+                                {colorPagesValidation.errors.length > 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {colorPagesValidation.errors.map((error, idx) => (
+                                      <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
+                                        <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                        {error}
+                                      </p>
+                                    ))}
                                   </div>
+                                )}
 
-                                  {/* Copies */}
-                                  <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                      Number of Copies
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min="1"
-                                      value={fileOpts.copies || ''}
-                                      onChange={(e) => {
-                                        const value = e.target.value;
-                                        setPrintingOptions(prev => {
-                                          const currentFileOptions = prev.fileOptions || [];
-                                          const newFileOptions = [...currentFileOptions];
-                                          while (newFileOptions.length <= index) {
-                                            newFileOptions.push({
-                                              pageSize: prev.pageSize || 'A4',
-                                              color: prev.color || 'bw',
-                                              sided: prev.sided || 'single',
-                                              copies: prev.copies || 1,
-                                            });
-                                          }
-                                          if (value === '') {
-                                            newFileOptions[index] = { ...newFileOptions[index], copies: 0 };
-                                          } else {
-                                            const numValue = parseInt(value);
-                                            if (!isNaN(numValue) && numValue >= 1) {
-                                              newFileOptions[index] = { ...newFileOptions[index], copies: numValue };
-                                            }
-                                          }
-                                          return { ...prev, fileOptions: newFileOptions };
-                                        });
-                                      }}
-                                      onBlur={(e) => {
-                                        const value = parseInt(e.target.value);
-                                        setPrintingOptions(prev => {
-                                          const currentFileOptions = prev.fileOptions || [];
-                                          const newFileOptions = [...currentFileOptions];
-                                          while (newFileOptions.length <= index) {
-                                            newFileOptions.push({
-                                              pageSize: prev.pageSize || 'A4',
-                                              color: prev.color || 'bw',
-                                              sided: prev.sided || 'single',
-                                              copies: prev.copies || 1,
-                                            });
-                                          }
-                                          if (isNaN(value) || value < 1) {
-                                            newFileOptions[index] = { ...newFileOptions[index], copies: 1 };
-                                          }
-                                          return { ...prev, fileOptions: newFileOptions };
-                                        });
-                                      }}
-                                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                                    />
+                                {colorPagesValidation.warnings.length > 0 && colorPagesValidation.errors.length === 0 && (
+                                  <div className="mt-2 space-y-1">
+                                    {colorPagesValidation.warnings.map((warning, idx) => (
+                                      <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
+                                        <InfoIcon size={14} className="w-3.5 h-3.5" />
+                                        {warning}
+                                      </p>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Helper Text */}
+                                <p className="text-xs text-green-600 mt-2">
+                                  <strong>Examples:</strong> 1-4 (pages 1 to 4), 3,5 (pages 3 and 5), 1-4,7 (pages 1-4 and 7)
+                                </p>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Black & White Pages
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Auto-generated"
+                                  value={(() => {
+                                    if (!printingOptions.pageColors) return '';
+                                    if (Array.isArray(printingOptions.pageColors)) {
+                                      // For array format, show summary (legacy UI - should be removed)
+                                      const totalBw = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                                      return totalBw > 0 ? `${totalBw} pages total` : '';
+                                    }
+                                    return printingOptions.pageColors.bwPages.join(',') || '';
+                                  })()}
+                                  readOnly
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Automatically calculated from remaining pages
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Visual Page Preview */}
+                            {pageCount > 0 && (
+                              <div className="mt-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Page Preview ({pageCount} total pages)
+                                </label>
+                                <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
+                                  {Array.from({ length: pageCount }, (_, i) => i + 1).map((pageNum) => {
+                                    // Legacy: handle both array and single object format
+                                    let isColor = false;
+                                    let isBw = false;
+                                    if (printingOptions.pageColors) {
+                                      if (Array.isArray(printingOptions.pageColors)) {
+                                        // For array format, check all files (legacy UI - should be removed)
+                                        isColor = printingOptions.pageColors.some(pc => pc.colorPages.includes(pageNum));
+                                        isBw = printingOptions.pageColors.some(pc => pc.bwPages.includes(pageNum));
+                                      } else {
+                                        isColor = printingOptions.pageColors.colorPages.includes(pageNum);
+                                        isBw = printingOptions.pageColors.bwPages.includes(pageNum);
+                                      }
+                                    }
+                                    return (
+                                      <div
+                                        key={pageNum}
+                                        className={`px-3 py-1 rounded text-xs font-medium transition-all ${isColor
+                                            ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                            : isBw
+                                              ? 'bg-gray-300 text-gray-800'
+                                              : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                          }`}
+                                        title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
+                                      >
+                                        {pageNum}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                {(() => {
+                                  if (!printingOptions.pageColors) return null;
+                                  let totalSpecified = 0;
+                                  if (Array.isArray(printingOptions.pageColors)) {
+                                    totalSpecified = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length + pc.bwPages.length, 0);
+                                  } else {
+                                    totalSpecified = printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length;
+                                  }
+                                  if (totalSpecified < pageCount) {
+                                    return (
+                                      <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
+                                        <WarningIcon size={14} className="w-3.5 h-3.5" />
+                                        Not all pages are specified. Unspecified pages will be printed in Black & White.
+                                      </p>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
+
+                            {/* Summary */}
+                            <div className="mt-3 p-2 bg-white rounded border border-blue-200">
+                              <div className="text-sm text-blue-700">
+                                <strong>Summary:</strong> {getPageColorPreview(pageCount, printingOptions.pageColors)}
+                              </div>
+                              {printingOptions.pageColors && (() => {
+                                let colorCount = 0;
+                                let bwCount = 0;
+                                if (Array.isArray(printingOptions.pageColors)) {
+                                  colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                                  bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                                } else {
+                                  colorCount = printingOptions.pageColors.colorPages.length;
+                                  bwCount = printingOptions.pageColors.bwPages.length;
+                                }
+                                return (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    Color: {colorCount} pages |
+                                    B&W: {bwCount} pages |
+                                    Unspecified: {pageCount - (colorCount + bwCount)} pages
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Sided
+                          </label>
+                          <select
+                            value={printingOptions.sided}
+                            onChange={(e) => setPrintingOptions(prev => ({ ...prev, sided: e.target.value as 'single' | 'double' }))}
+                            className="form-select"
+                          >
+                            <option value="single">Single-sided</option>
+                            <option value="double">Double-sided</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Number of Copies
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={printingOptions.copies || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === '') {
+                                // Allow empty value temporarily
+                                setPrintingOptions(prev => ({ ...prev, copies: 0 }));
+                              } else {
+                                const numValue = parseInt(value);
+                                if (!isNaN(numValue) && numValue >= 1) {
+                                  setPrintingOptions(prev => ({ ...prev, copies: numValue }));
+                                }
+                              }
+                            }}
+                            onBlur={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (isNaN(value) || value < 1) {
+                                setPrintingOptions(prev => ({ ...prev, copies: 1 }));
+                              }
+                            }}
+                            className="form-select"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expected Delivery Date */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Expected Delivery Date
+                    </label>
+                    <input
+                      type="date"
+                      value={expectedDate}
+                      onChange={(e) => setExpectedDate(e.target.value)}
+                      min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // Tomorrow
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Please select a date at least 1 day from today
+                    </p>
+                  </div>
+
+                  {/* Order Summary */}
+                  <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-4">Order Summary</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-start">
+                        <span className="text-gray-600">Files:</span>
+                        <div className="text-right max-w-xs">
+                          {selectedFiles.length > 0 ? (
+                            <div className="space-y-1">
+                              {selectedFiles.map((file, index) => (
+                                <div key={index} className="text-sm">
+                                  <span className="font-medium text-gray-800 truncate block">{truncateFileName(file.name)}</span>
+                                  <span className="text-xs text-gray-500">
+                                    {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="font-medium text-gray-800">No files selected</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Pages:</span>
+                        <span className="font-medium text-gray-800">
+                          {isCountingPages ? (
+                            <span className="flex items-center">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                              Counting...
+                            </span>
+                          ) : (
+                            pageCount
+                          )}
+                        </span>
+                      </div>
+                      {/* Per-File Printing Options Summary */}
+                      {selectedFiles.length > 0 && printingOptions.fileOptions && printingOptions.fileOptions.length > 0 ? (
+                        <div className="space-y-2">
+                          {selectedFiles.map((file, index) => {
+                            const fileOpts = getFilePrintingOptions(index, printingOptions);
+                            return (
+                              <div key={index} className="p-2 bg-white rounded border border-gray-200">
+                                <div className="text-xs font-semibold text-gray-700 mb-1">
+                                  {truncateFileName(file.name)}:
+                                </div>
+                                <div className="text-xs space-y-1 text-gray-600">
+                                  <div className="flex justify-between">
+                                    <span>Size:</span>
+                                    <span className="font-medium">{fileOpts.pageSize}</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Color:</span>
+                                    <span className="font-medium">
+                                      {fileOpts.color === 'color' ? 'Color' :
+                                        fileOpts.color === 'bw' ? 'B&W' :
+                                          'Mixed'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Sided:</span>
+                                    <span className="font-medium">
+                                      {fileOpts.sided === 'double' ? 'Double' : 'Single'}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span>Copies:</span>
+                                    <span className="font-medium">{fileOpts.copies}</span>
                                   </div>
                                 </div>
-                              );
-                            })()}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Size:</span>
+                            <span className="font-medium text-gray-800">{printingOptions.pageSize || 'A4'}</span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Legacy Printing Options - Hidden when files are selected (for backward compatibility) */}
-              {selectedFiles.length === 0 && (
-              <div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">Printing Options</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Page Size
-                    </label>
-                    <select
-                      value={printingOptions.pageSize}
-                      onChange={(e) => setPrintingOptions(prev => ({ ...prev, pageSize: e.target.value as 'A4' | 'A3' }))}
-                      className="form-select"
-                    >
-                      <option value="A4">A4</option>
-                      <option value="A3">A3</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Color
-                    </label>
-                    <div className="grid grid-cols-3 gap-3">
-                      {/* Colorful Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                        setPrintingOptions(prev => ({ 
-                          ...prev, 
-                            color: 'color',
-                            pageColors: undefined
-                          }));
-                        }}
-                        className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
-                          printingOptions.color === 'color'
-                            ? 'ring-4 ring-blue-500 ring-offset-2 shadow-lg'
-                            : 'hover:shadow-md'
-                        }`}
-                        style={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
-                          color: 'white'
-                        }}
-                      >
-                        Colorful
-                      </button>
-                      
-                      {/* Black/White Split Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPrintingOptions(prev => ({ 
-                            ...prev, 
-                            color: 'bw',
-                            pageColors: undefined
-                          }));
-                        }}
-                        className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
-                          printingOptions.color === 'bw'
-                            ? 'ring-4 ring-gray-500 ring-offset-2 shadow-lg'
-                            : 'hover:shadow-md'
-                        }`}
-                        style={{
-                          background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
-                          color: printingOptions.color === 'bw' ? 'white' : 'black',
-                          border: '2px solid #333'
-                        }}
-                      >
-                        B&W
-                      </button>
-                      
-                      {/* Mixed Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPrintingOptions(prev => {
-                            // Initialize per-file pageColors array if not already an array
-                            let updatedPageColors = prev.pageColors;
-                            if (!Array.isArray(updatedPageColors)) {
-                              // Convert legacy format to array or initialize new array
-                              if (selectedFiles.length > 0) {
-                                updatedPageColors = selectedFiles.map(() => ({ colorPages: [] as number[], bwPages: [] as number[] }));
-                              } else {
-                                updatedPageColors = [];
-                              }
-                            } else if (updatedPageColors.length < selectedFiles.length) {
-                              // Ensure array matches file count
-                              const newPageColors = [...updatedPageColors];
-                              while (newPageColors.length < selectedFiles.length) {
-                                newPageColors.push({ colorPages: [], bwPages: [] });
-                              }
-                              updatedPageColors = newPageColors;
-                            }
-                            return { 
-                              ...prev, 
-                              color: 'mixed',
-                              pageColors: updatedPageColors
-                            };
-                          });
-                          setColorPagesInput('');
-                          setColorPagesValidation({ errors: [], warnings: [] });
-                        }}
-                        className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${
-                          printingOptions.color === 'mixed'
-                            ? 'ring-4 ring-purple-500 ring-offset-2 shadow-lg'
-                            : 'hover:shadow-md'
-                        }`}
-                        style={{
-                          background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
-                          color: 'white',
-                          border: '2px solid #333'
-                        }}
-                      >
-                        Mixed
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Page Color Selection - Only show when Mixed is selected */}
-                  {printingOptions.color === 'mixed' && pageCount > 1 && (
-                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                      <label className="block text-sm font-medium text-gray-700 mb-3">
-                        Select Page Colors
-                      </label>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-green-700 mb-2">
-                            Color Pages
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="e.g., 1-4 or 3,5 or 1-4,7,9"
-                            value={colorPagesInput}
-                            onChange={(e) => {
-                              const inputValue = e.target.value;
-                              setColorPagesInput(inputValue);
-                              
-                              // Parse and update page colors with validation
-                              const parseResult = parsePageRange(inputValue, pageCount);
-                              setColorPagesValidation({
-                                errors: parseResult.errors,
-                                warnings: parseResult.warnings
-                              });
-                              
-                              setPrintingOptions(prev => ({
-                                ...prev,
-                                pageColors: {
-                                  colorPages: parseResult.pages,
-                                  bwPages: generateBwPages(pageCount, parseResult.pages)
-                                }
-                              }));
-                            }}
-                            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-                              colorPagesValidation.errors.length > 0
-                                ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                : 'border-green-300 focus:ring-green-500 focus:border-green-500'
-                            }`}
-                          />
-                          
-                          {/* Validation Messages */}
-                          {colorPagesValidation.errors.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {colorPagesValidation.errors.map((error, idx) => (
-                                <p key={idx} className="text-xs text-red-600 flex items-center gap-1">
-                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
-                                  {error}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {colorPagesValidation.warnings.length > 0 && colorPagesValidation.errors.length === 0 && (
-                            <div className="mt-2 space-y-1">
-                              {colorPagesValidation.warnings.map((warning, idx) => (
-                                <p key={idx} className="text-xs text-yellow-600 flex items-center gap-1">
-                                  <InfoIcon size={14} className="w-3.5 h-3.5" />
-                                  {warning}
-                                </p>
-                              ))}
-                            </div>
-                          )}
-                          
-                          {/* Helper Text */}
-                          <p className="text-xs text-green-600 mt-2">
-                            <strong>Examples:</strong> 1-4 (pages 1 to 4), 3,5 (pages 3 and 5), 1-4,7 (pages 1-4 and 7)
-                          </p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Black & White Pages
-                          </label>
-                          <input
-                            type="text"
-                            placeholder="Auto-generated"
-                            value={(() => {
-                              if (!printingOptions.pageColors) return '';
-                              if (Array.isArray(printingOptions.pageColors)) {
-                                // For array format, show summary (legacy UI - should be removed)
-                                const totalBw = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
-                                return totalBw > 0 ? `${totalBw} pages total` : '';
-                              }
-                              return printingOptions.pageColors.bwPages.join(',') || '';
-                            })()}
-                            readOnly
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">
-                            Automatically calculated from remaining pages
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {/* Visual Page Preview */}
-                      {pageCount > 0 && (
-                        <div className="mt-4">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Page Preview ({pageCount} total pages)
-                          </label>
-                          <div className="flex flex-wrap gap-2 p-3 bg-white rounded-lg border border-gray-200 max-h-48 overflow-y-auto">
-                            {Array.from({ length: pageCount }, (_, i) => i + 1).map((pageNum) => {
-                              // Legacy: handle both array and single object format
-                              let isColor = false;
-                              let isBw = false;
-                              if (printingOptions.pageColors) {
-                                if (Array.isArray(printingOptions.pageColors)) {
-                                  // For array format, check all files (legacy UI - should be removed)
-                                  isColor = printingOptions.pageColors.some(pc => pc.colorPages.includes(pageNum));
-                                  isBw = printingOptions.pageColors.some(pc => pc.bwPages.includes(pageNum));
-                                } else {
-                                  isColor = printingOptions.pageColors.colorPages.includes(pageNum);
-                                  isBw = printingOptions.pageColors.bwPages.includes(pageNum);
-                                }
-                              }
-                              return (
-                                <div
-                                  key={pageNum}
-                                  className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                                    isColor
-                                      ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
-                                      : isBw
-                                      ? 'bg-gray-300 text-gray-800'
-                                      : 'bg-gray-100 text-gray-500 border border-gray-300'
-                                  }`}
-                                  title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
-                                >
-                                  {pageNum}
-                      </div>
-                              );
-                            })}
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Color:</span>
+                            <span className="font-medium text-gray-800">
+                              {printingOptions.color === 'color' ? 'Color' :
+                                printingOptions.color === 'bw' ? 'Black & White' :
+                                  printingOptions.color === 'mixed' ? 'Mixed' : 'B&W'}
+                            </span>
                           </div>
-                          {(() => {
-                            if (!printingOptions.pageColors) return null;
-                            let totalSpecified = 0;
-                            if (Array.isArray(printingOptions.pageColors)) {
-                              totalSpecified = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length + pc.bwPages.length, 0);
-                            } else {
-                              totalSpecified = printingOptions.pageColors.colorPages.length + printingOptions.pageColors.bwPages.length;
-                            }
-                            if (totalSpecified < pageCount) {
+                        </>
+                      )}
+                      {printingOptions.color === 'mixed' && printingOptions.pageColors && (() => {
+                        let colorCount = 0;
+                        let bwCount = 0;
+                        if (Array.isArray(printingOptions.pageColors)) {
+                          colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
+                          bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
+                        } else {
+                          colorCount = printingOptions.pageColors.colorPages.length;
+                          bwCount = printingOptions.pageColors.bwPages.length;
+                        }
+                        return (
+                          <>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600">Color Pages:</span>
+                              <span className="font-medium text-green-600">
+                                {colorCount} pages
+                              </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-gray-600">B&W Pages:</span>
+                              <span className="font-medium text-gray-600">
+                                {bwCount} pages
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
+                      {(!printingOptions.fileOptions || printingOptions.fileOptions.length === 0) && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Sided:</span>
+                            <span className="font-medium text-gray-800">
+                              {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Copies:</span>
+                            <span className="font-medium text-gray-800">{printingOptions.copies || 1}</span>
+                          </div>
+                        </>
+                      )}
+                      {/* Service Options per File */}
+                      {selectedFiles.length > 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0 && (
+                        <div className="space-y-2">
+                          {selectedFiles.map((file, index) => {
+                            const filePageCount = filePageCounts[index] || 1;
+                            const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
+                            const fileServiceOption = printingOptions.serviceOptions?.[index];
+
+                            if (filePageCount > minServiceFeePageLimit && fileServiceOption) {
                               return (
-                                <p className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
-                                  <WarningIcon size={14} className="w-3.5 h-3.5" />
-                                  Not all pages are specified. Unspecified pages will be printed in Black & White.
-                                </p>
+                                <div key={index} className="flex justify-between items-center text-sm">
+                                  <span className="text-gray-600">
+                                    {truncateFileName(file.name)}:
+                                  </span>
+                                  <span className="font-medium text-gray-800">
+                                    {fileServiceOption === 'binding' && `Binding (+₹${pricingData?.additionalServices?.binding || 20})`}
+                                    {fileServiceOption === 'file' && 'Plastic file (₹10)'}
+                                    {fileServiceOption === 'service' && `Service fee (₹${pricingData?.additionalServices?.minServiceFee || 5})`}
+                                  </span>
+                                </div>
                               );
                             }
                             return null;
-                          })()}
+                          })}
                         </div>
                       )}
-                      
-                      {/* Summary */}
-                      <div className="mt-3 p-2 bg-white rounded border border-blue-200">
-                        <div className="text-sm text-blue-700">
-                          <strong>Summary:</strong> {getPageColorPreview(pageCount, printingOptions.pageColors)}
+                      {/* Legacy support for single serviceOption */}
+                      {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'binding' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Binding:</span>
+                          <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
                         </div>
-                        {printingOptions.pageColors && (() => {
-                          let colorCount = 0;
-                          let bwCount = 0;
-                          if (Array.isArray(printingOptions.pageColors)) {
-                            colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
-                            bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
-                          } else {
-                            colorCount = printingOptions.pageColors.colorPages.length;
-                            bwCount = printingOptions.pageColors.bwPages.length;
-                          }
-                          return (
-                            <div className="text-xs text-gray-600 mt-1">
-                              Color: {colorCount} pages | 
-                              B&W: {bwCount} pages | 
-                              Unspecified: {pageCount - (colorCount + bwCount)} pages
-                            </div>
-                          );
-                        })()}
+                      )}
+                      {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'file' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Plastic file:</span>
+                          <span className="font-medium text-gray-800">₹10</span>
+                        </div>
+                      )}
+                      {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600">Service fee:</span>
+                          <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
+                        </div>
+                      )}
+                      <div className="border-t pt-3 mt-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-bold text-gray-800">Total Amount:</span>
+                          <span className="text-2xl font-bold text-gray-800">₹{amount.toFixed(2)}</span>
+                        </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Upload More Button */}
+                  {selectedFiles.length > 0 && (
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        + Upload More Files
+                      </button>
                     </div>
                   )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Sided
-                    </label>
-                    <select
-                      value={printingOptions.sided}
-                      onChange={(e) => setPrintingOptions(prev => ({ ...prev, sided: e.target.value as 'single' | 'double' }))}
-                      className="form-select"
-                    >
-                      <option value="single">Single-sided</option>
-                      <option value="double">Double-sided</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Copies
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={printingOptions.copies || ''}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (value === '') {
-                          // Allow empty value temporarily
-                          setPrintingOptions(prev => ({ ...prev, copies: 0 }));
-                        } else {
-                          const numValue = parseInt(value);
-                          if (!isNaN(numValue) && numValue >= 1) {
-                            setPrintingOptions(prev => ({ ...prev, copies: numValue }));
-                          }
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const value = parseInt(e.target.value);
-                        if (isNaN(value) || value < 1) {
-                          setPrintingOptions(prev => ({ ...prev, copies: 1 }));
-                        }
-                      }}
-                      className="form-select"
-                    />
-                  </div>
                 </div>
-              </div>
-              )}
 
-              {/* Expected Delivery Date */}
-              <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expected Delivery Date
-                  </label>
-                  <input
-                    type="date"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                    min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]} // Tomorrow
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Please select a date at least 1 day from today
-                  </p>
-              </div>
+                {/* Delivery Options Section - Inline after file upload */}
+                {selectedFiles.length > 0 && (
+                  <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200 mt-6">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                      <TruckIcon size={24} className="w-6 h-6" />
+                      Delivery Options
+                    </h3>
 
-              {/* Order Summary */}
-              <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Order Summary</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-gray-600">Files:</span>
-                    <div className="text-right max-w-xs">
-                      {selectedFiles.length > 0 ? (
-                        <div className="space-y-1">
-                          {selectedFiles.map((file, index) => (
-                            <div key={index} className="text-sm">
-                              <span className="font-medium text-gray-800 truncate block">{truncateFileName(file.name)}</span>
-                              <span className="text-xs text-gray-500">
-                                {filePageCounts[index] || 1} page{filePageCounts[index] !== 1 ? 's' : ''}
-                    </span>
-                            </div>
-                          ))}
+
+                    {!isAuthenticated && (
+                      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800 mb-3 flex items-center gap-2">
+                          <WarningIcon size={18} className="w-4.5 h-4.5" />
+                          <strong>Sign in required:</strong> You need to sign in to place an order.
+                        </p>
+                        <div className="flex gap-3 mt-3">
+                          <button
+                            onClick={() => {
+                              setAuthMode('signin');
+                              setShowAuthModal(true);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            Sign In
+                          </button>
+                          <button
+                            onClick={() => {
+                              setAuthMode('signup');
+                              setShowAuthModal(true);
+                            }}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
+                          >
+                            Create Account
+                          </button>
                         </div>
-                      ) : (
-                        <span className="font-medium text-gray-800">No files selected</span>
+                      </div>
+                    )}
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="deliveryType"
+                            value="pickup"
+                            checked={deliveryOption.type === 'pickup'}
+                            onChange={() => setDeliveryOption({ type: 'pickup', pickupLocationId: selectedPickupLocation?._id })}
+                            className="mr-2"
+                          />
+                          <span className="font-medium flex items-center gap-1">
+                            <BuildingIcon size={18} className="w-4.5 h-4.5" />
+                            Pickup from Campus (FREE)
+                          </span>
+                        </label>
+                      </div>
+
+                      {deliveryOption.type === 'pickup' && (
+                        <div className="ml-6 p-4 bg-green-50 rounded-lg border border-green-200">
+                          <h4 className="font-medium text-green-800 mb-3 flex items-center gap-1">
+                            <BuildingIcon size={18} className="w-4.5 h-4.5" />
+                            Select Pickup Location
+                          </h4>
+
+                          {pickupLocations.length > 0 ? (
+                            <select
+                              value={selectedPickupLocation?._id || ''}
+                              onChange={async (e) => {
+                                const location = pickupLocations.find(loc => loc._id === e.target.value);
+                                setSelectedPickupLocation(location || null);
+                                setDeliveryOption(prev => ({
+                                  ...prev,
+                                  pickupLocationId: location?._id
+                                }));
+
+                                if (isAuthenticated && location) {
+                                  try {
+                                    await fetch('/api/user/profile', {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ defaultLocationId: location._id }),
+                                    });
+                                  } catch (error) {
+                                    console.error('Error saving default location:', error);
+                                  }
+                                }
+                              }}
+                              className="w-full px-3 py-2 border border-green-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                            >
+                              <option value="">Select a pickup location</option>
+                              {pickupLocations.map((location) => (
+                                <option key={location._id} value={location._id}>
+                                  {location.name} {location.isDefault ? '(Default)' : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <p className="text-sm text-green-700">Loading pickup locations...</p>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Pages:</span>
-                    <span className="font-medium text-gray-800">
-                      {isCountingPages ? (
-                        <span className="flex items-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-                          Counting...
-                        </span>
-                      ) : (
-                        pageCount
-                      )}
-                    </span>
-                  </div>
-                  {/* Per-File Printing Options Summary */}
-                  {selectedFiles.length > 0 && printingOptions.fileOptions && printingOptions.fileOptions.length > 0 ? (
-                    <div className="space-y-2">
-                      {selectedFiles.map((file, index) => {
-                        const fileOpts = getFilePrintingOptions(index, printingOptions);
-                        return (
-                          <div key={index} className="p-2 bg-white rounded border border-gray-200">
-                            <div className="text-xs font-semibold text-gray-700 mb-1">
-                              {truncateFileName(file.name)}:
+
+                      <div className="flex items-center space-x-4">
+                        <label className="flex items-center">
+                          <input
+                            type="radio"
+                            name="deliveryType"
+                            value="delivery"
+                            checked={deliveryOption.type === 'delivery'}
+                            onChange={() => setDeliveryOption(prev => ({
+                              type: 'delivery',
+                              recipientName: prev.recipientName || customerInfo.name || '',
+                              recipientPhone: prev.recipientPhone || customerInfo.phone || '',
+                            }))}
+                            className="mr-2"
+                          />
+                          <span className="font-medium flex items-center gap-1">
+                            <TruckIcon size={18} className="w-4.5 h-4.5" />
+                            Home Delivery (₹10-50 extra)
+                          </span>
+                        </label>
+                      </div>
+
+                      {deliveryOption.type === 'delivery' && (
+                        <div className="ml-6 p-5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-blue-200 shadow-sm">
+                          <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                            📍 Delivery Address
+                          </h4>
+                          <div className="space-y-4">
+                            {/* Recipient Info */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Recipient Name *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={deliveryOption.recipientName || ''}
+                                  onChange={(e) => setDeliveryOption(prev => ({ ...prev, recipientName: e.target.value }))}
+                                  placeholder="Full name"
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">Phone Number *</label>
+                                <input
+                                  type="tel"
+                                  required
+                                  value={deliveryOption.recipientPhone || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                    setDeliveryOption(prev => ({ ...prev, recipientPhone: val }));
+                                  }}
+                                  placeholder="10-digit mobile"
+                                  maxLength={10}
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                                />
+                              </div>
                             </div>
-                            <div className="text-xs space-y-1 text-gray-600">
-                              <div className="flex justify-between">
-                                <span>Size:</span>
-                                <span className="font-medium">{fileOpts.pageSize}</span>
+
+                            {/* Flat / House / Building */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Flat / House No. / Building *</label>
+                              <input
+                                type="text"
+                                required
+                                value={deliveryOption.flatBuilding || ''}
+                                onChange={(e) => setDeliveryOption(prev => ({ ...prev, flatBuilding: e.target.value }))}
+                                placeholder="e.g. Flat 302, Tower B, Green Valley Apartments"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                              />
+                            </div>
+
+                            {/* Area / Street / Locality */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Area / Street / Locality *</label>
+                              <textarea
+                                required
+                                value={deliveryOption.address || ''}
+                                onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
+                                rows={2}
+                                placeholder="e.g. Sector 62, Near Metro Station"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white resize-none"
+                              />
+                            </div>
+
+                            {/* Landmark */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">Landmark (Optional)</label>
+                              <input
+                                type="text"
+                                value={deliveryOption.landmark || ''}
+                                onChange={(e) => setDeliveryOption(prev => ({ ...prev, landmark: e.target.value }))}
+                                placeholder="e.g. Near SBI Bank, Opposite City Mall"
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                              />
+                            </div>
+
+                            {/* PIN Code, City, State */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">PIN Code *</label>
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    required
+                                    value={deliveryOption.pinCode || ''}
+                                    onChange={async (e) => {
+                                      const pin = e.target.value.replace(/[^0-9]/g, '').slice(0, 6);
+                                      setDeliveryOption(prev => ({ ...prev, pinCode: pin }));
+                                      setPincodeError('');
+
+                                      if (pin.length === 6) {
+                                        setIsPincodeLookup(true);
+                                        try {
+                                          const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+                                          const data = await res.json();
+                                          if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
+                                            const po = data[0].PostOffice[0];
+                                            setDeliveryOption(prev => ({
+                                              ...prev,
+                                              city: po.District || po.Division || '',
+                                              state: po.State || '',
+                                            }));
+                                          } else {
+                                            setPincodeError('Invalid PIN code');
+                                          }
+                                        } catch {
+                                          // Silently fail — user can still type manually
+                                        } finally {
+                                          setIsPincodeLookup(false);
+                                        }
+                                      } else {
+                                        // Clear auto-filled fields when pincode changes
+                                        setDeliveryOption(prev => ({ ...prev, city: '', state: '' }));
+                                      }
+                                    }}
+                                    maxLength={6}
+                                    placeholder="6-digit PIN"
+                                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white ${pincodeError ? 'border-red-400' : 'border-gray-300'
+                                      }`}
+                                  />
+                                  {isPincodeLookup && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-500 border-t-transparent"></div>
+                                    </div>
+                                  )}
+                                </div>
+                                {pincodeError && <p className="text-xs text-red-500 mt-1">{pincodeError}</p>}
                               </div>
-                              <div className="flex justify-between">
-                                <span>Color:</span>
-                                <span className="font-medium">
-                                  {fileOpts.color === 'color' ? 'Color' : 
-                                   fileOpts.color === 'bw' ? 'B&W' : 
-                                   'Mixed'}
-                                </span>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">City *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={deliveryOption.city || ''}
+                                  onChange={(e) => setDeliveryOption(prev => ({ ...prev, city: e.target.value }))}
+                                  placeholder={isPincodeLookup ? 'Loading...' : 'City'}
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                                />
                               </div>
-                              <div className="flex justify-between">
-                                <span>Sided:</span>
-                                <span className="font-medium">
-                                  {fileOpts.sided === 'double' ? 'Double' : 'Single'}
-                                </span>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">State *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  value={deliveryOption.state || ''}
+                                  onChange={(e) => setDeliveryOption(prev => ({ ...prev, state: e.target.value }))}
+                                  placeholder={isPincodeLookup ? 'Loading...' : 'State'}
+                                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm bg-white"
+                                />
                               </div>
-                              <div className="flex justify-between">
-                                <span>Copies:</span>
-                                <span className="font-medium">{fileOpts.copies}</span>
-                              </div>
+                            </div>
+
+                            {/* Delivery note */}
+                            <div className="flex items-start gap-2 p-3 bg-white rounded-lg border border-blue-100">
+                              <span className="text-blue-500 mt-0.5">ℹ️</span>
+                              <p className="text-xs text-gray-600">
+                                Enter your 6-digit PIN code and City & State will be auto-filled. Delivery charges vary based on your location.
+                              </p>
                             </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Size:</span>
-                        <span className="font-medium text-gray-800">{printingOptions.pageSize || 'A4'}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Color:</span>
-                        <span className="font-medium text-gray-800">
-                          {printingOptions.color === 'color' ? 'Color' : 
-                           printingOptions.color === 'bw' ? 'Black & White' : 
-                           printingOptions.color === 'mixed' ? 'Mixed' : 'B&W'}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                  {printingOptions.color === 'mixed' && printingOptions.pageColors && (() => {
-                    let colorCount = 0;
-                    let bwCount = 0;
-                    if (Array.isArray(printingOptions.pageColors)) {
-                      colorCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.colorPages.length, 0);
-                      bwCount = printingOptions.pageColors.reduce((sum, pc) => sum + pc.bwPages.length, 0);
-                    } else {
-                      colorCount = printingOptions.pageColors.colorPages.length;
-                      bwCount = printingOptions.pageColors.bwPages.length;
-                    }
-                    return (
-                      <>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Color Pages:</span>
-                      <span className="font-medium text-green-600">
-                            {colorCount} pages
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">B&W Pages:</span>
-                      <span className="font-medium text-gray-600">
-                            {bwCount} pages
-                      </span>
-                    </div>
-                      </>
-                    );
-                  })()}
-                  {(!printingOptions.fileOptions || printingOptions.fileOptions.length === 0) && (
-                    <>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Sided:</span>
-                        <span className="font-medium text-gray-800">
-                          {printingOptions.sided === 'double' ? 'Double-sided' : 'Single-sided'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Copies:</span>
-                        <span className="font-medium text-gray-800">{printingOptions.copies || 1}</span>
-                      </div>
-                    </>
-                  )}
-                  {/* Service Options per File */}
-                  {selectedFiles.length > 0 && printingOptions.serviceOptions && printingOptions.serviceOptions.length > 0 && (
-                    <div className="space-y-2">
-                      {selectedFiles.map((file, index) => {
-                        const filePageCount = filePageCounts[index] || 1;
-                        const minServiceFeePageLimit = pricingData?.additionalServices?.minServiceFeePageLimit || 1;
-                        const fileServiceOption = printingOptions.serviceOptions?.[index];
-                        
-                        if (filePageCount > minServiceFeePageLimit && fileServiceOption) {
-                          return (
-                            <div key={index} className="flex justify-between items-center text-sm">
-                              <span className="text-gray-600">
-                                {truncateFileName(file.name)}:
-                              </span>
-                              <span className="font-medium text-gray-800">
-                                {fileServiceOption === 'binding' && `Binding (+₹${pricingData?.additionalServices?.binding || 20})`}
-                                {fileServiceOption === 'file' && 'Plastic file (₹10)'}
-                                {fileServiceOption === 'service' && `Service fee (₹${pricingData?.additionalServices?.minServiceFee || 5})`}
-                              </span>
-                            </div>
-                          );
-                        }
-                        return null;
-                      })}
-                    </div>
-                  )}
-                  {/* Legacy support for single serviceOption */}
-                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'binding' && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Binding:</span>
-                      <span className="font-medium text-blue-600">Yes (+₹{pricingData?.additionalServices?.binding || 20})</span>
-                    </div>
-                  )}
-                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > 1 && printingOptions.serviceOption === 'file' && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Plastic file:</span>
-                      <span className="font-medium text-gray-800">₹10</span>
-                    </div>
-                  )}
-                  {(!printingOptions.serviceOptions || printingOptions.serviceOptions.length === 0) && pageCount > (pricingData?.additionalServices?.minServiceFeePageLimit || 1) && printingOptions.serviceOption === 'service' && (
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Service fee:</span>
-                      <span className="font-medium text-gray-800">₹{pricingData?.additionalServices?.minServiceFee || 5}</span>
-                    </div>
-                  )}
-                  <div className="border-t pt-3 mt-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xl font-bold text-gray-800">Total Amount:</span>
-                      <span className="text-2xl font-bold text-gray-800">₹{amount.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              {/* Upload More Button */}
-              {selectedFiles.length > 0 && (
-              <div className="text-center">
-                <button
-                  type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors"
-                >
-                    + Upload More Files
-                </button>
-              </div>
-              )}
-
-              </div>
-
-            {/* Delivery Options Section - Inline after file upload */}
-            {selectedFiles.length > 0 && (
-              <div className="bg-white rounded-lg shadow-xl p-8 border border-gray-200 mt-6">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <TruckIcon size={24} className="w-6 h-6" />
-                  Delivery Options
-                </h3>
-                
-
-                {!isAuthenticated && (
-                  <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800 mb-3 flex items-center gap-2">
-                      <WarningIcon size={18} className="w-4.5 h-4.5" />
-                      <strong>Sign in required:</strong> You need to sign in to place an order.
-                    </p>
-                    <div className="flex gap-3 mt-3">
-                      <button
-                        onClick={() => {
-                          setAuthMode('signin');
-                          setShowAuthModal(true);
-                        }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        Sign In
-                      </button>
-                      <button
-                        onClick={() => {
-                          setAuthMode('signup');
-                          setShowAuthModal(true);
-                        }}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
-                      >
-                        Create Account
-                      </button>
+                    {/* Expected Delivery Date */}
+                    <div className="mt-6">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Expected Delivery Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={expectedDate}
+                        onChange={(e) => setExpectedDate(e.target.value)}
+                        min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        required
+                      />
                     </div>
                   </div>
                 )}
-                
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="deliveryType"
-                        value="pickup"
-                        checked={deliveryOption.type === 'pickup'}
-                        onChange={() => setDeliveryOption({ type: 'pickup', pickupLocationId: selectedPickupLocation?._id })}
-                        className="mr-2"
-                      />
-                      <span className="font-medium flex items-center gap-1">
-                        <BuildingIcon size={18} className="w-4.5 h-4.5" />
-                        Pickup from Campus (FREE)
-                      </span>
-                    </label>
-                  </div>
-
-                  {deliveryOption.type === 'pickup' && (
-                    <div className="ml-6 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <h4 className="font-medium text-green-800 mb-3 flex items-center gap-1">
-                        <BuildingIcon size={18} className="w-4.5 h-4.5" />
-                        Select Pickup Location
-                      </h4>
-                      
-                      {pickupLocations.length > 0 ? (
-                        <select
-                          value={selectedPickupLocation?._id || ''}
-                          onChange={async (e) => {
-                            const location = pickupLocations.find(loc => loc._id === e.target.value);
-                            setSelectedPickupLocation(location || null);
-                            setDeliveryOption(prev => ({
-                              ...prev,
-                              pickupLocationId: location?._id
-                            }));
-                            
-                            if (isAuthenticated && location) {
-                              try {
-                                await fetch('/api/user/profile', {
-                                  method: 'PATCH',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ defaultLocationId: location._id }),
-                                });
-                              } catch (error) {
-                                console.error('Error saving default location:', error);
-                              }
-                            }
-                          }}
-                          className="w-full px-3 py-2 border border-green-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-                        >
-                          <option value="">Select a pickup location</option>
-                          {pickupLocations.map((location) => (
-                            <option key={location._id} value={location._id}>
-                              {location.name} {location.isDefault ? '(Default)' : ''}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <p className="text-sm text-green-700">Loading pickup locations...</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name="deliveryType"
-                        value="delivery"
-                        checked={deliveryOption.type === 'delivery'}
-                        onChange={() => setDeliveryOption({ type: 'delivery' })}
-                        className="mr-2"
-                      />
-                      <span className="font-medium flex items-center gap-1">
-                        <TruckIcon size={18} className="w-4.5 h-4.5" />
-                        Home Delivery (₹10-50 extra)
-                      </span>
-                    </label>
-                  </div>
-
-                  {deliveryOption.type === 'delivery' && (
-                    <div className="ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="space-y-3">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Complete Address *
-                            </label>
-                            <textarea
-                              required
-                              value={deliveryOption.address || ''}
-                            onChange={(e) => setDeliveryOption(prev => ({ ...prev, address: e.target.value }))}
-                              rows={3}
-                              placeholder="Enter your complete delivery address"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                              <input
-                                type="text"
-                                required
-                                value={deliveryOption.city || ''}
-                              onChange={(e) => setDeliveryOption(prev => ({ ...prev, city: e.target.value }))}
-                              placeholder="City"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              />
-                            </div>
-                            <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">PIN Code *</label>
-                              <input
-                                type="text"
-                                required
-                                value={deliveryOption.pinCode || ''}
-                              onChange={(e) => setDeliveryOption(prev => ({ ...prev, pinCode: e.target.value }))}
-                              placeholder="PIN Code"
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Expected Delivery Date */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Expected Delivery Date *
-                            </label>
-                  <input
-                    type="date"
-                    value={expectedDate}
-                    onChange={(e) => setExpectedDate(e.target.value)}
-                    min={new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                              </div>
-                    </div>
-                  )}
-                </div>
               </div>
+            </div>
 
-          {/* Right Column - Sticky Order Summary & Payment */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-6">
-              <div className="bg-white rounded-lg shadow-xl p-6 border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <DocumentIcon size={24} className="w-6 h-6" />
-                  Order Summary
-                </h3>
-                
-                {/* Quick Summary */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Files:</span>
-                    <span className="font-medium">{selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'No files'}</span>
-                        </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Pages:</span>
-                    <span className="font-medium">{isCountingPages ? '...' : pageCount}</span>
-                        </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Size:</span>
-                    <span className="font-medium">{printingOptions.pageSize}</span>
-                        </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Color:</span>
-                    <span className="font-medium">
-                            {printingOptions.color === 'color' ? 'Color' : 
-                       printingOptions.color === 'bw' ? 'B&W' : 'Mixed'}
-                          </span>
-                        </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Copies:</span>
-                    <span className="font-medium">{printingOptions.copies}</span>
-                        </div>
-                  <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Delivery:</span>
-                    <span className="font-medium text-xs flex items-center gap-1">
-                      {deliveryOption.type === 'pickup' ? (
-                        <>
-                          <BuildingIcon size={14} className="w-3.5 h-3.5" />
-                          Pickup
-                        </>
-                      ) : (
-                        <>
-                          <TruckIcon size={14} className="w-3.5 h-3.5" />
-                          Delivery
-                        </>
-                      )}
-                          </span>
+            {/* Right Column - Sticky Order Summary & Payment */}
+            <div className="lg:col-span-1">
+              <div className="sticky top-6">
+                <div className="bg-white rounded-lg shadow-xl p-6 border border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                    <DocumentIcon size={24} className="w-6 h-6" />
+                    Order Summary
+                  </h3>
+
+                  {/* Quick Summary */}
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Files:</span>
+                      <span className="font-medium">{selectedFiles.length > 0 ? `${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''}` : 'No files'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Pages:</span>
+                      <span className="font-medium">{isCountingPages ? '...' : pageCount}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Size:</span>
+                      <span className="font-medium">{printingOptions.pageSize}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Color:</span>
+                      <span className="font-medium">
+                        {printingOptions.color === 'color' ? 'Color' :
+                          printingOptions.color === 'bw' ? 'B&W' : 'Mixed'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Copies:</span>
+                      <span className="font-medium">{printingOptions.copies}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Delivery:</span>
+                      <span className="font-medium text-xs flex items-center gap-1">
+                        {deliveryOption.type === 'pickup' ? (
+                          <>
+                            <BuildingIcon size={14} className="w-3.5 h-3.5" />
+                            Pickup
+                          </>
+                        ) : (
+                          <>
+                            <TruckIcon size={14} className="w-3.5 h-3.5" />
+                            Delivery
+                          </>
+                        )}
+                      </span>
                     </div>
                   </div>
 
-                {/* Total Amount */}
-                <div className="border-t pt-4 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold text-gray-800">Total:</span>
-                    <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">₹{amount.toFixed(2)}</span>
+                  {/* Total Amount */}
+                  <div className="border-t pt-4 mb-6">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-800">Total:</span>
+                      <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">₹{amount.toFixed(2)}</span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Payment Button */}
+                  {/* Payment Button */}
                   <button
                     onClick={() => {
                       if (!isAuthenticated) {
@@ -3696,196 +3830,196 @@ export default function OrderPage() {
                     )}
                   </button>
 
-                {/* Upload Progress Indicator */}
-                {uploadProgress.uploading && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-blue-900">
-                        📤 Uploading {uploadProgress.currentFile} of {uploadProgress.totalFiles} file(s)
-                      </span>
-                      <span className="text-sm text-blue-700">
-                        {uploadProgress.fileName ? uploadProgress.fileName.substring(0, 30) + (uploadProgress.fileName.length > 30 ? '...' : '') : ''}
-                      </span>
-                    </div>
-                    <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${((uploadProgress.currentFile - 1) * 100 + uploadProgress.progress) / uploadProgress.totalFiles}%` }}
-                      ></div>
-                    </div>
-                    {uploadProgress.isSlowNetwork && (
-                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                        <span className="flex items-center gap-1">
-                          <WarningIcon size={16} className="w-4 h-4" />
-                          Slow network detected. Upload is taking longer than expected. Please wait...
-                        </span>
-                      </div>
-                    )}
-                    {uploadProgress.startTime && uploadProgress.progress > 0 && uploadProgress.progress < 100 && (
-                      <div className="text-xs text-blue-600 mt-1">
-                        Upload in progress... This may take a while on slow connections.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Payment Verification Status */}
-                {paymentVerificationStatus.verifying && (
-                  <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  {/* Upload Progress Indicator */}
+                  {uploadProgress.uploading && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-blue-900">
-                          Verifying payment...
+                          📤 Uploading {uploadProgress.currentFile} of {uploadProgress.totalFiles} file(s)
+                        </span>
+                        <span className="text-sm text-blue-700">
+                          {uploadProgress.fileName ? uploadProgress.fileName.substring(0, 30) + (uploadProgress.fileName.length > 30 ? '...' : '') : ''}
                         </span>
                       </div>
-                      {paymentVerificationStatus.startTime && (
-                        <span className="text-xs text-blue-600">
-                          {Math.floor((Date.now() - paymentVerificationStatus.startTime) / 1000)}s
-                        </span>
+                      <div className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${((uploadProgress.currentFile - 1) * 100 + uploadProgress.progress) / uploadProgress.totalFiles}%` }}
+                        ></div>
+                      </div>
+                      {uploadProgress.isSlowNetwork && (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                          <span className="flex items-center gap-1">
+                            <WarningIcon size={16} className="w-4 h-4" />
+                            Slow network detected. Upload is taking longer than expected. Please wait...
+                          </span>
+                        </div>
+                      )}
+                      {uploadProgress.startTime && uploadProgress.progress > 0 && uploadProgress.progress < 100 && (
+                        <div className="text-xs text-blue-600 mt-1">
+                          Upload in progress... This may take a while on slow connections.
+                        </div>
                       )}
                     </div>
-                    {paymentVerificationStatus.startTime && Date.now() - paymentVerificationStatus.startTime > 60000 && (
-                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
-                        <span className="flex items-center gap-1">
-                          <WarningIcon size={16} className="w-4 h-4" />
-                          Verification is taking longer than expected. Please wait...
-                        </span>
+                  )}
+
+                  {/* Payment Verification Status */}
+                  {paymentVerificationStatus.verifying && (
+                    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                          <span className="text-sm font-medium text-blue-900">
+                            Verifying payment...
+                          </span>
+                        </div>
+                        {paymentVerificationStatus.startTime && (
+                          <span className="text-xs text-blue-600">
+                            {Math.floor((Date.now() - paymentVerificationStatus.startTime) / 1000)}s
+                          </span>
+                        )}
                       </div>
-                    )}
-                    {paymentVerificationStatus.polling && (
-                      <div className="mt-2">
-                        <button
-                          onClick={async () => {
-                            if (!paymentVerificationStatus.razorpayOrderId) return;
-                            try {
-                              const response = await fetch('/api/payment/check-status', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  razorpay_order_id: paymentVerificationStatus.razorpayOrderId,
-                                }),
-                              });
-                              const data = await response.json();
-                              if (data.success && data.payment_status === 'completed') {
-                                alert(`Payment successful! Your order #${data.order.orderId} has been placed.`);
-                                setPaymentVerificationStatus({
-                                  verifying: false,
-                                  orderId: null,
-                                  razorpayOrderId: null,
-                                  startTime: null,
-                                  polling: false,
+                      {paymentVerificationStatus.startTime && Date.now() - paymentVerificationStatus.startTime > 60000 && (
+                        <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                          <span className="flex items-center gap-1">
+                            <WarningIcon size={16} className="w-4 h-4" />
+                            Verification is taking longer than expected. Please wait...
+                          </span>
+                        </div>
+                      )}
+                      {paymentVerificationStatus.polling && (
+                        <div className="mt-2">
+                          <button
+                            onClick={async () => {
+                              if (!paymentVerificationStatus.razorpayOrderId) return;
+                              try {
+                                const response = await fetch('/api/payment/check-status', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    razorpay_order_id: paymentVerificationStatus.razorpayOrderId,
+                                  }),
                                 });
-                                window.location.href = '/my-orders';
-                              } else if (data.payment_status === 'failed') {
-                                alert(`Payment failed: ${data.message}`);
-                                setPaymentVerificationStatus({
-                                  verifying: false,
-                                  orderId: null,
-                                  razorpayOrderId: null,
-                                  startTime: null,
-                                  polling: false,
-                                });
-                              } else {
-                                alert(`Payment status: ${data.message}`);
+                                const data = await response.json();
+                                if (data.success && data.payment_status === 'completed') {
+                                  alert(`Payment successful! Your order #${data.order.orderId} has been placed.`);
+                                  setPaymentVerificationStatus({
+                                    verifying: false,
+                                    orderId: null,
+                                    razorpayOrderId: null,
+                                    startTime: null,
+                                    polling: false,
+                                  });
+                                  window.location.href = '/my-orders';
+                                } else if (data.payment_status === 'failed') {
+                                  alert(`Payment failed: ${data.message}`);
+                                  setPaymentVerificationStatus({
+                                    verifying: false,
+                                    orderId: null,
+                                    razorpayOrderId: null,
+                                    startTime: null,
+                                    polling: false,
+                                  });
+                                } else {
+                                  alert(`Payment status: ${data.message}`);
+                                }
+                              } catch (error) {
+                                console.error('Error checking payment status:', error);
+                                alert('Failed to check payment status. Please try again later.');
                               }
-                            } catch (error) {
-                              console.error('Error checking payment status:', error);
-                              alert('Failed to check payment status. Please try again later.');
-                            }
-                          }}
-                          className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                        >
-                          🔍 Check Payment Status
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+                            }}
+                            className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                          >
+                            🔍 Check Payment Status
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
-                {!isAuthenticated && (
-                  <div className="mt-4 text-center">
-                    <button
-                      onClick={() => {
-                        setAuthMode('signin');
-                        setShowAuthModal(true);
-                      }}
-                      className="text-sm text-blue-600 hover:text-blue-800 underline"
-                    >
-                      Sign in to continue
-                    </button>
-                  </div>
-                )}
+                  {!isAuthenticated && (
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => {
+                          setAuthMode('signin');
+                          setShowAuthModal(true);
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800 underline"
+                      >
+                        Sign in to continue
+                      </button>
+                    </div>
+                  )}
 
-                {/* Trust Badges */}
-                <div className="mt-6 pt-6 border-t space-y-2">
-                  <div className="flex items-center text-xs text-gray-600">
-                    <span className="mr-2">🔒</span>
-                    <span>Secure Payment</span>
-                </div>
-                  <div className="flex items-center text-xs text-gray-600">
-                    <span className="mr-2">🚀</span>
-                    <span>Fast Delivery</span>
-              </div>
-                  <div className="flex items-center text-xs text-gray-600">
-                    <span className="mr-2">⭐</span>
-                    <span>1000+ Happy Customers</span>
-            </div>
+                  {/* Trust Badges */}
+                  <div className="mt-6 pt-6 border-t space-y-2">
+                    <div className="flex items-center text-xs text-gray-600">
+                      <span className="mr-2">🔒</span>
+                      <span>Secure Payment</span>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-600">
+                      <span className="mr-2">🚀</span>
+                      <span>Fast Delivery</span>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-600">
+                      <span className="mr-2">⭐</span>
+                      <span>1000+ Happy Customers</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    {/* Inline Auth Modal */}
-    <InlineAuthModal
-      isOpen={showAuthModal}
-      onClose={() => setShowAuthModal(false)}
-      onAuthSuccess={() => {
-        // Auth success is handled by useEffect that watches isAuthenticated
-        // This callback is called after successful authentication
-        setShowAuthModal(false);
-      }}
-      initialMode={authMode}
-      onBeforeGoogleSignIn={async () => {
-        // Save order state before Google OAuth redirect
-        // This preserves files and form data during the OAuth flow
-        try {
-          await saveOrderState({
-            selectedFiles,
-            fileURLs,
-            orderType,
-            printingOptions,
-            expectedDate,
-            pageCount,
-            filePageCounts,
-            pdfUrls,
-            pdfLoaded,
-            customerInfo,
-            deliveryOption,
-            selectedPickupLocation,
-            colorPagesInput,
-            colorPagesInputs,
-            colorPagesValidations,
-          });
-          console.log('✅ Order state saved before Google OAuth');
-        } catch (error) {
-          console.error('Error saving order state:', error);
-          // Don't block OAuth flow if save fails
-        }
-      }}
-    />
-    
-    <InlinePhoneModal
-      isOpen={showPhoneModal}
-      onClose={() => setShowPhoneModal(false)}
-      onPhoneSaved={(phone) => {
-        setCustomerInfo(prev => ({ ...prev, phone }));
-        setShowPhoneModal(false);
-      }}
-    />
+      {/* Inline Auth Modal */}
+      <InlineAuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onAuthSuccess={() => {
+          // Auth success is handled by useEffect that watches isAuthenticated
+          // This callback is called after successful authentication
+          setShowAuthModal(false);
+        }}
+        initialMode={authMode}
+        onBeforeGoogleSignIn={async () => {
+          // Save order state before Google OAuth redirect
+          // This preserves files and form data during the OAuth flow
+          try {
+            await saveOrderState({
+              selectedFiles,
+              fileURLs,
+              orderType,
+              printingOptions,
+              expectedDate,
+              pageCount,
+              filePageCounts,
+              pdfUrls,
+              pdfLoaded,
+              customerInfo,
+              deliveryOption,
+              selectedPickupLocation,
+              colorPagesInput,
+              colorPagesInputs,
+              colorPagesValidations,
+            });
+            console.log('✅ Order state saved before Google OAuth');
+          } catch (error) {
+            console.error('Error saving order state:', error);
+            // Don't block OAuth flow if save fails
+          }
+        }}
+      />
+
+      <InlinePhoneModal
+        isOpen={showPhoneModal}
+        onClose={() => setShowPhoneModal(false)}
+        onPhoneSaved={(phone) => {
+          setCustomerInfo(prev => ({ ...prev, phone }));
+          setShowPhoneModal(false);
+        }}
+      />
     </>
   );
 }

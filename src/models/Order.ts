@@ -68,7 +68,12 @@ export interface IOrder {
     deliveryCharge?: number;
     address?: string;
     city?: string;
+    state?: string;
     pinCode?: string;
+    landmark?: string;
+    flatBuilding?: string;
+    recipientName?: string;
+    recipientPhone?: string;
     pickupLocationId?: string;
     pickupLocation?: {
       _id: string;
@@ -92,6 +97,16 @@ export interface IOrder {
   templateCreatorUserId?: string; // Reference to template creator user ID (string for simplicity)
   expectedDate?: Date;
   deliveryNumber?: string; // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
+  // Shiprocket delivery tracking fields
+  shiprocket?: {
+    orderId?: number;        // Shiprocket's order ID
+    shipmentId?: number;     // Shiprocket's shipment ID
+    awbCode?: string;        // Tracking number (Air Waybill)
+    courierName?: string;    // Assigned courier name
+    trackingUrl?: string;    // Direct tracking URL
+    status?: string;         // Latest Shiprocket status string
+    lastTrackedAt?: Date;    // When we last fetched tracking info
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -222,7 +237,12 @@ const orderSchema = new mongoose.Schema<IOrder>({
     deliveryCharge: Number,
     address: String,
     city: String,
-    pinCode: String
+    state: String,
+    pinCode: String,
+    landmark: String,
+    flatBuilding: String,
+    recipientName: String,
+    recipientPhone: String
   },
   razorpayOrderId: String,
   razorpayPaymentId: String,
@@ -254,7 +274,7 @@ const orderSchema = new mongoose.Schema<IOrder>({
   expectedDate: {
     type: Date,
     validate: {
-      validator: function(value: Date) {
+      validator: function (value: Date) {
         if (!value) return true; // Optional field
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Reset time to start of day
@@ -264,38 +284,48 @@ const orderSchema = new mongoose.Schema<IOrder>({
     }
   },
   deliveryNumber: String, // Format: {LETTER}{YYYYMMDD}{PRINTER_INDEX}
+  // Shiprocket delivery tracking
+  shiprocket: {
+    orderId: Number,
+    shipmentId: Number,
+    awbCode: String,
+    courierName: String,
+    trackingUrl: String,
+    status: String,
+    lastTrackedAt: Date,
+  },
 }, {
   timestamps: true,
 });
 
 // Generate order ID before saving
-orderSchema.pre('save', async function(next) {
+orderSchema.pre('save', async function (next) {
   if (this.isNew && !this.orderId) {
     let attempts = 0;
     const maxAttempts = 10;
-    
+
     while (attempts < maxAttempts) {
       try {
         // Use timestamp + random number for better uniqueness
         const timestamp = Date.now().toString().slice(-6);
         const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
         const candidateOrderId = `ORD${timestamp}${random}`;
-        
+
         // Check if this orderId already exists
         const existingOrder = await mongoose.model('Order').findOne({ orderId: candidateOrderId });
-        
+
         if (!existingOrder) {
           this.orderId = candidateOrderId;
           break;
         }
-        
+
         attempts++;
       } catch (error) {
         console.error('Error generating order ID:', error);
         attempts++;
       }
     }
-    
+
     // Fallback to UUID if all attempts fail
     if (!this.orderId) {
       const { v4: uuidv4 } = await import('uuid');

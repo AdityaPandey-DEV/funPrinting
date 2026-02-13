@@ -27,9 +27,11 @@ export interface OrderDetailViewProps {
   setPdfLoaded: (loaded: boolean) => void;
   isUpdating?: boolean;
   isPrinting?: boolean;
+  isShipping?: boolean;
   onUpdateStatus?: (newStatus: string) => void;
   onSendToPrintQueue?: () => void;
   onDeleteOrder?: () => void;
+  onShipOrder?: () => void;
 }
 
 // Helper function to detect file type from URL or filename
@@ -98,9 +100,11 @@ export function OrderDetailView(props: OrderDetailViewProps) {
     setPdfLoaded,
     isUpdating = false,
     isPrinting = false,
+    isShipping = false,
     onUpdateStatus,
     onSendToPrintQueue,
     onDeleteOrder,
+    onShipOrder,
   } = props;
 
   if (!order) {
@@ -134,8 +138,8 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                 {order.printingOptions?.color === 'color'
                   ? 'Color'
                   : order.printingOptions?.color === 'bw'
-                  ? 'Black & White'
-                  : 'Mixed'}
+                    ? 'Black & White'
+                    : 'Mixed'}
               </span>
             </div>
 
@@ -173,13 +177,35 @@ export function OrderDetailView(props: OrderDetailViewProps) {
 
               return displayPageColors && (colorPages.length > 0 || bwPages.length > 0);
             })() && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
-                <div className="font-medium text-green-800 mb-3">🎨 Mixed Color Printing Details</div>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-green-500 rounded-full"></span>
-                    <span className="text-gray-700">Color Pages:</span>
-                    <span className="font-medium text-green-600">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-2">
+                  <div className="font-medium text-green-800 mb-3">🎨 Mixed Color Printing Details</div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 bg-green-500 rounded-full"></span>
+                      <span className="text-gray-700">Color Pages:</span>
+                      <span className="font-medium text-green-600">
+                        {(() => {
+                          const fileOptions = (order.printingOptions as any)?.fileOptions;
+                          let colorPages: number[] = [];
+
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                          } else {
+                            const pageColors = order.printingOptions?.pageColors;
+                            if (Array.isArray(pageColors)) {
+                              colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
+                            } else if (pageColors) {
+                              colorPages = pageColors.colorPages || [];
+                            }
+                          }
+
+                          return `${colorPages.length} pages`;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
+                      [
                       {(() => {
                         const fileOptions = (order.printingOptions as any)?.fileOptions;
                         let colorPages: number[] = [];
@@ -196,36 +222,36 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                           }
                         }
 
-                        return `${colorPages.length} pages`;
+                        return colorPages.length > 0 ? colorPages.join(', ') : 'None';
                       })()}
-                    </span>
-                  </div>
-                  <div className="text-sm text-green-700 ml-5 bg-white px-2 py-1 rounded border">
-                    [
-                    {(() => {
-                      const fileOptions = (order.printingOptions as any)?.fileOptions;
-                      let colorPages: number[] = [];
+                      ]
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
+                      <span className="text-gray-700">B&W Pages:</span>
+                      <span className="font-medium text-gray-600">
+                        {(() => {
+                          const fileOptions = (order.printingOptions as any)?.fileOptions;
+                          let bwPages: number[] = [];
 
-                      if (Array.isArray(fileOptions) && fileOptions.length > 0) {
-                        const targetFileIndex = selectedFileIndex || 0;
-                        colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
-                      } else {
-                        const pageColors = order.printingOptions?.pageColors;
-                        if (Array.isArray(pageColors)) {
-                          colorPages = pageColors[selectedFileIndex || 0]?.colorPages || [];
-                        } else if (pageColors) {
-                          colorPages = pageColors.colorPages || [];
-                        }
-                      }
+                          if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                            const targetFileIndex = selectedFileIndex || 0;
+                            bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                          } else {
+                            const pageColors = order.printingOptions?.pageColors;
+                            if (Array.isArray(pageColors)) {
+                              bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
+                            } else if (pageColors) {
+                              bwPages = pageColors.bwPages || [];
+                            }
+                          }
 
-                      return colorPages.length > 0 ? colorPages.join(', ') : 'None';
-                    })()}
-                    ]
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-gray-500 rounded-full"></span>
-                    <span className="text-gray-700">B&W Pages:</span>
-                    <span className="font-medium text-gray-600">
+                          return `${bwPages.length} pages`;
+                        })()}
+                      </span>
+                    </div>
+                    <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
+                      [
                       {(() => {
                         const fileOptions = (order.printingOptions as any)?.fileOptions;
                         let bwPages: number[] = [];
@@ -242,92 +268,69 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                           }
                         }
 
-                        return `${bwPages.length} pages`;
+                        return bwPages.length > 0 ? bwPages.join(', ') : 'None';
                       })()}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 ml-5 bg-white px-2 py-1 rounded border">
-                    [
-                    {(() => {
-                      const fileOptions = (order.printingOptions as any)?.fileOptions;
-                      let bwPages: number[] = [];
+                      ]
+                    </div>
 
-                      if (Array.isArray(fileOptions) && fileOptions.length > 0) {
-                        const targetFileIndex = selectedFileIndex || 0;
-                        bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
-                      } else {
-                        const pageColors = order.printingOptions?.pageColors;
-                        if (Array.isArray(pageColors)) {
-                          bwPages = pageColors[selectedFileIndex || 0]?.bwPages || [];
-                        } else if (pageColors) {
-                          bwPages = pageColors.bwPages || [];
-                        }
-                      }
+                    {order.printingOptions?.pageCount && order.printingOptions.pageCount > 0 && (
+                      <div className="mt-3 pt-3 border-t border-green-300">
+                        <div className="text-xs font-medium text-green-800 mb-2">
+                          Page Preview ({order.printingOptions.pageCount} total pages)
+                        </div>
+                        <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
+                          {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map(
+                            (pageNum) => {
+                              const fileOptions = (order.printingOptions as any)?.fileOptions;
+                              let colorPages: number[] = [];
+                              let bwPages: number[] = [];
 
-                      return bwPages.length > 0 ? bwPages.join(', ') : 'None';
-                    })()}
-                    ]
-                  </div>
-
-                  {order.printingOptions?.pageCount && order.printingOptions.pageCount > 0 && (
-                    <div className="mt-3 pt-3 border-t border-green-300">
-                      <div className="text-xs font-medium text-green-800 mb-2">
-                        Page Preview ({order.printingOptions.pageCount} total pages)
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 p-2 bg-white rounded border border-green-200 max-h-32 overflow-y-auto">
-                        {Array.from({ length: order.printingOptions.pageCount }, (_, i) => i + 1).map(
-                          (pageNum) => {
-                            const fileOptions = (order.printingOptions as any)?.fileOptions;
-                            let colorPages: number[] = [];
-                            let bwPages: number[] = [];
-
-                            if (Array.isArray(fileOptions) && fileOptions.length > 0) {
-                              const targetFileIndex = selectedFileIndex || 0;
-                              colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
-                              bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
-                            } else {
-                              const pageColors = order.printingOptions?.pageColors;
-                              if (Array.isArray(pageColors)) {
-                                const targetPageColors = pageColors[selectedFileIndex || 0];
-                                colorPages = targetPageColors?.colorPages || [];
-                                bwPages = targetPageColors?.bwPages || [];
-                              } else if (pageColors) {
-                                colorPages = pageColors.colorPages || [];
-                                bwPages = pageColors.bwPages || [];
+                              if (Array.isArray(fileOptions) && fileOptions.length > 0) {
+                                const targetFileIndex = selectedFileIndex || 0;
+                                colorPages = fileOptions[targetFileIndex]?.pageColors?.colorPages || [];
+                                bwPages = fileOptions[targetFileIndex]?.pageColors?.bwPages || [];
+                              } else {
+                                const pageColors = order.printingOptions?.pageColors;
+                                if (Array.isArray(pageColors)) {
+                                  const targetPageColors = pageColors[selectedFileIndex || 0];
+                                  colorPages = targetPageColors?.colorPages || [];
+                                  bwPages = targetPageColors?.bwPages || [];
+                                } else if (pageColors) {
+                                  colorPages = pageColors.colorPages || [];
+                                  bwPages = pageColors.bwPages || [];
+                                }
                               }
-                            }
 
-                            const isColor = colorPages.includes(pageNum);
-                            const isBw = bwPages.includes(pageNum);
-                            return (
-                              <div
-                                key={pageNum}
-                                className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${
-                                  isColor
+                              const isColor = colorPages.includes(pageNum);
+                              const isBw = bwPages.includes(pageNum);
+                              return (
+                                <div
+                                  key={pageNum}
+                                  className={`px-2 py-0.5 rounded text-xs font-medium transition-all ${isColor
                                     ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
                                     : isBw
-                                    ? 'bg-gray-300 text-gray-800'
-                                    : 'bg-gray-100 text-gray-500 border border-gray-300'
-                                }`}
-                                title={
-                                  isColor
-                                    ? `Page ${pageNum} - Color`
-                                    : isBw
-                                    ? `Page ${pageNum} - Black & White`
-                                    : `Page ${pageNum} - Not specified`
-                                }
-                              >
-                                {pageNum}
-                              </div>
-                            );
-                          },
-                        )}
+                                      ? 'bg-gray-300 text-gray-800'
+                                      : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                    }`}
+                                  title={
+                                    isColor
+                                      ? `Page ${pageNum} - Color`
+                                      : isBw
+                                        ? `Page ${pageNum} - Black & White`
+                                        : `Page ${pageNum} - Not specified`
+                                  }
+                                >
+                                  {pageNum}
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
             <div className="flex justify-between">
               <span className="text-gray-600">Sided:</span>
               <span className="font-medium">
@@ -402,11 +405,10 @@ export function OrderDetailView(props: OrderDetailViewProps) {
               <div>
                 <span className="text-gray-600">Type:</span>
                 <span
-                  className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                    order.deliveryOption.type === 'pickup'
-                      ? 'bg-green-100 text-green-800 border border-green-300'
-                      : 'bg-blue-100 text-blue-800 border border-blue-300'
-                  }`}
+                  className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${order.deliveryOption.type === 'pickup'
+                    ? 'bg-green-100 text-green-800 border border-green-300'
+                    : 'bg-blue-100 text-blue-800 border border-blue-300'
+                    }`}
                 >
                   {order.deliveryOption.type === 'pickup' ? 'Pickup' : 'Delivery'}
                 </span>
@@ -470,17 +472,138 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                   <span className="ml-2 font-medium">₹{order.deliveryOption.deliveryCharge}</span>
                 </div>
               )}
-              {order.deliveryOption.address && (
-                <div>
-                  <span className="text-gray-600">Delivery Address:</span>
-                  <span className="ml-2 font-medium">
+              {order.deliveryOption.type === 'delivery' && (order.deliveryOption.address || order.deliveryOption.flatBuilding) && (
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-2">
+                  <p className="text-sm font-semibold text-gray-800">📍 Delivery Address</p>
+                  {(order.deliveryOption.recipientName || order.deliveryOption.recipientPhone) && (
+                    <p className="text-sm text-gray-700 font-medium">
+                      {order.deliveryOption.recipientName}
+                      {order.deliveryOption.recipientPhone && (
+                        <span className="text-gray-500 ml-2">📞 {order.deliveryOption.recipientPhone}</span>
+                      )}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-700">
+                    {order.deliveryOption.flatBuilding && <>{order.deliveryOption.flatBuilding}, </>}
                     {order.deliveryOption.address}
-                    {order.deliveryOption.city && `, ${order.deliveryOption.city}`}
+                  </p>
+                  {order.deliveryOption.landmark && (
+                    <p className="text-sm text-gray-500">Landmark: {order.deliveryOption.landmark}</p>
+                  )}
+                  <p className="text-sm text-gray-700">
+                    {order.deliveryOption.city}
+                    {order.deliveryOption.state && `, ${order.deliveryOption.state}`}
                     {order.deliveryOption.pinCode && ` - ${order.deliveryOption.pinCode}`}
-                  </span>
+                  </p>
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Shiprocket Shipping & Tracking */}
+        {order.deliveryOption?.type === 'delivery' && (
+          <div className="bg-white rounded-lg shadow-lg p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              📦 Shipping & Tracking
+            </h2>
+
+            {order.shiprocket?.awbCode ? (
+              <div className="space-y-4">
+                {/* Tracking Info */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                    <span className="font-medium text-green-800">Shipped via {order.shiprocket.courierName || 'Courier'}</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-gray-600">AWB Number:</span>
+                      <span className="ml-2 font-mono font-medium text-gray-900">{order.shiprocket.awbCode}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Courier:</span>
+                      <span className="ml-2 font-medium text-gray-900">{order.shiprocket.courierName || 'N/A'}</span>
+                    </div>
+                    {order.shiprocket.status && (
+                      <div>
+                        <span className="text-gray-600">Status:</span>
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {order.shiprocket.status}
+                        </span>
+                      </div>
+                    )}
+                    {order.shiprocket.lastTrackedAt && (
+                      <div>
+                        <span className="text-gray-600">Last Updated:</span>
+                        <span className="ml-2 text-gray-500 text-xs">
+                          {formatDate(order.shiprocket.lastTrackedAt.toString(), 'long')}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tracking Progress Bar */}
+                <div className="flex items-center justify-between px-2">
+                  {['Printed', 'Shipped', 'In Transit', 'Delivered'].map((step, idx) => {
+                    const statusMap: Record<string, number> = {
+                      'SHIPPED': 1, 'NEW': 1, 'PICKUP_SCHEDULED': 1,
+                      'IN TRANSIT': 2, 'OUT_FOR_DELIVERY': 2, 'REACHED_AT_DESTINATION_HUB': 2,
+                      'DELIVERED': 3,
+                    };
+                    const currentStep = statusMap[order.shiprocket?.status || ''] ?? 1;
+                    const isCompleted = idx <= currentStep;
+                    const isCurrent = idx === currentStep;
+                    return (
+                      <div key={step} className="flex flex-col items-center flex-1">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold mb-1 transition-all ${isCompleted
+                          ? isCurrent
+                            ? 'bg-blue-600 text-white ring-4 ring-blue-200'
+                            : 'bg-green-600 text-white'
+                          : 'bg-gray-200 text-gray-500'
+                          }`}>
+                          {isCompleted && !isCurrent ? '✓' : idx + 1}
+                        </div>
+                        <span className={`text-xs text-center ${isCompleted ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Track on Shiprocket Link */}
+                {order.shiprocket.trackingUrl && (
+                  <a
+                    href={order.shiprocket.trackingUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-center bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    🔗 Track on Shiprocket
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-gray-500 text-sm">This order has not been shipped yet.</p>
+                {/* Ship button — admin only */}
+                {mode === 'admin' && onShipOrder && (
+                  <button
+                    onClick={onShipOrder}
+                    disabled={isShipping || order.paymentStatus !== 'completed'}
+                    className="w-full bg-purple-600 text-white px-4 py-2.5 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
+                  >
+                    <TruckIcon size={18} className="w-4.5 h-4.5" />
+                    {isShipping ? 'Shipping via Shiprocket...' : '🚀 Ship via Shiprocket'}
+                  </button>
+                )}
+                {mode === 'admin' && order.paymentStatus !== 'completed' && (
+                  <p className="text-xs text-orange-600">⚠️ Payment must be completed before shipping.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -530,8 +653,8 @@ export function OrderDetailView(props: OrderDetailViewProps) {
           </h2>
 
           {order.orderType === 'file' &&
-          ((order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0) ||
-            order.fileURL) ? (
+            ((order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0) ||
+              order.fileURL) ? (
             <div className="space-y-4">
               {/* File list (for multiple files) */}
               {order.fileURLs && Array.isArray(order.fileURLs) && order.fileURLs.length > 0 ? (
@@ -577,11 +700,10 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                       return (
                         <div
                           key={idx}
-                          className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                            selectedFileIndex === idx
-                              ? 'bg-blue-50 border-blue-400 shadow-sm'
-                              : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
-                          }`}
+                          className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-all ${selectedFileIndex === idx
+                            ? 'bg-blue-50 border-blue-400 shadow-sm'
+                            : 'bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm'
+                            }`}
                           onClick={() => {
                             setSelectedFileIndex(idx);
                             setPdfLoaded(false);
@@ -600,33 +722,32 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                                   {isImage
                                     ? 'Image'
                                     : isPDF
-                                    ? 'PDF'
-                                    : isDoc
-                                    ? 'Document'
-                                    : 'File'}{' '}
+                                      ? 'PDF'
+                                      : isDoc
+                                        ? 'Document'
+                                        : 'File'}{' '}
                                   • #{idx + 1}
                                 </span>
                                 <span
-                                  className={`text-[10px] px-2 py-0.5 rounded-full border ${
-                                    modeValue === 'mixed'
-                                      ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                      : modeValue === 'color'
+                                  className={`text-[10px] px-2 py-0.5 rounded-full border ${modeValue === 'mixed'
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : modeValue === 'color'
                                       ? 'bg-green-50 text-green-700 border-green-200'
                                       : 'bg-gray-100 text-gray-700 border-gray-200'
-                                  }`}
+                                    }`}
                                   title={
                                     modeValue === 'mixed'
                                       ? 'Some pages color, some B&W'
                                       : modeValue === 'color'
-                                      ? 'All pages color'
-                                      : 'All pages B&W'
+                                        ? 'All pages color'
+                                        : 'All pages B&W'
                                   }
                                 >
                                   {modeValue === 'mixed'
                                     ? 'Mixed'
                                     : modeValue === 'color'
-                                    ? 'Color'
-                                    : 'B&W'}
+                                      ? 'Color'
+                                      : 'B&W'}
                                 </span>
                               </div>
                             </div>
@@ -663,9 +784,8 @@ export function OrderDetailView(props: OrderDetailViewProps) {
                     <a
                       href={`/api/admin/pdf-viewer?url=${encodeURIComponent(
                         order.fileURL,
-                      )}&orderId=${order.orderId}&filename=${
-                        order.originalFileName || 'document'
-                      }`}
+                      )}&orderId=${order.orderId}&filename=${order.originalFileName || 'document'
+                        }`}
                       className="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800 transition-colors"
                     >
                       Download File
@@ -678,9 +798,8 @@ export function OrderDetailView(props: OrderDetailViewProps) {
               <div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Preview</h3>
                 <div
-                  className={`border rounded-lg overflow-hidden ${
-                    order.printingOptions?.color === 'bw' ? 'grayscale' : ''
-                  }`}
+                  className={`border rounded-lg overflow-hidden ${order.printingOptions?.color === 'bw' ? 'grayscale' : ''
+                    }`}
                 >
                   {!pdfLoaded && (
                     <div className="h-96 bg-gray-100 flex items-center justify-center">
