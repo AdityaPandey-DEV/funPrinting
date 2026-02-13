@@ -11,6 +11,7 @@ import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderS
 import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
 import toast from 'react-hot-toast';
 import { getCart, addToCart, removeFromCart, clearCart, getCartItemCount, getCartWeight, estimateItemPrice, estimateCartTotal, fileToDataUrl, dataUrlToFile, generateCartId, getCartItem, updateCartItem, CartItem } from '@/lib/cartUtils';
+import { PricingData } from '@/lib/pricing';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -588,6 +589,7 @@ function OrderPageContent() {
   const [showCartDrawer, setShowCartDrawer] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [editingCartItemId, setEditingCartItemId] = useState<string | null>(null);
+  const [pricing, setPricing] = useState<PricingData | undefined>(undefined);
 
   // Search params for cart editing
   const searchParams = useSearchParams();
@@ -596,6 +598,98 @@ function OrderPageContent() {
   useEffect(() => {
     setCartItems(getCart());
   }, []);
+
+  // Fetch pricing on mount
+  useEffect(() => {
+    const fetchPricing = async () => {
+      try {
+        const res = await fetch('/api/pricing');
+        if (res.ok) {
+          const data = await res.json();
+          setPricing(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch pricing:', error);
+      }
+    };
+    fetchPricing();
+  }, []);
+
+  // Helper to load cart items into order state (for checkout)
+  const loadCartForCheckout = () => {
+    setShowCartDrawer(false);
+    // Restore all cart items as files for checkout
+    const files: File[] = [];
+    const pageCounts: number[] = [];
+    const fileOptions: Array<{
+      pageSize: 'A4' | 'A3';
+      color: 'color' | 'bw' | 'mixed';
+      sided: 'single' | 'double';
+      copies: number;
+      pageColors?: {
+        colorPages: number[];
+        bwPages: number[];
+      };
+    }> = [];
+    const serviceOpts: ('file' | 'binding' | 'service')[] = [];
+    const pageColorsArr: Array<{
+      colorPages: number[];
+      bwPages: number[];
+    }> = [];
+
+    const currentCart = getCart(); // Get fresh cart data
+    if (currentCart.length === 0) return;
+
+    for (const item of currentCart) {
+      const file = dataUrlToFile(item.fileDataUrl, item.fileName, item.fileType);
+      files.push(file);
+      pageCounts.push(item.pageCount);
+      fileOptions.push({
+        pageSize: item.printingOptions.pageSize,
+        color: item.printingOptions.color,
+        sided: item.printingOptions.sided,
+        copies: item.printingOptions.copies,
+        pageColors: item.printingOptions.pageColors,
+      });
+      serviceOpts.push((item.printingOptions.serviceOption as 'file' | 'binding' | 'service') || 'service');
+      pageColorsArr.push(item.printingOptions.pageColors || {
+        colorPages: [],
+        bwPages: []
+      });
+    }
+
+    // Load cart items into order state
+    setSelectedFiles(files);
+    setFilePageCounts(pageCounts);
+    const totalPages = pageCounts.reduce((sum: number, p: number) => sum + p, 0);
+    setPageCount(totalPages);
+    setPrintingOptions((prev: PrintingOptions) => ({
+      ...prev,
+      fileOptions,
+      serviceOptions: serviceOpts,
+      pageColors: pageColorsArr,
+      pageSize: fileOptions[0]?.pageSize || 'A4',
+      color: fileOptions.some((f: {
+        color: string
+      }) => f.color === 'mixed') ? 'mixed' :
+        fileOptions.some((f: {
+          color: string
+        }) => f.color === 'color') ? 'color' : 'bw',
+      sided: fileOptions[0]?.sided || 'single',
+      copies: fileOptions[0]?.copies || 1,
+    }));
+  };
+
+  // Auto-checkout when query param is present
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'true') {
+      // Small delay to ensure cart is loaded
+      setTimeout(() => {
+        loadCartForCheckout();
+        toast.success('Checkout started! Review details & pay.');
+      }, 500);
+    }
+  }, [searchParams]);
 
   // Load cart item for editing when editCartItem query param is present
   useEffect(() => {
@@ -4462,6 +4556,93 @@ function OrderPageContent() {
         }}
       />
 
+      {/* Mobile Sticky Bottom Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40 lg:hidden safe-area-bottom">
+        <div className="flex items-center justify-between gap-4 max-w-7xl mx-auto">
+          <div>
+            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total</p>
+            <p className="text-xl font-bold text-gray-900">₹{amount.toFixed(2)}</p>
+          </div>
+
+          {editingCartItemId ? (
+            <div className="flex gap-2 flex-1 justify-end">
+              <button
+                onClick={() => {
+                  removeFromCart(editingCartItemId);
+                  toast.success('Removed');
+                  router.push('/cart');
+                }}
+                className="px-4 py-3 bg-red-100 text-red-600 rounded-lg font-semibold hover:bg-red-200"
+              >
+                <span className="text-xl">🗑️</span>
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const file = selectedFiles[0];
+                    const fileOpts = getFilePrintingOptions(0, printingOptions);
+                    const newDataUrl = await fileToDataUrl(file);
+                    updateCartItem(editingCartItemId, {
+                      fileName: file.name,
+                      fileSize: file.size,
+                      pageCount: filePageCounts[0] || 1,
+                      printingOptions: {
+                        pageSize: fileOpts.pageSize,
+                        color: fileOpts.color,
+                        sided: fileOpts.sided,
+                        copies: fileOpts.copies,
+                        serviceOption: printingOptions.serviceOptions?.[0] || printingOptions.serviceOption || 'service',
+                        pageColors: fileOpts.pageColors,
+                      },
+                      fileDataUrl: newDataUrl,
+                      fileType: file.type,
+                    });
+                    toast.success('Updated!');
+                    router.push('/cart');
+                  } catch (err) {
+                    console.error('Failed to update:', err);
+                    toast.error('Failed to update');
+                  }
+                }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold shadow-md"
+              >
+                Update
+              </button>
+            </div>
+          ) : (
+            selectedFiles.length > 0 ? (
+              <button
+                onClick={handleAddToCart}
+                disabled={isAddingToCart || selectedFiles.length === 0}
+                className="flex-1 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isAddingToCart ? (
+                  <>
+                    <RefreshIcon size={18} className="w-4.5 h-4.5 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    🛒 Add to Cart
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  // Scroll to top or trigger file input
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  toast('Please upload a file first', { icon: '👆' });
+                }}
+                className="flex-1 px-6 py-3 bg-gray-100 text-gray-400 rounded-lg font-semibold cursor-not-allowed"
+              >
+                Select File
+              </button>
+            )
+          )}
+        </div>
+      </div>
+
       <InlinePhoneModal
         isOpen={showPhoneModal}
         onClose={() => setShowPhoneModal(false)}
@@ -4561,7 +4742,7 @@ function OrderPageContent() {
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-sm text-gray-800">~₹{estimateItemPrice(item)}</p>
+                        <p className="font-bold text-sm text-gray-800">₹{estimateItemPrice(item, pricing)}</p>
                       </div>
                     </div>
                   </div>
@@ -4574,7 +4755,7 @@ function OrderPageContent() {
               <div className="border-t p-4 bg-white">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm text-gray-600">Est. Subtotal:</span>
-                  <span className="font-bold text-lg text-gray-800">~₹{estimateCartTotal()}</span>
+                  <span className="font-bold text-lg text-gray-800">₹{estimateCartTotal(pricing)}</span>
                 </div>
                 <p className="text-xs text-gray-400 mb-3">+ delivery charges • exact price at checkout</p>
 
@@ -4585,55 +4766,7 @@ function OrderPageContent() {
                 </div>
 
                 <button
-                  onClick={() => {
-                    setShowCartDrawer(false);
-                    // Restore all cart items as files for checkout
-                    const files: File[] = [];
-                    const pageCounts: number[] = [];
-                    const fileOptions: Array<{
-                      pageSize: 'A4' | 'A3';
-                      color: 'color' | 'bw' | 'mixed';
-                      sided: 'single' | 'double';
-                      copies: number;
-                      pageColors?: { colorPages: number[]; bwPages: number[] };
-                    }> = [];
-                    const serviceOpts: ('file' | 'binding' | 'service')[] = [];
-                    const pageColorsArr: Array<{ colorPages: number[]; bwPages: number[] }> = [];
-
-                    for (const item of cartItems) {
-                      const file = dataUrlToFile(item.fileDataUrl, item.fileName, item.fileType);
-                      files.push(file);
-                      pageCounts.push(item.pageCount);
-                      fileOptions.push({
-                        pageSize: item.printingOptions.pageSize,
-                        color: item.printingOptions.color,
-                        sided: item.printingOptions.sided,
-                        copies: item.printingOptions.copies,
-                        pageColors: item.printingOptions.pageColors,
-                      });
-                      serviceOpts.push(item.printingOptions.serviceOption as 'file' | 'binding' | 'service');
-                      pageColorsArr.push(item.printingOptions.pageColors || { colorPages: [], bwPages: [] });
-                    }
-
-                    // Load cart items into order state
-                    setSelectedFiles(files);
-                    setFilePageCounts(pageCounts);
-                    const totalPages = pageCounts.reduce((sum: number, p: number) => sum + p, 0);
-                    setPageCount(totalPages);
-                    setPrintingOptions((prev: PrintingOptions) => ({
-                      ...prev,
-                      fileOptions,
-                      serviceOptions: serviceOpts,
-                      pageColors: pageColorsArr,
-                      pageSize: fileOptions[0]?.pageSize || 'A4',
-                      color: fileOptions.some((f: { color: string }) => f.color === 'mixed') ? 'mixed' :
-                        fileOptions.some((f: { color: string }) => f.color === 'color') ? 'color' : 'bw',
-                      sided: fileOptions[0]?.sided || 'single',
-                      copies: fileOptions[0]?.copies || 1,
-                    }));
-
-                    toast.success('Cart items loaded! Complete delivery details & checkout.');
-                  }}
+                  onClick={loadCartForCheckout}
                   className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
                 >
                   <span className="flex items-center justify-center gap-2">

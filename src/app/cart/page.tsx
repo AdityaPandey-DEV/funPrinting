@@ -53,7 +53,8 @@ export default function CartPage() {
     };
 
     const handleCheckout = () => {
-        router.push('/order');
+        // Navigate to order page with checkout flag to auto-load cart items
+        router.push('/order?checkout=true');
     };
 
     const getFileIcon = (fileName: string) => {
