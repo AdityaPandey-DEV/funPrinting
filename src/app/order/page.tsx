@@ -535,6 +535,21 @@ export default function OrderPage() {
       setIsFetchingRate(false);
     }
   };
+
+  // Auto-fetch delivery rate when pincode or files change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (
+      deliveryOption.type === 'delivery' &&
+      deliveryOption.pinCode &&
+      deliveryOption.pinCode.length === 6 &&
+      selectedFiles.length > 0
+    ) {
+      fetchDeliveryRate(deliveryOption.pinCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deliveryOption.pinCode, deliveryOption.type, selectedFiles.length, printingOptions.pageSize, printingOptions.copies]);
+
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
