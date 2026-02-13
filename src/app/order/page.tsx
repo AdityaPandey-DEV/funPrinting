@@ -496,6 +496,7 @@ export default function OrderPage() {
   const [showMapModal, setShowMapModal] = useState(false);
   const [isPincodeLookup, setIsPincodeLookup] = useState(false);
   const [pincodeError, setPincodeError] = useState<string>('');
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
@@ -2422,8 +2423,8 @@ export default function OrderPage() {
                                               });
                                             }}
                                             className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'color'
-                                                ? 'ring-2 ring-blue-500 shadow-md'
-                                                : 'hover:shadow-sm'
+                                              ? 'ring-2 ring-blue-500 shadow-md'
+                                              : 'hover:shadow-sm'
                                               }`}
                                             style={{
                                               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
@@ -2475,8 +2476,8 @@ export default function OrderPage() {
                                               });
                                             }}
                                             className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'bw'
-                                                ? 'ring-2 ring-gray-500 shadow-md'
-                                                : 'hover:shadow-sm'
+                                              ? 'ring-2 ring-gray-500 shadow-md'
+                                              : 'hover:shadow-sm'
                                               }`}
                                             style={{
                                               background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
@@ -2556,8 +2557,8 @@ export default function OrderPage() {
                                               });
                                             }}
                                             className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${fileOpts.color === 'mixed'
-                                                ? 'ring-2 ring-purple-500 shadow-md'
-                                                : 'hover:shadow-sm'
+                                              ? 'ring-2 ring-purple-500 shadow-md'
+                                              : 'hover:shadow-sm'
                                               }`}
                                             style={{
                                               background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
@@ -2646,8 +2647,8 @@ export default function OrderPage() {
                                                   });
                                                 }}
                                                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${(colorPagesValidations[index]?.errors?.length || 0) > 0
-                                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                                    : 'border-green-300 focus:ring-green-500 focus:border-green-500'
+                                                  ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                                  : 'border-green-300 focus:ring-green-500 focus:border-green-500'
                                                   }`}
                                               />
 
@@ -2714,10 +2715,10 @@ export default function OrderPage() {
                                                     <div
                                                       key={pageNum}
                                                       className={`px-3 py-1 rounded text-xs font-medium transition-all ${isColor
-                                                          ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
-                                                          : isBw
-                                                            ? 'bg-gray-300 text-gray-800'
-                                                            : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                                        ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                                        : isBw
+                                                          ? 'bg-gray-300 text-gray-800'
+                                                          : 'bg-gray-100 text-gray-500 border border-gray-300'
                                                         }`}
                                                       title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
                                                     >
@@ -2903,8 +2904,8 @@ export default function OrderPage() {
                                 }));
                               }}
                               className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'color'
-                                  ? 'ring-4 ring-blue-500 ring-offset-2 shadow-lg'
-                                  : 'hover:shadow-md'
+                                ? 'ring-4 ring-blue-500 ring-offset-2 shadow-lg'
+                                : 'hover:shadow-md'
                                 }`}
                               style={{
                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%)',
@@ -2925,8 +2926,8 @@ export default function OrderPage() {
                                 }));
                               }}
                               className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'bw'
-                                  ? 'ring-4 ring-gray-500 ring-offset-2 shadow-lg'
-                                  : 'hover:shadow-md'
+                                ? 'ring-4 ring-gray-500 ring-offset-2 shadow-lg'
+                                : 'hover:shadow-md'
                                 }`}
                               style={{
                                 background: 'linear-gradient(to right, #000000 0%, #000000 50%, #ffffff 50%, #ffffff 100%)',
@@ -2969,8 +2970,8 @@ export default function OrderPage() {
                                 setColorPagesValidation({ errors: [], warnings: [] });
                               }}
                               className={`px-4 py-3 rounded-lg font-medium transition-all transform hover:scale-105 ${printingOptions.color === 'mixed'
-                                  ? 'ring-4 ring-purple-500 ring-offset-2 shadow-lg'
-                                  : 'hover:shadow-md'
+                                ? 'ring-4 ring-purple-500 ring-offset-2 shadow-lg'
+                                : 'hover:shadow-md'
                                 }`}
                               style={{
                                 background: 'linear-gradient(135deg, #667eea 0%, #667eea 33%, #000000 33%, #000000 66%, #ffffff 66%, #ffffff 100%)',
@@ -3018,8 +3019,8 @@ export default function OrderPage() {
                                     }));
                                   }}
                                   className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${colorPagesValidation.errors.length > 0
-                                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                                      : 'border-green-300 focus:ring-green-500 focus:border-green-500'
+                                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                                    : 'border-green-300 focus:ring-green-500 focus:border-green-500'
                                     }`}
                                 />
 
@@ -3101,10 +3102,10 @@ export default function OrderPage() {
                                       <div
                                         key={pageNum}
                                         className={`px-3 py-1 rounded text-xs font-medium transition-all ${isColor
-                                            ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
-                                            : isBw
-                                              ? 'bg-gray-300 text-gray-800'
-                                              : 'bg-gray-100 text-gray-500 border border-gray-300'
+                                          ? 'bg-gradient-to-r from-green-400 to-green-600 text-white shadow-sm'
+                                          : isBw
+                                            ? 'bg-gray-300 text-gray-800'
+                                            : 'bg-gray-100 text-gray-500 border border-gray-300'
                                           }`}
                                         title={isColor ? `Page ${pageNum} - Color` : isBw ? `Page ${pageNum} - Black & White` : `Page ${pageNum} - Not specified`}
                                       >
@@ -3550,9 +3551,75 @@ export default function OrderPage() {
 
                       {deliveryOption.type === 'delivery' && (
                         <div className="ml-6 p-5 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border border-blue-200 shadow-sm">
-                          <h4 className="text-sm font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                            📍 Delivery Address
-                          </h4>
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                              📍 Delivery Address
+                            </h4>
+                            <button
+                              type="button"
+                              disabled={isDetectingLocation}
+                              onClick={async () => {
+                                if (!navigator.geolocation) {
+                                  toast.error('Geolocation is not supported by your browser');
+                                  return;
+                                }
+                                setIsDetectingLocation(true);
+                                navigator.geolocation.getCurrentPosition(
+                                  async (position) => {
+                                    try {
+                                      const { latitude, longitude } = position.coords;
+                                      const res = await fetch(
+                                        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`,
+                                        { headers: { 'Accept-Language': 'en' } }
+                                      );
+                                      const data = await res.json();
+                                      if (data?.address) {
+                                        const addr = data.address;
+                                        const pin = addr.postcode || '';
+                                        setDeliveryOption(prev => ({
+                                          ...prev,
+                                          flatBuilding: [addr.house_number, addr.building, addr.apartment].filter(Boolean).join(', ') || prev.flatBuilding || '',
+                                          address: [addr.road, addr.neighbourhood, addr.suburb].filter(Boolean).join(', ') || '',
+                                          landmark: addr.amenity || addr.commercial || prev.landmark || '',
+                                          city: addr.city || addr.town || addr.county || addr.state_district || '',
+                                          state: addr.state || '',
+                                          pinCode: pin,
+                                        }));
+                                        toast.success('Location detected! Please verify the details.');
+                                      } else {
+                                        toast.error('Could not determine address from location');
+                                      }
+                                    } catch {
+                                      toast.error('Failed to fetch address from location');
+                                    } finally {
+                                      setIsDetectingLocation(false);
+                                    }
+                                  },
+                                  (err) => {
+                                    setIsDetectingLocation(false);
+                                    if (err.code === err.PERMISSION_DENIED) {
+                                      toast.error('Location permission denied. Please allow location access.');
+                                    } else {
+                                      toast.error('Could not detect location. Please enter manually.');
+                                    }
+                                  },
+                                  { enableHighAccuracy: true, timeout: 10000 }
+                                );
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg border border-blue-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {isDetectingLocation ? (
+                                <>
+                                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-blue-600 border-t-transparent"></div>
+                                  Detecting...
+                                </>
+                              ) : (
+                                <>
+                                  📍 Use My Location
+                                </>
+                              )}
+                            </button>
+                          </div>
                           <div className="space-y-4">
                             {/* Recipient Info */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
