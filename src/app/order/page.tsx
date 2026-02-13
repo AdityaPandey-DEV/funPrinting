@@ -10,6 +10,7 @@ import InlinePhoneModal from '@/components/InlinePhoneModal';
 import { saveOrderState, restoreOrderState, clearOrderState } from '@/lib/orderStatePersistence';
 import { DocumentIcon, WarningIcon, InfoIcon, FolderIcon, CheckIcon, TruckIcon, BuildingIcon, LockIcon, ClockIcon, UploadIcon, RefreshIcon, MoneyIcon } from '@/components/SocialIcons';
 import toast from 'react-hot-toast';
+import { getCart, addToCart, removeFromCart, clearCart, getCartItemCount, getCartWeight, estimateItemPrice, estimateCartTotal, fileToDataUrl, dataUrlToFile, generateCartId, CartItem } from '@/lib/cartUtils';
 
 interface FilePrintingOptions {
   pageSize: 'A4' | 'A3';
@@ -581,6 +582,16 @@ export default function OrderPage() {
 
   // Phone modal state
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+
+  // Cart state
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [showCartDrawer, setShowCartDrawer] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    setCartItems(getCart());
+  }, []);
 
   // Update customer info when user authentication changes
   // This takes priority over template data - authenticated user info should never be overwritten
@@ -1508,6 +1519,81 @@ export default function OrderPage() {
       isValid: missingFields.length === 0,
       missingFields
     };
+  };
+
+  // Add current file(s) to cart
+  const handleAddToCart = async () => {
+    if (selectedFiles.length === 0) {
+      toast.error('Please upload a file first');
+      return;
+    }
+
+    setIsAddingToCart(true);
+    try {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const fileOpts = getFilePrintingOptions(i, printingOptions);
+        const fileDataUrl = await fileToDataUrl(file);
+
+        const cartItem: CartItem = {
+          id: generateCartId(),
+          fileName: file.name,
+          fileSize: file.size,
+          pageCount: filePageCounts[i] || 1,
+          printingOptions: {
+            pageSize: fileOpts.pageSize,
+            color: fileOpts.color,
+            sided: fileOpts.sided,
+            copies: fileOpts.copies,
+            serviceOption: printingOptions.serviceOptions?.[i] || printingOptions.serviceOption || 'service',
+            pageColors: fileOpts.pageColors,
+          },
+          fileDataUrl,
+          fileType: file.type,
+          addedAt: Date.now(),
+        };
+
+        addToCart(cartItem);
+      }
+
+      setCartItems(getCart());
+      toast.success(`${selectedFiles.length} file${selectedFiles.length > 1 ? 's' : ''} added to cart!`);
+
+      // Reset form for next item
+      setSelectedFiles([]);
+      setFilePageCounts([]);
+      setPdfUrls([]);
+      setPdfLoaded(false);
+      setPrintingOptions({
+        pageSize: 'A4',
+        color: 'bw',
+        sided: 'single',
+        copies: 1,
+        serviceOption: 'service',
+        serviceOptions: [],
+        pageColors: [],
+      });
+      setPageCount(1);
+    } catch (err) {
+      console.error('Failed to add to cart:', err);
+      toast.error('Failed to add to cart. File may be too large.');
+    } finally {
+      setIsAddingToCart(false);
+    }
+  };
+
+  // Remove item from cart
+  const handleRemoveFromCart = (id: string) => {
+    const updated = removeFromCart(id);
+    setCartItems(updated);
+    toast.success('Item removed from cart');
+  };
+
+  // Clear the cart
+  const handleClearCart = () => {
+    clearCart();
+    setCartItems([]);
+    toast.success('Cart cleared');
   };
 
   // Payment function
@@ -4058,6 +4144,41 @@ export default function OrderPage() {
                     )}
                   </button>
 
+                  {/* Add to Cart Button */}
+                  {selectedFiles.length > 0 && (
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={isAddingToCart || selectedFiles.length === 0}
+                      className="w-full mt-3 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg font-semibold hover:from-amber-600 hover:to-orange-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isAddingToCart ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <RefreshIcon size={18} className="w-4.5 h-4.5 animate-spin" />
+                          Adding...
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center gap-2">
+                          🛒 Add to Cart & Continue
+                        </span>
+                      )}
+                    </button>
+                  )}
+
+                  {/* Cart Items Count */}
+                  {cartItems.length > 0 && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <button
+                        onClick={() => setShowCartDrawer(true)}
+                        className="w-full flex items-center justify-between text-sm"
+                      >
+                        <span className="flex items-center gap-2 text-amber-800 font-medium">
+                          🛒 {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in cart
+                        </span>
+                        <span className="text-amber-600 text-xs font-semibold">View Cart →</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Upload Progress Indicator */}
                   {uploadProgress.uploading && (
                     <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -4248,6 +4369,181 @@ export default function OrderPage() {
           setShowPhoneModal(false);
         }}
       />
+
+      {/* Floating Cart Badge */}
+      {cartItems.length > 0 && !showCartDrawer && (
+        <button
+          onClick={() => setShowCartDrawer(true)}
+          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-full w-16 h-16 flex items-center justify-center shadow-xl hover:shadow-2xl transform hover:scale-110 transition-all"
+        >
+          <span className="text-2xl">🛒</span>
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+            {cartItems.length}
+          </span>
+        </button>
+      )}
+
+      {/* Cart Drawer */}
+      {showCartDrawer && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowCartDrawer(false)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col animate-slide-in-right">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-amber-50 to-orange-50">
+              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                🛒 Cart ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
+              </h2>
+              <div className="flex items-center gap-2">
+                {cartItems.length > 0 && (
+                  <button
+                    onClick={handleClearCart}
+                    className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowCartDrawer(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors text-xl"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Cart Items List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {cartItems.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <div className="text-4xl mb-3">🛒</div>
+                  <p className="font-medium">Your cart is empty</p>
+                  <p className="text-sm mt-1">Add files to batch your orders together</p>
+                </div>
+              ) : (
+                cartItems.map((item: CartItem) => (
+                  <div
+                    key={item.id}
+                    className="bg-gray-50 border border-gray-200 rounded-xl p-4 relative group"
+                  >
+                    <button
+                      onClick={() => handleRemoveFromCart(item.id)}
+                      className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-red-100 text-red-500 hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                    >
+                      ✕
+                    </button>
+
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                        {item.fileName.endsWith('.pdf') ? '📄' :
+                          item.fileName.endsWith('.docx') || item.fileName.endsWith('.doc') ? '📝' :
+                            item.fileName.match(/\.(jpg|jpeg|png|gif)$/i) ? '🖼️' : '📁'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 text-sm truncate">{item.fileName}</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                          <span className="text-xs text-gray-500">{item.pageCount} page{item.pageCount !== 1 ? 's' : ''}</span>
+                          <span className="text-xs text-gray-500">{item.printingOptions.pageSize}</span>
+                          <span className="text-xs text-gray-500">
+                            {item.printingOptions.color === 'color' ? '🎨 Color' :
+                              item.printingOptions.color === 'mixed' ? '🎨 Mixed' : '⬛ B&W'}
+                          </span>
+                          <span className="text-xs text-gray-500">{item.printingOptions.sided === 'double' ? '↔ Double' : '→ Single'}</span>
+                          {item.printingOptions.copies > 1 && (
+                            <span className="text-xs text-gray-500">×{item.printingOptions.copies}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-sm text-gray-800">~₹{estimateItemPrice(item)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Cart Footer */}
+            {cartItems.length > 0 && (
+              <div className="border-t p-4 bg-white">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-sm text-gray-600">Est. Subtotal:</span>
+                  <span className="font-bold text-lg text-gray-800">~₹{estimateCartTotal()}</span>
+                </div>
+                <p className="text-xs text-gray-400 mb-3">+ delivery charges • exact price at checkout</p>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-3">
+                  <p className="text-xs text-green-700 flex items-center gap-1">
+                    💰 <strong>Saving on delivery!</strong> Combined weight: {(getCartWeight() * 1000).toFixed(0)}g — one delivery charge for all items
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setShowCartDrawer(false);
+                    // Restore all cart items as files for checkout
+                    const files: File[] = [];
+                    const pageCounts: number[] = [];
+                    const fileOptions: Array<{
+                      pageSize: 'A4' | 'A3';
+                      color: 'color' | 'bw' | 'mixed';
+                      sided: 'single' | 'double';
+                      copies: number;
+                      pageColors?: { colorPages: number[]; bwPages: number[] };
+                    }> = [];
+                    const serviceOpts: ('file' | 'binding' | 'service')[] = [];
+                    const pageColorsArr: Array<{ colorPages: number[]; bwPages: number[] }> = [];
+
+                    for (const item of cartItems) {
+                      const file = dataUrlToFile(item.fileDataUrl, item.fileName, item.fileType);
+                      files.push(file);
+                      pageCounts.push(item.pageCount);
+                      fileOptions.push({
+                        pageSize: item.printingOptions.pageSize,
+                        color: item.printingOptions.color,
+                        sided: item.printingOptions.sided,
+                        copies: item.printingOptions.copies,
+                        pageColors: item.printingOptions.pageColors,
+                      });
+                      serviceOpts.push(item.printingOptions.serviceOption as 'file' | 'binding' | 'service');
+                      pageColorsArr.push(item.printingOptions.pageColors || { colorPages: [], bwPages: [] });
+                    }
+
+                    // Load cart items into order state
+                    setSelectedFiles(files);
+                    setFilePageCounts(pageCounts);
+                    const totalPages = pageCounts.reduce((sum: number, p: number) => sum + p, 0);
+                    setPageCount(totalPages);
+                    setPrintingOptions((prev: PrintingOptions) => ({
+                      ...prev,
+                      fileOptions,
+                      serviceOptions: serviceOpts,
+                      pageColors: pageColorsArr,
+                      pageSize: fileOptions[0]?.pageSize || 'A4',
+                      color: fileOptions.some((f: { color: string }) => f.color === 'mixed') ? 'mixed' :
+                        fileOptions.some((f: { color: string }) => f.color === 'color') ? 'color' : 'bw',
+                      sided: fileOptions[0]?.sided || 'single',
+                      copies: fileOptions[0]?.copies || 1,
+                    }));
+
+                    toast.success('Cart items loaded! Complete delivery details & checkout.');
+                  }}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    🛍️ Checkout Cart ({cartItems.length} item{cartItems.length !== 1 ? 's' : ''})
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
