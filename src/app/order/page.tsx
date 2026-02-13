@@ -497,6 +497,44 @@ export default function OrderPage() {
   const [isPincodeLookup, setIsPincodeLookup] = useState(false);
   const [pincodeError, setPincodeError] = useState<string>('');
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [isFetchingRate, setIsFetchingRate] = useState(false);
+  const [deliveryRateInfo, setDeliveryRateInfo] = useState<{ charge: number; estimatedDays: number; courierName: string; weight: number } | null>(null);
+
+  // Calculate package weight from page count and paper size
+  const calculatePackageWeight = (): number => {
+    const totalPages = selectedFiles.reduce((sum: number, _: any, idx: number) => {
+      const fileOpts = getFilePrintingOptions(idx, printingOptions);
+      const pageCount = filePageCounts[idx] || 1;
+      return sum + (pageCount * fileOpts.copies);
+    }, 0);
+    const perSheetGrams = printingOptions.pageSize === 'A3' ? 10 : 5; // A3=10g, A4=5g (80 GSM)
+    const totalGrams = (totalPages * perSheetGrams) + 10; // +10g safety margin
+    return Math.max(0.1, parseFloat((totalGrams / 1000).toFixed(2))); // min 100g, in kg
+  };
+
+  // Fetch delivery rate from API based on pincode and weight
+  const fetchDeliveryRate = async (pincode: string) => {
+    if (pincode.length !== 6 || selectedFiles.length === 0) return;
+    setIsFetchingRate(true);
+    try {
+      const weight = calculatePackageWeight();
+      const res = await fetch(`/api/delivery/rate?delivery_pincode=${pincode}&weight=${weight}`);
+      const data = await res.json();
+      if (data.success) {
+        setDeliveryRateInfo({
+          charge: data.deliveryCharge,
+          estimatedDays: data.estimatedDays,
+          courierName: data.courierName,
+          weight: data.weight,
+        });
+        setDeliveryOption((prev: DeliveryOption) => ({ ...prev, deliveryCharge: data.deliveryCharge }));
+      }
+    } catch {
+      // Silently fail — use fallback
+    } finally {
+      setIsFetchingRate(false);
+    }
+  };
   const [pickupLocations, setPickupLocations] = useState<PickupLocation[]>([]);
   const [selectedPickupLocation, setSelectedPickupLocation] = useState<PickupLocation | null>(null);
   const [colorPagesInput, setColorPagesInput] = useState<string>(''); // Legacy - will be replaced with per-file
@@ -3544,7 +3582,7 @@ export default function OrderPage() {
                           />
                           <span className="font-medium flex items-center gap-1">
                             <TruckIcon size={18} className="w-4.5 h-4.5" />
-                            Home Delivery (₹10-50 extra)
+                            Home Delivery {deliveryRateInfo ? `(₹${deliveryRateInfo.charge})` : ''}
                           </span>
                         </label>
                       </div>
@@ -3710,11 +3748,13 @@ export default function OrderPage() {
                                           const data = await res.json();
                                           if (data?.[0]?.Status === 'Success' && data[0].PostOffice?.length > 0) {
                                             const po = data[0].PostOffice[0];
-                                            setDeliveryOption(prev => ({
+                                            setDeliveryOption((prev: DeliveryOption) => ({
                                               ...prev,
                                               city: po.District || po.Division || '',
                                               state: po.State || '',
                                             }));
+                                            // Fetch delivery rate after pincode lookup succeeds
+                                            fetchDeliveryRate(pin);
                                           } else {
                                             setPincodeError('Invalid PIN code');
                                           }
@@ -3836,16 +3876,31 @@ export default function OrderPage() {
                         {deliveryOption.type === 'pickup' ? (
                           <>
                             <BuildingIcon size={14} className="w-3.5 h-3.5" />
-                            Pickup
+                            Pickup (Free)
                           </>
                         ) : (
                           <>
                             <TruckIcon size={14} className="w-3.5 h-3.5" />
-                            Delivery
+                            {isFetchingRate ? (
+                              <span className="flex items-center gap-1">
+                                <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"></div>
+                                Calculating...
+                              </span>
+                            ) : deliveryRateInfo ? (
+                              <span>₹{deliveryRateInfo.charge} ({deliveryRateInfo.estimatedDays}d)</span>
+                            ) : (
+                              <span>Enter PIN for rate</span>
+                            )}
                           </>
                         )}
                       </span>
                     </div>
+                    {deliveryOption.type === 'delivery' && deliveryRateInfo && (
+                      <div className="flex justify-between text-xs text-gray-500 mt-1">
+                        <span>📦 {(deliveryRateInfo.weight * 1000).toFixed(0)}g via {deliveryRateInfo.courierName}</span>
+                        <span>~{deliveryRateInfo.estimatedDays} days</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Total Amount */}

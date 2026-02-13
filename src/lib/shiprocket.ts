@@ -413,6 +413,102 @@ export async function shipOrder(order: any): Promise<ShipOrderResult> {
     }
 }
 
+// ─── Courier Serviceability & Rate Check ──────────────────────────────────────
+
+interface CourierRate {
+    courierId: number;
+    courierName: string;
+    rate: number;
+    estimatedDays: number;
+    codAvailable: boolean;
+}
+
+interface ServiceabilityResult {
+    success: boolean;
+    cheapestRate?: number;
+    estimatedDays?: number;
+    courierName?: string;
+    allRates?: CourierRate[];
+    error?: string;
+}
+
+/**
+ * Check courier serviceability and get shipping rates for a route.
+ * Uses Shiprocket's courier serviceability API.
+ */
+export async function checkServiceability(
+    pickupPincode: string,
+    deliveryPincode: string,
+    weightKg: number,
+    cod: boolean = false
+): Promise<ServiceabilityResult> {
+    try {
+        const token = await getAuthToken();
+
+        const params = new URLSearchParams({
+            pickup_postcode: pickupPincode,
+            delivery_postcode: deliveryPincode,
+            weight: weightKg.toString(),
+            cod: cod ? '1' : '0',
+        });
+
+        const response = await fetch(
+            `${SHIPROCKET_BASE_URL}/courier/serviceability/?${params.toString()}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Shiprocket serviceability check failed (${response.status}): ${errorText}`);
+            throw new Error(`Serviceability check failed: ${errorText}`);
+        }
+
+        const data = await response.json();
+        const couriers = data?.data?.available_courier_companies || [];
+
+        if (couriers.length === 0) {
+            return {
+                success: false,
+                error: 'No couriers available for this route',
+            };
+        }
+
+        const rates: CourierRate[] = couriers.map((c: any) => ({
+            courierId: c.courier_company_id,
+            courierName: c.courier_name,
+            rate: parseFloat(c.freight_charge || c.rate || 0),
+            estimatedDays: parseInt(c.estimated_delivery_days || c.etd || '7'),
+            codAvailable: c.cod === 1,
+        }));
+
+        // Sort by rate to find cheapest
+        rates.sort((a, b) => a.rate - b.rate);
+
+        const cheapest = rates[0];
+        console.log(`📦 Cheapest courier for ${pickupPincode} → ${deliveryPincode} (${weightKg}kg): ${cheapest.courierName} @ ₹${cheapest.rate}`);
+
+        return {
+            success: true,
+            cheapestRate: cheapest.rate,
+            estimatedDays: cheapest.estimatedDays,
+            courierName: cheapest.courierName,
+            allRates: rates,
+        };
+    } catch (error: any) {
+        console.error('❌ Serviceability check failed:', error.message);
+        return {
+            success: false,
+            error: error.message || 'Failed to check serviceability',
+        };
+    }
+}
+
 /**
  * Check if Shiprocket is configured (credentials present)
  */
