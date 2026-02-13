@@ -34,6 +34,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home' },
     { href: '/order', label: 'Order Prints' },
+    { href: '/cart', label: '🛒 Cart' },
     { href: '/templates', label: 'Templates' },
     { href: '/my-orders', label: 'My Orders' },
     { href: '/my-templates', label: 'My Templates', requireAuth: true },
@@ -63,7 +64,7 @@ export default function Navbar() {
                 </Link>
               ))}
             </div>
-            
+
             {/* Authentication Section */}
             <div className="flex items-center ml-8 pl-6 border-l border-gray-300">
               <ClientAuthSection />
@@ -105,7 +106,7 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            
+
             {/* Mobile Authentication Section */}
             <div className="border-t border-gray-200 pt-4 mt-4">
               <ClientMobileAuthSection onMenuClose={() => setIsMenuOpen(false)} />
