@@ -606,7 +606,9 @@ function OrderPageContent() {
         const res = await fetch('/api/pricing');
         if (res.ok) {
           const data = await res.json();
-          setPricing(data);
+          if (data.success && data.pricing) {
+            setPricing(data.pricing);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch pricing:', error);
