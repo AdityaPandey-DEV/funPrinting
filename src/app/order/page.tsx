@@ -4742,7 +4742,11 @@ function OrderPageContent() {
                         </div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-sm text-gray-800">₹{estimateItemPrice(item, pricing)}</p>
+                        {pricing ? (
+                          <p className="font-bold text-sm text-gray-800">₹{estimateItemPrice(item, pricing)}</p>
+                        ) : (
+                          <div className="h-5 w-16 bg-gray-200 animate-pulse rounded ml-auto"></div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -4755,7 +4759,11 @@ function OrderPageContent() {
               <div className="border-t p-4 bg-white">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-sm text-gray-600">Est. Subtotal:</span>
-                  <span className="font-bold text-lg text-gray-800">₹{estimateCartTotal(pricing)}</span>
+                  {pricing ? (
+                    <span className="font-bold text-lg text-gray-800">₹{estimateCartTotal(pricing)}</span>
+                  ) : (
+                    <div className="h-7 w-24 bg-gray-200 animate-pulse rounded"></div>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 mb-3">+ delivery charges • exact price at checkout</p>
 

@@ -204,7 +204,11 @@ export default function CartPage() {
                                     {cartItems.map((item) => (
                                         <div key={item.id} className="flex justify-between text-sm">
                                             <span className="text-gray-600 truncate mr-2 max-w-[60%]">{item.fileName}</span>
-                                            <span className="font-medium text-gray-800">₹{estimateItemPrice(item, pricing)}</span>
+                                            {pricing ? (
+                                                <span className="font-medium text-gray-800">₹{estimateItemPrice(item, pricing)}</span>
+                                            ) : (
+                                                <div className="h-4 w-12 bg-gray-200 animate-pulse rounded"></div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -212,7 +216,11 @@ export default function CartPage() {
                                 <div className="border-t pt-3 mb-3">
                                     <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-600">Subtotal</span>
-                                        <span className="font-semibold text-gray-800">₹{estimateCartTotal(pricing)}</span>
+                                        {pricing ? (
+                                            <span className="font-semibold text-gray-800">₹{estimateCartTotal(pricing)}</span>
+                                        ) : (
+                                            <div className="h-5 w-16 bg-gray-200 animate-pulse rounded"></div>
+                                        )}
                                     </div>
                                     <div className="flex justify-between text-sm mb-1">
                                         <span className="text-gray-600">Delivery</span>
@@ -223,9 +231,13 @@ export default function CartPage() {
                                 <div className="border-t pt-3 mb-4">
                                     <div className="flex justify-between items-center">
                                         <span className="font-bold text-gray-800">Est. Total</span>
-                                        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                            ₹{estimateCartTotal(pricing)}
-                                        </span>
+                                        {pricing ? (
+                                            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                                ₹{estimateCartTotal(pricing)}
+                                            </span>
+                                        ) : (
+                                            <div className="h-7 w-20 bg-gray-200 animate-pulse rounded"></div>
+                                        )}
                                     </div>
                                 </div>
 
